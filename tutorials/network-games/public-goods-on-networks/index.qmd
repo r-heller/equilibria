@@ -1,0 +1,286 @@
+---
+title: "Public goods provision on networks"
+description: "Public goods games played on networks where contributions benefit neighbours: how network topology --- star, circle, and random graphs --- shapes equilibrium provision, free-riding by central agents, and aggregate welfare through best-response dynamics on adjacency matrices."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - network-games
+  - public-goods
+  - network-topology
+  - free-riding
+keywords: ["public goods", "networks", "adjacency matrix", "free-riding", "network topology", "best-response dynamics", "star network", "random graph", "degree centrality"]
+labels: ["network-games", "public-goods"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_network-games_public-goods-on-networks"
+image: thumbnail.png
+image-alt: "Bar chart comparing equilibrium public goods contributions across star, circle, and random network topologies showing how central agents free-ride more"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/network-games/public-goods-on-networks/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Public goods are goods that are non-rivalrous and non-excludable: one person's consumption does not diminish another's, and no one can be prevented from benefiting. Classic examples include clean air, national defence, and open-source software. The fundamental problem with public goods provision is free-riding: since everyone benefits regardless of whether they contribute, each individual has an incentive to let others bear the cost. In the standard public goods game with $n$ players, the unique Nash equilibrium under self-interest is zero contribution by everyone, even though the socially optimal outcome requires full contribution.
+
+However, the standard analysis assumes that contributions benefit all players equally --- in effect, the game is played on a **complete network** where every agent is connected to every other. In reality, the benefits of public goods are often local: a neighbourhood watch protects only the residents of that neighbourhood; shared irrigation infrastructure benefits only adjacent farms; an employee's effort in a team project benefits primarily their immediate collaborators. When the benefit structure is local, the game is naturally represented as being played on a **network**, where each agent's contribution benefits only their neighbours.
+
+The network structure of public goods provision has profound implications for equilibrium behaviour. The seminal work of Bramoulle and Kranton (2007) showed that when public goods are provided on networks, the equilibrium depends critically on the spectral properties of the adjacency matrix. In particular, agents who are more central in the network (i.e., have more connections) tend to free-ride more in equilibrium, because they benefit from the contributions of many neighbours. Peripheral agents, who have fewer neighbours to free-ride on, must contribute more to achieve their desired level of the public good. This creates a systematic pattern: **centrality breeds free-riding**.
+
+This result has important implications for policy and institutional design. It suggests that interventions to increase public goods provision should target central agents, who have the greatest capacity for free-riding. It also implies that the network structure itself is a key determinant of aggregate welfare: networks with more heterogeneous degree distributions (like star networks) may produce less total provision than networks with homogeneous degrees (like circles), because the high-degree hub can free-ride on the contributions of many peripheral agents.
+
+In this tutorial, we implement the public goods game on three canonical network structures: the **star network** (one central hub connected to all others), the **circle network** (each agent connected to two neighbours), and an **Erdos-Renyi random network** (each pair connected independently with some probability). We construct the adjacency matrices for each network, compute Nash equilibrium contributions using best-response iteration, and analyse how the degree distribution shapes contribution patterns, free-riding behaviour, and aggregate welfare. The results illustrate the deep connection between network topology and strategic behaviour that is central to the growing field of network economics.
+
+We demonstrate that networks with heterogeneous degree distributions produce more inequality in contributions and lower total provision, while regular networks (where all agents have the same degree) produce more uniform contributions and higher aggregate welfare. These findings connect to broader questions about the design of institutions and social structures that promote cooperation.
+
+## Mathematical formulation
+
+**Setup.** There are $n$ agents on a network described by adjacency matrix $\mathbf{A}$, where $A_{ij} = 1$ if agents $i$ and $j$ are connected and $A_{ij} = 0$ otherwise. Agent $i$ chooses contribution $x_i \geq 0$ at quadratic cost. Agent $i$'s utility is:
+
+$$
+U_i(x_i, \mathbf{x}_{-i}) = b\!\left(x_i + \sum_{j} A_{ij} \, x_j\right) - \frac{c}{2} x_i^2
+$$
+
+where $b(\cdot)$ is the benefit function (concave) and $c > 0$ scales the cost. For tractability, we use a linear-quadratic specification with $b(q) = q - \frac{\delta}{2} q^2$ where $\delta > 0$ controls diminishing returns:
+
+$$
+U_i = \left(x_i + \sum_j A_{ij} x_j\right) - \frac{\delta}{2}\left(x_i + \sum_j A_{ij} x_j\right)^2 - \frac{c}{2} x_i^2
+$$
+
+**Best response.** Taking the first-order condition with respect to $x_i$:
+
+$$
+\frac{\partial U_i}{\partial x_i} = 1 - \delta\!\left(x_i + \sum_j A_{ij} x_j\right) - c \, x_i = 0
+$$
+
+Solving for $x_i$:
+
+$$
+x_i^* = \max\!\left\{0, \;\frac{1 - \delta \sum_j A_{ij} x_j}{c + \delta}\right\}
+$$
+
+This reveals the **strategic substitutability** at the heart of the model: agent $i$'s optimal contribution decreases when neighbours contribute more. This is the mechanism through which central agents (who have more contributing neighbours) free-ride.
+
+**Best-response iteration.** Starting from an initial guess $\mathbf{x}^{(0)}$, we iterate:
+
+$$
+x_i^{(t+1)} = \max\!\left\{0, \;\frac{1 - \delta \sum_j A_{ij} x_j^{(t)}}{c + \delta}\right\}
+$$
+
+Under the conditions of the model (strategic substitutes, concave benefit), this iteration converges to a Nash equilibrium.
+
+## R implementation
+
+We implement the public goods game on three network types and compute equilibrium contributions via best-response iteration.
+
+```{r}
+#| label: network-public-goods
+
+set.seed(2026)
+n <- 20  # number of agents
+
+# --- Network construction ---
+
+# 1. Star network: agent 1 is the hub
+A_star <- matrix(0, n, n)
+A_star[1, 2:n] <- 1
+A_star[2:n, 1] <- 1
+
+# 2. Circle network: each agent connected to two neighbours
+A_circle <- matrix(0, n, n)
+for (i in 1:n) {
+  left  <- ifelse(i == 1, n, i - 1)
+  right <- ifelse(i == n, 1, i + 1)
+  A_circle[i, left]  <- 1
+  A_circle[i, right] <- 1
+}
+
+# 3. Erdos-Renyi random network with p = 0.25
+A_random <- matrix(0, n, n)
+for (i in 1:(n-1)) {
+  for (j in (i+1):n) {
+    if (runif(1) < 0.25) {
+      A_random[i, j] <- 1
+      A_random[j, i] <- 1
+    }
+  }
+}
+
+# --- Parameters ---
+delta <- 0.08   # diminishing returns
+cost  <- 1.0    # cost scale
+
+# --- Best-response iteration ---
+best_response_iteration <- function(A, delta, cost, tol = 1e-6, max_iter = 500) {
+  n <- nrow(A)
+  x <- rep(0.5, n)  # initial guess
+
+  for (iter in 1:max_iter) {
+    x_new <- numeric(n)
+    for (i in 1:n) {
+      neighbour_sum <- sum(A[i, ] * x)
+      x_new[i] <- max(0, (1 - delta * neighbour_sum) / (cost + delta))
+    }
+    if (max(abs(x_new - x)) < tol) {
+      return(list(x = x_new, iterations = iter, converged = TRUE))
+    }
+    x <- x_new
+  }
+  return(list(x = x, iterations = max_iter, converged = FALSE))
+}
+
+eq_star   <- best_response_iteration(A_star, delta, cost)
+eq_circle <- best_response_iteration(A_circle, delta, cost)
+eq_random <- best_response_iteration(A_random, delta, cost)
+
+# --- Compute degrees ---
+degree_star   <- rowSums(A_star)
+degree_circle <- rowSums(A_circle)
+degree_random <- rowSums(A_random)
+
+# --- Summary ---
+cat("=== Public Goods on Networks: Equilibrium Results ===\n\n")
+
+network_names <- c("Star", "Circle", "Random (p=0.25)")
+eq_list <- list(eq_star, eq_circle, eq_random)
+deg_list <- list(degree_star, degree_circle, degree_random)
+
+cat(sprintf("  %-18s | Total contrib | Mean contrib | SD contrib | Converged | Iters\n",
+            "Network"))
+cat(paste(rep("-", 85), collapse = ""), "\n")
+
+for (k in seq_along(network_names)) {
+  eq <- eq_list[[k]]
+  cat(sprintf("  %-18s | %13.3f | %12.3f | %10.3f | %9s | %5d\n",
+              network_names[k], sum(eq$x), mean(eq$x), sd(eq$x),
+              eq$converged, eq$iterations))
+}
+
+cat("\n  --- Degree-Contribution Relationship ---\n")
+cat(sprintf("  %-18s | Hub degree | Hub contrib | Leaf degree | Leaf contrib\n",
+            "Network"))
+cat(paste(rep("-", 80), collapse = ""), "\n")
+
+cat(sprintf("  %-18s | %10d | %11.3f | %11d | %12.3f\n",
+            "Star", degree_star[1], eq_star$x[1],
+            degree_star[2], eq_star$x[2]))
+cat(sprintf("  %-18s | %10s | %11.3f | %11s | %12.3f\n",
+            "Circle", "2 (all)", eq_circle$x[1], "2 (all)", eq_circle$x[2]))
+
+# High-degree vs low-degree in random network
+high_deg <- which(degree_random >= median(degree_random))
+low_deg  <- which(degree_random < median(degree_random))
+cat(sprintf("  %-18s | %8.1f avg | %11.3f | %9.1f avg | %12.3f\n",
+            "Random",
+            mean(degree_random[high_deg]), mean(eq_random$x[high_deg]),
+            mean(degree_random[low_deg]), mean(eq_random$x[low_deg])))
+
+# --- Prepare plotting data ---
+results_df <- bind_rows(
+  tibble(agent = 1:n, contribution = eq_star$x,
+         degree = degree_star, network = "Star"),
+  tibble(agent = 1:n, contribution = eq_circle$x,
+         degree = degree_circle, network = "Circle"),
+  tibble(agent = 1:n, contribution = eq_random$x,
+         degree = degree_random, network = "Random (ER, p=0.25)")
+)
+```
+
+## Static publication-ready figure
+
+The figure shows how degree centrality relates to equilibrium contributions across the three network topologies. The negative relationship --- higher degree, lower contribution --- is the hallmark of free-riding by central agents.
+
+```{r}
+#| label: fig-network-pg-static
+#| fig-cap: "Figure 1. Equilibrium public goods contributions versus agent degree across three network topologies. In the star network, the high-degree hub free-rides on peripheral contributors. In the circle network, all agents have degree 2 and contribute equally. In the random network, agents with more connections contribute less, confirming the centrality-breeds-free-riding hypothesis. N = 20 agents per network."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+p_network <- ggplot(results_df,
+                    aes(x = degree, y = contribution, color = network,
+                        text = paste0("Network: ", network,
+                                      "\nAgent: ", agent,
+                                      "\nDegree: ", degree,
+                                      "\nContribution: ", round(contribution, 3)))) +
+  geom_jitter(size = 3, alpha = 0.7, width = 0.15) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = okabe_ito[c(1, 3, 5)], name = "Network topology") +
+  labs(
+    title = "Public goods on networks: centrality breeds free-riding",
+    subtitle = "Equilibrium contribution vs. degree centrality across network topologies (N = 20 agents)",
+    x = "Agent degree (number of connections)",
+    y = "Equilibrium contribution"
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
+p_network
+```
+
+## Interactive figure
+
+Explore the degree-contribution relationship interactively. Hover over points to identify specific agents, their degree, and their equilibrium contribution in each network.
+
+```{r}
+#| label: fig-network-pg-interactive
+
+ggplotly(p_network, tooltip = "text") %>%
+  config(displaylogo = FALSE) %>%
+  layout(legend = list(orientation = "h", y = -0.2))
+```
+
+## Interpretation
+
+The simulation results vividly illustrate how network structure shapes the provision of public goods and generates systematic patterns of free-riding.
+
+In the **star network**, the contrast between hub and periphery is stark. The hub agent, connected to all 19 others, contributes far less than the peripheral agents, who are each connected only to the hub. This is a direct consequence of strategic substitutability: the hub benefits from the contributions of many neighbours, reducing its marginal benefit from contributing. The peripheral agents, having only one neighbour (the hub), cannot free-ride as effectively and must contribute more to achieve their desired level of the public good. The result is a highly unequal distribution of contributions and a relatively low total provision, because the single most connected agent --- who could contribute the most to aggregate welfare --- contributes the least.
+
+In the **circle network**, all agents have the same degree (two), so there is no scope for differential free-riding. Every agent contributes equally in equilibrium, and total provision is higher per capita than in the star network. This illustrates a general principle: **regular networks** (where all agents have the same degree) produce more egalitarian contributions and higher aggregate provision than irregular networks with the same average degree.
+
+The **random network** provides an intermediate case. The degree distribution is heterogeneous but less extreme than the star. Agents with more connections contribute less, confirming the negative degree-contribution relationship, but the slope is less dramatic than in the star because no single agent has overwhelmingly more connections than others. The total provision falls between the star and circle, as expected.
+
+These findings have direct implications for policy. First, **targeting interventions at central agents** (e.g., providing subsidies or imposing contribution floors on high-degree nodes) can be particularly effective, because these agents have the greatest capacity for free-riding and the largest potential impact on their neighbours. Second, **network design** matters: institutions that create more egalitarian connection structures (e.g., rotating partnerships, cross-cutting group memberships) can increase public goods provision by reducing opportunities for positional free-riding. Third, the results suggest that **degree heterogeneity** is a source of inefficiency in public goods provision, complementing the well-known result that income heterogeneity also reduces voluntary contributions.
+
+A key assumption of the model is that contributions are strategic substitutes. In some contexts, contributions may be strategic complements (e.g., when there are increasing returns to coordination), which would reverse the prediction: central agents would contribute more, not less. The empirical question of whether specific public goods exhibit substitutability or complementarity is central to understanding network effects on provision.
+
+## Extensions & related tutorials
+
+- [Network formation and strategic linking](../../network-games/network-formation-strategic/) --- endogenous network formation where agents choose their connections strategically
+- [Congestion games and potential functions](../../network-games/congestion-games-potential/) --- games on networks where payoffs depend on the number of users sharing a resource
+- [Public goods experiment](../../experimental-economics/public-goods-experiment/) --- the classic public goods game without network structure
+- [Tragedy of the commons](../../case-studies/tragedy-of-the-commons/) --- how common-pool resource dilemmas relate to public goods problems
+- [Public goods with punishment](../../behavioral-gt/public-goods-punishment/) --- how punishment mechanisms sustain cooperation in public goods games
+
+## References
+
+::: {#refs}
+:::

@@ -1,0 +1,278 @@
+---
+title: "Mental accounting and strategic framing"
+description: "Thaler's mental accounting framework applied to strategic pricing: how framing purchases as bundled versus separated, or as gains versus reduced losses, systematically alters willingness to pay, modelled through transaction utility theory and simulated seller-buyer interactions."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - behavioral-economics
+  - mental-accounting
+  - framing-effects
+  - transaction-utility
+keywords: ["mental accounting", "Thaler", "transaction utility", "framing effects", "bundling", "willingness to pay", "behavioral economics", "pricing strategy", "fungibility violation"]
+labels: ["behavioral-economics", "framing"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_behavioral-economics_mental-accounting-thaler"
+image: thumbnail.png
+image-alt: "Grouped bar chart showing acceptance probabilities under different framing strategies including bundling, segregation, and silver lining across multiple price points"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/behavioral-economics/mental-accounting-thaler/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Mental accounting, a concept developed by Richard Thaler in a series of influential papers beginning in the 1980s, describes how people organise, evaluate, and track their financial activities using a system of implicit "mental accounts." Just as a firm uses formal accounting systems to categorise revenues and expenditures, individuals maintain mental accounts that categorise money into distinct buckets --- entertainment, food, rent, savings, windfall gains --- and treat money differently depending on which account it falls into. This behaviour violates the economic principle of **fungibility**: the idea that a dollar is a dollar regardless of its source or intended use.
+
+Thaler identified three key components of mental accounting. The first is how outcomes are perceived and experienced --- the "value function" from prospect theory that describes how people evaluate gains and losses relative to a reference point. The second is the assignment of activities to specific mental accounts, which determines how costs and benefits are grouped and evaluated. The third is the frequency with which accounts are evaluated and "closed" (balanced), which affects how gains and losses are experienced over time. Together, these components create systematic deviations from the predictions of standard economic theory that have profound implications for pricing, marketing, and strategic interaction.
+
+The most strategically important aspect of mental accounting for our purposes is **transaction utility** theory. Thaler proposed that the total utility of a purchase has two components: **acquisition utility** (the value of the good minus the price paid, similar to consumer surplus) and **transaction utility** (the pleasure or pain of the deal itself, determined by comparing the price paid to some reference price). A consumer buying a beer on a hot day at a fancy resort is willing to pay more than the same consumer buying the same beer from a corner shop, even though the acquisition utility is identical. The difference is transaction utility: paying \$7 for a resort beer feels like a "fair" deal, while paying \$7 at a corner shop feels like a rip-off.
+
+For strategic framing, Thaler derived four principles from the value function of prospect theory (which is concave for gains and convex for losses, with loss aversion). These principles prescribe how a seller should frame prices and outcomes to maximise the buyer's perceived value: (1) **segregate gains** --- present multiple gains separately rather than as a bundle, because the concavity of the value function means that $v(x) + v(y) > v(x+y)$ for gains; (2) **integrate losses** --- combine multiple losses into a single loss, because convexity in the loss domain means $v(-x-y) > v(-x) + v(-y)$; (3) **integrate smaller losses with larger gains** --- present a small loss bundled with a larger gain (the "cancellation" or "silver lining" principle); (4) **segregate small gains from larger losses** --- present a small gain separately from a larger loss (the "silver lining" principle in reverse).
+
+These principles have direct applications to pricing strategy. Sellers can increase willingness to pay by framing prices as reduced gains rather than losses, by bundling surcharges into base prices, by segregating discounts and bonuses, and by timing price increases to coincide with perceived improvements. In this tutorial, we model the interaction between a strategic seller who can choose how to frame a transaction and a buyer who evaluates offers using Thaler's mental accounting framework. We simulate how different framing strategies affect acceptance probabilities across a range of prices, and show that the same objective transaction can generate dramatically different acceptance rates depending on how it is presented.
+
+## Mathematical formulation
+
+**Value function.** Following Kahneman and Tversky's prospect theory, the buyer evaluates outcomes using a value function defined over gains and losses relative to a reference point:
+
+$$
+v(x) = \begin{cases} x^\alpha & \text{if } x \geq 0 \\ -\lambda \cdot (-x)^\alpha & \text{if } x < 0 \end{cases}
+$$
+
+where $\alpha \in (0, 1)$ governs diminishing sensitivity (concavity for gains, convexity for losses) and $\lambda > 1$ is the loss aversion coefficient. Standard calibrations use $\alpha = 0.88$ and $\lambda = 2.25$.
+
+**Transaction utility.** The buyer's total utility from a purchase is:
+
+$$
+U_{\text{total}} = \underbrace{v(\text{value} - p)}_{\text{acquisition utility}} + \underbrace{v(p_{\text{ref}} - p)}_{\text{transaction utility}}
+$$
+
+where $\text{value}$ is the buyer's valuation, $p$ is the price paid, and $p_{\text{ref}}$ is the reference price. The buyer accepts if $U_{\text{total}} \geq 0$.
+
+**Framing strategies.** The seller has a product with base value $V$ and a surcharge $c > 0$. The total price is $P = V + c$ (or equivalently, the net acquisition value is $V - P = -c$). The seller can frame this in four ways:
+
+1. **Integrated (bundled)**: present a single price $P$, so the buyer perceives one loss of $P$ and one gain of $V$:
+$$U_{\text{bundle}} = v(V) + v(-P)$$
+
+2. **Segregated surcharge**: present the base price and surcharge separately:
+$$U_{\text{segreg}} = v(V) + v(-V) + v(-c)$$
+
+3. **Silver lining**: present the surcharge as a reduced discount. The buyer perceives a gain of $(V - P + d)$ bundled with the cost, where $d$ is a small bonus:
+$$U_{\text{silver}} = v(V - P + d) + v(d)$$
+
+4. **Rebate framing**: present the full price but with a small rebate $r$ segregated as a separate gain:
+$$U_{\text{rebate}} = v(V) + v(-P) + v(r)$$
+
+## R implementation
+
+We simulate a population of 5,000 buyers with heterogeneous valuations and reference prices, evaluating each of the four framing strategies across a range of surcharge levels.
+
+```{r}
+#| label: mental-accounting-simulation
+
+set.seed(2026)
+n_buyers <- 5000
+
+# --- Prospect theory value function ---
+value_fn <- function(x, alpha = 0.88, lambda = 2.25) {
+  ifelse(x >= 0, x^alpha, -lambda * (-x)^alpha)
+}
+
+# --- Buyer parameters ---
+# Heterogeneous valuations: V_i ~ Normal(50, 10), truncated at 20
+V_i <- pmax(rnorm(n_buyers, mean = 50, sd = 10), 20)
+# Reference prices: p_ref_i ~ Normal(45, 8)
+p_ref_i <- pmax(rnorm(n_buyers, mean = 45, sd = 8), 10)
+# Loss aversion: lambda_i ~ Uniform(1.5, 3.0)
+lambda_i <- runif(n_buyers, 1.5, 3.0)
+# Sensitivity parameter (fixed for simplicity)
+alpha_val <- 0.88
+
+# --- Surcharge levels to test ---
+surcharges <- seq(0, 25, by = 1)
+
+# --- Value function (vectorised, individual lambda) ---
+value_fn_vec <- function(x, alpha, lambda_vec) {
+  ifelse(x >= 0, abs(x)^alpha, -lambda_vec * abs(x)^alpha)
+}
+
+# --- Compute acceptance rates for each framing strategy ---
+results_list <- list()
+
+for (c_val in surcharges) {
+  base_price <- 40  # base price before surcharge
+  total_price <- base_price + c_val
+  rebate <- 2  # small rebate for rebate framing
+  bonus <- 3   # small bonus for silver lining
+
+  # 1. Bundled (integrated): single price, single value
+  U_bundle <- value_fn_vec(V_i - total_price, alpha_val, lambda_i) +
+              value_fn_vec(p_ref_i - total_price, alpha_val, lambda_i)
+
+  # 2. Segregated surcharge: base price + separate surcharge
+  U_segreg <- value_fn_vec(V_i - base_price, alpha_val, lambda_i) +
+              value_fn_vec(p_ref_i - base_price, alpha_val, lambda_i) +
+              value_fn_vec(-c_val, alpha_val, lambda_i)
+
+  # 3. Silver lining: present surcharge bundled with a small bonus
+  U_silver <- value_fn_vec(V_i - total_price + bonus, alpha_val, lambda_i) +
+              value_fn_vec(p_ref_i - total_price + bonus, alpha_val, lambda_i) +
+              value_fn_vec(bonus, alpha_val, lambda_i)
+
+  # 4. Rebate framing: full price but separate small gain
+  U_rebate <- value_fn_vec(V_i - total_price, alpha_val, lambda_i) +
+              value_fn_vec(p_ref_i - total_price, alpha_val, lambda_i) +
+              value_fn_vec(rebate, alpha_val, lambda_i)
+
+  results_list[[length(results_list) + 1]] <- tibble(
+    surcharge = c_val,
+    strategy = c("Bundled", "Segregated surcharge",
+                 "Silver lining (bonus)", "Rebate framing"),
+    acceptance = c(
+      mean(U_bundle >= 0),
+      mean(U_segreg >= 0),
+      mean(U_silver >= 0),
+      mean(U_rebate >= 0)
+    )
+  )
+}
+
+framing_results <- bind_rows(results_list)
+
+# --- Summary at key surcharge levels ---
+cat("=== Mental Accounting: Framing Effects on Acceptance ===\n\n")
+cat(sprintf("  Base price: $40 | N = %d buyers | alpha = %.2f\n\n",
+            n_buyers, alpha_val))
+
+key_surcharges <- c(0, 5, 10, 15, 20)
+cat(sprintf("  %-25s |", "Strategy"))
+for (cs in key_surcharges) cat(sprintf(" c=$%-3d |", cs))
+cat("\n")
+cat(paste(rep("-", 80), collapse = ""), "\n")
+
+for (strat in unique(framing_results$strategy)) {
+  cat(sprintf("  %-25s |", strat))
+  for (cs in key_surcharges) {
+    acc <- framing_results %>%
+      filter(strategy == strat, surcharge == cs) %>%
+      pull(acceptance)
+    cat(sprintf(" %5.1f%% |", acc * 100))
+  }
+  cat("\n")
+}
+
+# --- Compute framing advantage ---
+cat("\n  --- Framing Advantage (vs Bundled baseline) ---\n")
+cat(sprintf("  At surcharge = $10:\n"))
+bundled_10 <- framing_results %>%
+  filter(strategy == "Bundled", surcharge == 10) %>%
+  pull(acceptance)
+for (strat in unique(framing_results$strategy)) {
+  acc_10 <- framing_results %>%
+    filter(strategy == strat, surcharge == 10) %>%
+    pull(acceptance)
+  cat(sprintf("    %-25s: %.1f%% (advantage: %+.1f pp)\n",
+              strat, acc_10 * 100, (acc_10 - bundled_10) * 100))
+}
+```
+
+## Static publication-ready figure
+
+The figure shows acceptance probabilities as a function of the surcharge level for each framing strategy, revealing how mental accounting creates systematic differences in buyer response to objectively equivalent offers.
+
+```{r}
+#| label: fig-mental-accounting-static
+#| fig-cap: "Figure 1. Acceptance probability versus surcharge level under four framing strategies. All strategies present the same objective transaction (base price $40 plus surcharge), but differ in how the surcharge is communicated. Silver lining framing (bundling the surcharge with a small bonus) sustains the highest acceptance rates at all surcharge levels, while segregating the surcharge as a separate loss produces the lowest acceptance. N = 5,000 simulated buyers with heterogeneous valuations and loss aversion."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+p_framing <- ggplot(framing_results,
+                    aes(x = surcharge, y = acceptance, color = strategy,
+                        text = paste0("Strategy: ", strategy,
+                                      "\nSurcharge: $", surcharge,
+                                      "\nAcceptance: ", round(acceptance * 100, 1), "%"))) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2, alpha = 0.7) +
+  scale_color_manual(values = okabe_ito[c(1, 6, 3, 5)], name = "Framing strategy") +
+  scale_x_continuous(breaks = seq(0, 25, 5), labels = paste0("$", seq(0, 25, 5))) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
+  labs(
+    title = "Mental accounting: framing effects on purchase acceptance",
+    subtitle = "Same objective price, different psychological presentation (base price = $40, N = 5,000 buyers)",
+    x = "Surcharge above base price",
+    y = "Acceptance probability"
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
+p_framing
+```
+
+## Interactive figure
+
+Explore how each framing strategy performs across surcharge levels. Hover over the lines to see exact acceptance rates and compare strategies at specific price points.
+
+```{r}
+#| label: fig-mental-accounting-interactive
+
+ggplotly(p_framing, tooltip = "text") %>%
+  config(displaylogo = FALSE) %>%
+  layout(legend = list(orientation = "h", y = -0.2))
+```
+
+## Interpretation
+
+The simulation results demonstrate that mental accounting creates economically significant and strategically exploitable differences in buyer behaviour. At a surcharge of \$10 (total price \$50), the same objective transaction can have acceptance rates that differ by over 10 percentage points depending on the framing strategy --- a difference that would translate into substantial revenue differences for a seller operating at scale.
+
+The **segregated surcharge** strategy produces the lowest acceptance rates, consistent with Thaler's principle that losses should be integrated rather than separated. When the surcharge is presented as a distinct, additional cost, the buyer evaluates it in isolation. Due to loss aversion ($\lambda > 1$), this separate loss looms larger than the same amount integrated into the total price. Psychologically, the buyer experiences two distinct pains --- the base price and the surcharge --- each of which triggers the full force of loss aversion. This explains why consumers react more negatively to itemised fees (shipping charges, service fees, resort fees) than to equivalent increases in the base price.
+
+The **bundled (integrated)** strategy performs better by combining all costs into a single price. The convexity of the value function in the loss domain means that a single large loss is less painful than two smaller losses summing to the same amount: $v(-50) > v(-40) + v(-10)$. This is why all-inclusive pricing tends to generate less consumer resistance than a la carte pricing with add-ons, even when the total cost is identical.
+
+The **silver lining** strategy achieves the highest acceptance rates by adding a small bonus that is presented as a separate gain alongside the integrated cost. The concavity of the value function for gains means that even a small segregated gain adds substantial perceived value: $v(3)$ is large relative to $v(53) - v(50)$. This is the logic behind cashback offers, loyalty points, and "free gift with purchase" promotions. The small cost of providing the bonus is more than offset by the increase in the buyer's perceived transaction utility.
+
+The **rebate framing** performs similarly to silver lining but is slightly less effective, because the rebate is smaller than the bonus and operates purely through segregated-gain psychology without reducing the perceived price.
+
+These results have important implications for strategic interaction. In a competitive market, firms that better understand mental accounting can gain an advantage by framing prices more effectively, even without changing the objective terms of trade. This creates an "arms race" in framing sophistication, where firms invest in marketing and pricing psychology to exploit (or work around) consumers' mental accounting biases. From a welfare perspective, the picture is ambiguous: better framing can increase trade (which is efficient if the good's value exceeds its cost) but can also lead consumers to accept overpriced deals they would reject under more transparent framing.
+
+A limitation of our model is the assumption that buyers are naive mental accountants who do not adjust for framing. In practice, experienced buyers may develop "debiasing" heuristics (e.g., always computing the total price) that reduce the effectiveness of framing strategies. The interaction between sophisticated sellers and partially debiased buyers is a rich area for further study.
+
+## Extensions & related tutorials
+
+- [Prospect theory and reference dependence](../../behavioral-economics/prospect-theory-kahneman-tversky/) --- the foundation of the value function underlying mental accounting
+- [Nudge theory and libertarian paternalism](../../behavioral-economics/nudge-libertarian-paternalism/) --- how choice architecture (including framing) can steer behaviour for better or worse
+- [First-price sealed-bid auction](../../auction-theory-deep-dive/first-price-sealed-bid/) --- strategic bidding where framing and reference points influence bid formation
+- [Ultimatum game and fairness](../../behavioral-gt/ultimatum-game-fairness/) --- how fairness perceptions (related to transaction utility) drive rejection of unfair offers
+
+## References
+
+::: {#refs}
+:::
