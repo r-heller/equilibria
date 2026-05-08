@@ -1,0 +1,334 @@
+---
+title: "FRED economic data for game-theoretic calibration"
+description: "Access Federal Reserve FRED data via the fredr API or direct CSV download to calibrate game-theoretic models with real-world economic parameters such as interest rates, GDP growth, and manufacturing output."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - public-apis-and-datasets
+  - FRED
+  - Cournot competition
+  - demand estimation
+keywords: ["FRED", "Federal Reserve", "economic data", "Cournot", "oligopoly calibration", "R"]
+labels: ["data-access", "calibration"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_public-apis-and-datasets_federal-reserve-fred-data"
+image: thumbnail.png
+image-alt: "Time series plot of US manufacturing output overlaid with Cournot equilibrium parameter annotations"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/public-apis-and-datasets/federal-reserve-fred-data/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+api_or_dataset:
+  name: "FRED (Federal Reserve Economic Data)"
+  type: "REST"
+  access: "free-with-key"
+  license: "public-domain"
+  r_package: "fredr"
+  endpoint_or_url: "https://fred.stlouisfed.org/"
+  domain: "economics"
+  last_verified: 2026-05-08
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Game-theoretic models of strategic interaction --- Cournot oligopoly, Bertrand price competition, entry deterrence --- rest on parameters drawn from the real economy. A Cournot duopoly model, for instance, requires a demand intercept, a demand slope, and marginal cost estimates. When these parameters are plucked from thin air, the resulting equilibrium predictions are illustrative but unconvincing. Calibrating with actual data transforms a toy model into a tool that can speak to policy questions about market concentration, antitrust intervention, or the welfare effects of trade.
+
+The Federal Reserve Economic Data (FRED) database, maintained by the Federal Reserve Bank of St. Louis, is one of the most comprehensive open data portals for macroeconomic and industry-level time series. It aggregates over 800,000 series from more than 100 public and private sources, covering GDP components, industrial production indices, price indices, interest rates, labour market indicators, and financial variables. All data are freely available without licensing restrictions, making FRED an ideal source for academic and pedagogical work in applied game theory.
+
+In this tutorial we demonstrate two complementary approaches to retrieving FRED data in R. First, we show the `fredr` package, which wraps the FRED API and requires a free API key. Second, we show direct CSV download from the FRED website, which works without any authentication and is suitable for static, reproducible analyses. We then use manufacturing output data to calibrate a simple Cournot duopoly model: estimating inverse demand from real time series, deriving equilibrium quantities and prices, and annotating a historical data visualisation with the game-theoretic equilibrium predictions.
+
+The broader pedagogical goal is to build a bridge between the abstract world of normal-form games and the messy reality of economic data. Students who calibrate their models against FRED data develop better intuitions about which parameter ranges are empirically reasonable and which assumptions are fragile. This article focuses on US manufacturing as the running example, but the same workflow applies to any FRED series --- energy markets, agricultural commodities, financial intermediation, and so on.
+
+Throughout the tutorial we work exclusively with base R and the four core packages loaded in the setup chunk. For demand estimation we use simple linear regression via `lm()`, which is sufficient for the illustrative calibration exercise here, though more rigorous empirical work would require instrumental variables or structural estimation methods.
+
+
+## Mathematical formulation
+
+We model a symmetric Cournot duopoly in which two firms produce a homogeneous good. Aggregate quantity is $Q = q_1 + q_2$. Inverse demand is linear:
+
+$$
+P(Q) = a - b \, Q
+$$
+
+where $a > 0$ is the demand intercept (the choke price at which demand falls to zero) and $b > 0$ is the demand slope. Each firm has constant marginal cost $c$, with $a > c$ to ensure positive production.
+
+Firm $i$ maximises profit:
+
+$$
+\pi_i(q_i, q_j) = \left(a - b(q_i + q_j) - c\right) q_i
+$$
+
+The first-order condition yields the best-response function:
+
+$$
+q_i^*(q_j) = \frac{a - c}{2b} - \frac{q_j}{2}
+$$
+
+At the symmetric Nash equilibrium $q_1^* = q_2^* = q^*$:
+
+$$
+q^* = \frac{a - c}{3b}, \qquad Q^* = \frac{2(a - c)}{3b}, \qquad P^* = \frac{a + 2c}{3}
+$$
+
+Equilibrium profit per firm is:
+
+$$
+\pi^* = \frac{(a - c)^2}{9b}
+$$
+
+Our calibration task is to estimate $a$ and $b$ from FRED time-series data on prices and quantities, then compute the Cournot equilibrium for a given marginal cost $c$.
+
+
+## R implementation
+
+We simulate realistic FRED-like data for US manufacturing output and producer prices (since direct FRED downloads require either an API key or manual CSV retrieval, we generate synthetic data that mirrors the statistical properties of the actual series). In practice you would replace the simulated data with a CSV downloaded from <https://fred.stlouisfed.org/series/IPMAN> for industrial production and <https://fred.stlouisfed.org/series/PCUOMFG> for producer prices.
+
+```{r}
+#| label: fred-data-simulation
+
+# --- Simulate FRED-like manufacturing data ---
+set.seed(42)
+n_quarters <- 80  # 20 years of quarterly data
+
+# Industrial production index (quantity proxy) with trend + cycle
+trend <- seq(95, 110, length.out = n_quarters)
+cycle <- 8 * sin(seq(0, 4 * pi, length.out = n_quarters))
+noise_q <- rnorm(n_quarters, 0, 2)
+quantity_index <- trend + cycle + noise_q
+
+# Producer price index (price proxy) — negatively correlated with quantity
+price_index <- 130 - 0.35 * quantity_index + rnorm(n_quarters, 0, 1.5)
+
+fred_data <- data.frame(
+  date = seq(as.Date("2006-01-01"), by = "quarter", length.out = n_quarters),
+  quantity_index = round(quantity_index, 2),
+  price_index = round(price_index, 2)
+)
+
+cat("=== FRED-like Manufacturing Data (first 6 rows) ===\n")
+print(head(fred_data))
+cat("\nSummary statistics:\n")
+cat(sprintf("  Quantity index: mean = %.1f, sd = %.1f\n",
+            mean(fred_data$quantity_index), sd(fred_data$quantity_index)))
+cat(sprintf("  Price index:    mean = %.1f, sd = %.1f\n",
+            mean(fred_data$price_index), sd(fred_data$price_index)))
+```
+
+```{r}
+#| label: demand-estimation
+
+# --- Estimate inverse demand: P = a - b * Q ---
+demand_fit <- lm(price_index ~ quantity_index, data = fred_data)
+
+a_hat <- coef(demand_fit)[1]       # intercept (choke price)
+b_hat <- -coef(demand_fit)[2]      # slope (make positive)
+
+cat("=== Inverse Demand Estimation ===\n")
+cat(sprintf("  Estimated intercept (a): %.2f\n", a_hat))
+cat(sprintf("  Estimated slope (b):     %.4f\n", b_hat))
+cat(sprintf("  R-squared:               %.3f\n", summary(demand_fit)$r.squared))
+
+# --- Cournot equilibrium calibration ---
+# Assume marginal cost = 60% of average price
+c_hat <- 0.60 * mean(fred_data$price_index)
+
+q_star <- (a_hat - c_hat) / (3 * b_hat)
+Q_star <- 2 * q_star
+P_star <- (a_hat + 2 * c_hat) / 3
+profit_star <- (a_hat - c_hat)^2 / (9 * b_hat)
+
+cat("\n=== Cournot Equilibrium (calibrated) ===\n")
+cat(sprintf("  Assumed marginal cost (c):    %.2f\n", c_hat))
+cat(sprintf("  Equilibrium firm quantity:    %.2f\n", q_star))
+cat(sprintf("  Equilibrium total quantity:   %.2f\n", Q_star))
+cat(sprintf("  Equilibrium price:            %.2f\n", P_star))
+cat(sprintf("  Equilibrium profit per firm:  %.2f\n", profit_star))
+```
+
+We also show how you would use `fredr` if you have an API key:
+
+```{r}
+#| label: fredr-api-example
+#| eval: false
+
+# --- Using fredr (requires FRED_API_KEY environment variable) ---
+# Sign up for a free key at https://fred.stlouisfed.org/docs/api/api_key.html
+# Then set: Sys.setenv(FRED_API_KEY = "your_key_here")
+
+# library(fredr)
+# fredr_set_key(Sys.getenv("FRED_API_KEY"))
+#
+# manufacturing <- fredr(
+#   series_id = "IPMAN",
+#   observation_start = as.Date("2006-01-01"),
+#   frequency = "q",
+#   aggregation_method = "avg"
+# )
+#
+# prices <- fredr(
+#   series_id = "PCUOMFG",
+#   observation_start = as.Date("2006-01-01"),
+#   frequency = "q",
+#   aggregation_method = "avg"
+# )
+```
+
+And the direct CSV download approach (no API key needed):
+
+```{r}
+#| label: fred-csv-download
+#| eval: false
+
+# --- Direct CSV download from FRED (no authentication) ---
+# url_quantity <- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=IPMAN"
+# url_price    <- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCUOMFG"
+#
+# manufacturing <- read.csv(url_quantity)
+# prices        <- read.csv(url_price)
+#
+# # Clean and merge
+# manufacturing$DATE <- as.Date(manufacturing$DATE)
+# prices$DATE        <- as.Date(prices$DATE)
+# merged <- merge(manufacturing, prices, by = "DATE")
+```
+
+
+## Static publication-ready figure
+
+The static figure overlays the estimated inverse demand curve with actual data points and annotates the Cournot equilibrium. This style of plot connects empirical observations to theoretical predictions, which is central to applied game theory.
+
+```{r}
+#| label: fig-fred-cournot-static
+#| fig-cap: "Figure 1. Manufacturing output vs. producer prices with estimated inverse demand and Cournot equilibrium. The blue line is the OLS-estimated inverse demand curve; the orange point marks the calibrated symmetric Cournot equilibrium. Data: simulated FRED-like series (public domain)."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5.5
+#| dpi: 300
+
+# Prepare demand line data
+q_range <- seq(min(fred_data$quantity_index) - 5,
+               max(fred_data$quantity_index) + 5, length.out = 100)
+demand_line <- data.frame(
+  quantity_index = q_range,
+  price_fitted = a_hat - b_hat * q_range
+)
+
+p_static <- ggplot() +
+  geom_point(data = fred_data,
+             aes(x = quantity_index, y = price_index),
+             color = okabe_ito[5], alpha = 0.6, size = 2) +
+  geom_line(data = demand_line,
+            aes(x = quantity_index, y = price_fitted),
+            color = okabe_ito[2], linewidth = 1) +
+  annotate("point", x = Q_star, y = P_star,
+           color = okabe_ito[1], size = 5, shape = 18) +
+  annotate("segment", x = Q_star, xend = Q_star,
+           y = min(fred_data$price_index) - 2, yend = P_star,
+           linetype = "dashed", color = okabe_ito[1], linewidth = 0.5) +
+  annotate("segment", x = min(fred_data$quantity_index) - 5, xend = Q_star,
+           y = P_star, yend = P_star,
+           linetype = "dashed", color = okabe_ito[1], linewidth = 0.5) +
+  annotate("text", x = Q_star + 2, y = P_star + 1.5,
+           label = sprintf("Cournot NE\n(Q*=%.1f, P*=%.1f)", Q_star, P_star),
+           color = okabe_ito[6], size = 3.5, fontface = "bold", hjust = 0) +
+  labs(
+    title = "Inverse demand estimation and Cournot equilibrium calibration",
+    subtitle = "US manufacturing output (simulated FRED data, 2006-2025)",
+    x = "Manufacturing output index",
+    y = "Producer price index",
+    caption = "Source: Simulated FRED-like data | #equilibria"
+  ) +
+  theme_publication()
+
+p_static
+```
+
+
+## Interactive figure
+
+The interactive version allows hovering over each data point to see the exact date, quantity, and price values. The Cournot equilibrium point and demand line are also included for reference.
+
+```{r}
+#| label: fig-fred-cournot-interactive
+
+p_interactive <- ggplot() +
+  geom_point(data = fred_data,
+             aes(x = quantity_index, y = price_index,
+                 text = sprintf("Date: %s\nQuantity: %.1f\nPrice: %.1f",
+                                date, quantity_index, price_index)),
+             color = okabe_ito[5], alpha = 0.6, size = 2) +
+  geom_line(data = demand_line,
+            aes(x = quantity_index, y = price_fitted,
+                text = sprintf("Demand curve\nQ: %.1f -> P: %.1f",
+                               quantity_index, price_fitted)),
+            color = okabe_ito[2], linewidth = 0.8) +
+  annotate("point", x = Q_star, y = P_star,
+           color = okabe_ito[1], size = 5, shape = 18) +
+  labs(
+    title = "Inverse demand and Cournot equilibrium",
+    x = "Manufacturing output index",
+    y = "Producer price index"
+  ) +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d", "autoScale2d"))
+```
+
+
+## Interpretation
+
+The calibration exercise reveals several important features. First, the estimated inverse demand slope ($\hat{b} \approx 0.35$) implies that a one-unit increase in aggregate manufacturing output reduces the producer price index by about 0.35 points. This negative relationship is consistent with standard downward-sloping demand and provides a sanity check for the data.
+
+Second, the Cournot equilibrium price $P^*$ falls between the competitive price (equal to marginal cost $c$) and the monopoly price $\frac{a+c}{2}$, as theory predicts. With two symmetric firms, the equilibrium is closer to the competitive outcome than to monopoly, illustrating the well-known result that Cournot competition becomes more competitive as the number of firms increases.
+
+Third, the exercise highlights the sensitivity of equilibrium predictions to the assumed marginal cost. We set $c$ at 60% of the average observed price, which is a rough but reasonable heuristic for manufacturing industries with moderate markups. In practice, one would obtain cost estimates from firm-level data (e.g., Compustat) or from structural estimation. The key takeaway for students is that a game-theoretic model is only as reliable as the data feeding into its parameters.
+
+The $R^2$ of the demand regression, while moderate, is typical for aggregate time-series data with business-cycle variation. For more precise calibration, one would want to control for income, input prices, and lagged variables. The VAR and Granger causality methods explored in the time-series econometrics section of this site offer a natural path forward.
+
+Finally, this workflow --- download data, estimate structural parameters, compute equilibrium, visualise --- is a general-purpose template. By substituting different FRED series (e.g., oil prices for energy market games, federal funds rate for banking competition, crop prices for agricultural oligopoly), students can calibrate a wide range of applied game-theoretic models against real economic conditions.
+
+
+## Extensions & related tutorials
+
+This FRED-based calibration workflow connects to several other tutorials on the site. Demand estimation with time-series data naturally leads to questions about dynamic strategic interaction, while the Cournot model itself can be enriched with asymmetric costs, differentiated products, or entry dynamics.
+
+- [World Bank WDI economic indicators](../../public-apis-and-datasets/world-bank-wdi-economic-indicators/) --- an alternative open data source for cross-country calibration of game-theoretic models
+- [Granger causality in strategic interaction data](../../time-series-econometrics/granger-causality-strategic/) --- test whether past quantities of one firm predict current quantities of a rival
+- [VAR models for strategic interaction](../../time-series-econometrics/strategic-interaction-var-models/) --- estimate vector autoregressions to capture dynamic oligopoly adjustments
+- [Bootstrap inference for game-theoretic quantities](../../statistical-foundations/bootstrap-game-theory/) --- construct confidence intervals around calibrated equilibrium estimates
+
+
+## References
+
+::: {#refs}
+:::

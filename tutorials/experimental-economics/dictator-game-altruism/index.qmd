@@ -1,0 +1,258 @@
+---
+title: "Dictator game and pure altruism"
+description: "The dictator game as a test of pure altruism versus strategic motives, with warm-glow and CES utility models calibrated to Engel's (2011) meta-analysis of experimental giving distributions."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - experimental-economics
+  - dictator-game
+  - altruism
+  - other-regarding-preferences
+keywords: ["dictator game", "altruism", "warm-glow", "CES preferences", "other-regarding preferences", "Engel meta-analysis", "experimental economics", "prosocial behaviour"]
+labels: ["experimental-economics", "prosocial-behaviour"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_experimental-economics_dictator-game-altruism"
+image: thumbnail.png
+image-alt: "Density plot comparing simulated giving distributions under warm-glow and CES altruism models with experimental data from Engel's 2011 meta-analysis"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/experimental-economics/dictator-game-altruism/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+The dictator game is perhaps the simplest economic experiment ever devised, yet its results have profoundly challenged the standard assumption of pure self-interest. In the game, one player (the dictator) receives an endowment --- typically \$10 --- and can transfer any amount to a second player (the recipient), who has no say in the decision. The recipient must accept whatever allocation the dictator chooses. There is no strategic interaction, no repeated play, no reputation to build: the dictator's decision is a pure, unilateral choice.
+
+Standard game theory, assuming rational, self-interested agents, makes a stark prediction: the dictator should keep the entire endowment and transfer nothing. Since the recipient cannot punish or reward the dictator, and the game is played anonymously with no future interactions, there is no strategic reason to share. Any positive transfer is a pure loss from the perspective of payoff maximisation.
+
+Yet decades of experimental evidence tell a radically different story. In a comprehensive meta-analysis covering 129 papers and over 41,000 individual observations, Christoph Engel (2011) documented that the mean dictator transfer is approximately 28 percent of the endowment. Only about 36 percent of dictators give nothing; the modal positive gift is an equal split (50-50). The distribution is not simply bimodal between zero and half --- it exhibits a rich spectrum of giving behaviour, with positive mass at virtually every point between 0 and 50 percent.
+
+These findings demand explanation. What motivates people to give away real money to anonymous strangers in a one-shot setting with no strategic consequences? Three broad classes of models have been proposed. First, *pure altruism* models assume that agents derive utility directly from the recipient's consumption. Second, *warm-glow* models (Andreoni, 1990) posit that agents derive utility from the act of giving itself, independent of its effect on the recipient. Third, *inequality aversion* models (Fehr and Schmidt, 1999; Bolton and Ockenfels, 2000) assume that agents dislike unequal distributions.
+
+In this tutorial, we implement the warm-glow model and a constant elasticity of substitution (CES) altruism model, derive the optimal giving rule for each, simulate heterogeneous populations of dictators, and compare the resulting distributions with the stylised facts from Engel's meta-analysis. The goal is to understand which preference specifications can generate the observed patterns of giving and what the data tell us about the structure of prosocial motivation.
+
+## Mathematical formulation
+
+The dictator has endowment $w$ and chooses transfer $g \in [0, w]$. The dictator keeps $w - g$ and the recipient receives $g$.
+
+**Warm-glow model.** The dictator's utility depends on own consumption and a "warm glow" from giving:
+
+$$
+U_{\text{WG}}(g) = (w - g)^{1 - \gamma} / (1 - \gamma) + \alpha \cdot g^{1 - \gamma} / (1 - \gamma)
+$$
+
+where $\gamma > 0$ ($\gamma \neq 1$) is the curvature parameter (coefficient of relative risk aversion) and $\alpha \geq 0$ is the warm-glow intensity. The first-order condition yields the optimal gift:
+
+$$
+(w - g^*)^{-\gamma} = \alpha \cdot (g^*)^{-\gamma}
+$$
+
+$$
+g^*_{\text{WG}} = \frac{\alpha^{1/\gamma}}{1 + \alpha^{1/\gamma}} \cdot w
+$$
+
+When $\alpha = 0$, the dictator gives nothing. When $\alpha = 1$, the dictator gives exactly half (equal split). As $\alpha \to \infty$, the gift approaches $w$.
+
+**CES altruism model.** The dictator's utility combines own consumption $x = w - g$ and recipient's consumption $g$ with a CES aggregator:
+
+$$
+U_{\text{CES}}(g) = \left[\beta \cdot (w - g)^{\rho} + (1 - \beta) \cdot g^{\rho}\right]^{1/\rho}
+$$
+
+where $\beta \in (0, 1)$ is the self-interest weight and $\rho < 1$ governs the elasticity of substitution $\sigma = 1/(1 - \rho)$. The optimal gift is:
+
+$$
+g^*_{\text{CES}} = \frac{w}{1 + \left(\frac{\beta}{1 - \beta}\right)^{\sigma}}
+$$
+
+When $\rho \to -\infty$ (Leontief preferences, $\sigma \to 0$), the dictator chooses the equal split $g = w/2$ regardless of $\beta$ (as long as $\beta < 1$). When $\rho \to 1$ (perfect substitutes, $\sigma \to \infty$), the dictator gives everything or nothing depending on whether $\beta < 1/2$.
+
+**Population heterogeneity.** We model a population where the altruism parameter varies across individuals. For the warm-glow model, we draw $\alpha_i$ from a distribution; for CES, we draw $\beta_i$.
+
+## R implementation
+
+We simulate 10,000 dictators under each model, with altruism parameters drawn from calibrated distributions, and compare the resulting giving distributions.
+
+```{r}
+#| label: dictator-simulation
+
+set.seed(2026)
+n_dictators <- 10000
+w <- 10  # endowment
+
+# --- Warm-glow model ---
+# alpha_i drawn from mixture: point mass at 0 (selfish) + lognormal (givers)
+p_selfish <- 0.36  # ~36% give nothing (Engel 2011)
+gamma_wg <- 0.8    # curvature
+
+alpha_i <- ifelse(
+  runif(n_dictators) < p_selfish,
+  0,
+  rlnorm(n_dictators, meanlog = -0.8, sdlog = 0.9)
+)
+
+gift_wg <- ifelse(
+  alpha_i == 0,
+  0,
+  alpha_i^(1/gamma_wg) / (1 + alpha_i^(1/gamma_wg)) * w
+)
+gift_wg <- pmin(gift_wg, w)  # cap at endowment
+
+# --- CES altruism model ---
+# beta_i drawn from mixture: point mass at 1 (selfish) + beta distribution
+beta_i <- ifelse(
+  runif(n_dictators) < p_selfish,
+  1.0,  # pure self-interest
+  rbeta(n_dictators, shape1 = 4, shape2 = 2)  # skewed toward self-interest
+)
+rho_ces <- -0.5  # elasticity of substitution = 2/3
+sigma_ces <- 1 / (1 - rho_ces)
+
+gift_ces <- ifelse(
+  beta_i >= 0.999,
+  0,
+  w / (1 + (beta_i / (1 - beta_i))^sigma_ces)
+)
+gift_ces <- pmax(pmin(gift_ces, w), 0)
+
+# --- Stylised experimental data (Engel 2011 approximation) ---
+# Approximate the empirical distribution from Engel's meta-analysis
+set.seed(99)
+engel_probs <- c(0.363, 0.045, 0.12, 0.083, 0.032, 0.167, 0.025, 0.015, 0.01, 0.06, 0.08)
+engel_values <- seq(0, w, by = 1)
+gift_engel <- sample(engel_values, n_dictators, replace = TRUE, prob = engel_probs)
+
+# Summary statistics
+cat("=== Dictator Game: Giving Distributions ===\n\n")
+cat(sprintf("  %-20s | Mean gift | %% zero | %% equal split | Median\n", "Model"))
+cat(paste(rep("-", 75), collapse = ""), "\n")
+
+for (label_model in c("Warm-glow", "CES altruism", "Engel (2011) approx")) {
+  gifts <- switch(label_model,
+                  "Warm-glow" = gift_wg,
+                  "CES altruism" = gift_ces,
+                  "Engel (2011) approx" = gift_engel)
+  cat(sprintf("  %-20s | %9.2f | %5.1f%% | %13.1f%% | %6.2f\n",
+              label_model, mean(gifts),
+              mean(gifts == 0) * 100,
+              mean(abs(gifts - w/2) < 0.5) * 100,
+              median(gifts)))
+}
+
+# Prepare data for plotting
+giving_data <- bind_rows(
+  tibble(gift = gift_wg, model = "Warm-glow"),
+  tibble(gift = gift_ces, model = "CES altruism"),
+  tibble(gift = gift_engel, model = "Engel (2011) data")
+)
+
+# Bin the data for cleaner comparison
+giving_binned <- giving_data %>%
+  mutate(gift_bin = round(gift * 2) / 2) %>%  # round to nearest 0.5
+  group_by(model, gift_bin) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(model) %>%
+  mutate(proportion = count / sum(count)) %>%
+  ungroup()
+```
+
+## Static publication-ready figure
+
+The figure compares the distributions of dictator giving across the warm-glow model, CES altruism model, and the approximate empirical distribution from Engel's meta-analysis.
+
+```{r}
+#| label: fig-dictator-static
+#| fig-cap: "Figure 1. Distributions of dictator game giving under two preference specifications compared with approximate experimental data from Engel (2011). The warm-glow model generates a smoother distribution while the CES model captures the concentration around zero and the equal split. N = 10,000 simulated dictators per model."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+p_dictator <- ggplot(giving_binned,
+                     aes(x = gift_bin, y = proportion, fill = model,
+                         text = paste0("Model: ", model,
+                                       "\nGift: $", gift_bin,
+                                       "\nProportion: ", round(proportion * 100, 1), "%"))) +
+  geom_col(position = position_dodge(width = 0.45), width = 0.4, alpha = 0.85) +
+  scale_fill_manual(values = okabe_ito[c(1, 3, 5)]) +
+  scale_x_continuous(breaks = 0:10, labels = paste0("$", 0:10)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Dictator game: giving distributions across preference models",
+    subtitle = "Simulated heterogeneous dictators (N = 10,000) vs Engel (2011) meta-analysis",
+    x = "Transfer to recipient (out of $10 endowment)",
+    y = "Proportion of dictators",
+    fill = "Model / data source"
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
+p_dictator
+```
+
+## Interactive figure
+
+Explore the giving distributions interactively. Hover over each bar to compare the proportion of dictators at each giving level across models and the empirical benchmark.
+
+```{r}
+#| label: fig-dictator-interactive
+
+ggplotly(p_dictator, tooltip = "text") %>%
+  config(displaylogo = FALSE) %>%
+  layout(legend = list(orientation = "h", y = -0.2))
+```
+
+## Interpretation
+
+The simulation results reveal both the strengths and limitations of each preference model in explaining the rich pattern of dictator game giving documented by Engel's meta-analysis.
+
+The **warm-glow model** successfully generates a distribution with a substantial mass point at zero (matching the ~36 percent of dictators who give nothing) and a wide spread of positive gifts. The shape of the positive-giving distribution depends critically on the distribution of the warm-glow intensity parameter $\alpha$. Our calibration using a lognormal distribution produces a right-skewed distribution of gifts with a mode near \$2--\$3, which approximates the mean giving rate of about 28 percent. However, the warm-glow model struggles to generate the sharp spike at the equal split (\$5) observed in experiments, because the equal split requires $\alpha = 1$ exactly, which has measure zero in a continuous distribution.
+
+The **CES altruism model** offers a complementary fit. By varying the elasticity of substitution parameter $\rho$, it can generate different shapes of the giving distribution. With low elasticity of substitution (our choice of $\rho = -0.5$), the model produces more concentration around moderate gifts and can capture the equal-split spike if the self-interest parameter $\beta$ is distributed with mass near $0.5$. However, the CES model tends to produce a smoother distribution of intermediate gifts and has difficulty generating the empirical pattern where substantial numbers of dictators give small positive amounts ($1--\$2) but very few give large-but-not-equal amounts (\$7--\$9).
+
+Neither model alone perfectly replicates the empirical distribution, which suggests that **multiple motives** are at work in the dictator game. The data are most consistent with a mixture model: some dictators are purely selfish (the zero-givers), some are motivated by warm-glow feelings (the small-to-moderate givers), and some are committed to fairness norms (the equal splitters). This interpretation aligns with evidence from experimental manipulations showing that giving decreases substantially when the experimenter cannot observe the dictator's choice (suggesting social pressure rather than pure altruism) and when the dictator can "opt out" of the game entirely (suggesting that giving is partly driven by the demand characteristics of the experimental situation).
+
+The dictator game's simplicity is both its strength and its weakness. By stripping away all strategic considerations, it provides the cleanest possible test of whether people have other-regarding preferences. But this very simplicity means that the observed behaviour may not generalise to more complex strategic environments where reputation, reciprocity, and repeated interaction provide additional motivations for prosocial behaviour.
+
+A key limitation of our simulation is the assumption that the altruism parameter is exogenous and context-independent. In practice, dictator giving is sensitive to a host of contextual factors: the social distance between players, the perceived deservingness of the recipient, whether the endowment was earned or endowed, and the degree of anonymity. A complete model of prosocial behaviour must account for this context-dependence, which is a challenge for the standard utility-maximisation framework.
+
+## Extensions & related tutorials
+
+The dictator game is a building block for understanding more complex social preferences and their implications for strategic interaction, mechanism design, and institutional performance.
+
+- [Public goods experiment](../../experimental-economics/public-goods-experiment/) --- how prosocial preferences interact with free-riding incentives in group settings
+- [Nudge theory and libertarian paternalism](../../behavioral-economics/nudge-libertarian-paternalism/) --- how framing and defaults (forms of "nudge") affect prosocial behaviour
+- [Prospect theory and reference dependence](../../behavioral-economics/prospect-theory-kahneman-tversky/) --- the psychological foundations of non-standard preferences and reference-dependent utility
+- [Tragedy of the commons](../../case-studies/tragedy-of-the-commons/) --- how other-regarding preferences can help sustain cooperation in common-pool resource dilemmas
+
+## References
+
+::: {#refs}
+:::
