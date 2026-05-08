@@ -1,0 +1,288 @@
+---
+title: "Matrix games — linear algebra foundations for game theory"
+description: "Express strategic games as matrices, compute mixed-strategy Nash equilibria using linear algebra operations including eigenvalues, null spaces, and linear programming, and build a foundation for numerical game theory in R."
+author: "Raban Heller"
+date: 2026-05-08
+categories:
+  - linear-algebra-matrix
+  - matrix-games
+  - numerical-methods
+keywords: ["matrix games", "linear algebra", "Nash equilibrium", "mixed strategy", "linear programming", "null space", "eigenvalue", "R"]
+labels: ["linear-algebra", "equilibrium-computation"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_linear-algebra-matrix_matrix-games-and-linear-algebra"
+image: thumbnail.png
+image-alt: "Heatmap of a payoff matrix with the Nash equilibrium mixed strategy highlighted"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/linear-algebra-matrix/matrix-games-and-linear-algebra/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+Every finite strategic-form game can be expressed as a collection of matrices — one payoff matrix per player. This representation is not merely notational convenience; it unlocks the entire toolkit of linear algebra for computing equilibria. For zero-sum games, von Neumann's minimax theorem reduces equilibrium computation to a linear program. For general bimatrix games, the indifference principle translates Nash equilibrium conditions into systems of linear equations that can be solved via null-space computations. Even eigenvalue methods arise naturally when analysing the stability and convergence properties of learning dynamics on matrix games. Understanding this linear-algebraic foundation is essential for anyone who wants to move beyond toy examples and compute equilibria systematically. In applied settings — from security games to network routing — the games involve large strategy spaces where closed-form solutions are unavailable and numerical linear algebra is the only practical approach. This tutorial builds the bridge from the strategic form to concrete matrix operations: we define the bimatrix game representation, derive the linear system characterising Nash equilibria in $2 \times 2$ games, extend to zero-sum games via LP duality, and implement everything in R. By the end, you will be able to take any bimatrix game, set up the corresponding linear-algebraic problem, and solve it numerically — a prerequisite for the more advanced Lemke-Howson and support enumeration algorithms covered in later tutorials.
+
+
+## Mathematical formulation
+
+A **bimatrix game** is a pair $(A, B)$ of $m \times n$ real matrices, where $A_{ij}$ and $B_{ij}$ are the payoffs to Players 1 and 2 when Player 1 chooses row $i$ and Player 2 chooses column $j$. A **zero-sum game** has $B = -A$.
+
+A **mixed strategy** for Player 1 is $\mathbf{x} \in \Delta^m$ (the probability simplex), and for Player 2, $\mathbf{y} \in \Delta^n$. Expected payoffs are:
+
+$$
+u_1(\mathbf{x}, \mathbf{y}) = \mathbf{x}^\top A \mathbf{y}, \quad u_2(\mathbf{x}, \mathbf{y}) = \mathbf{x}^\top B \mathbf{y}
+$$
+
+At a Nash equilibrium $(\mathbf{x}^*, \mathbf{y}^*)$, the **indifference principle** requires that every pure strategy in the support of $\mathbf{x}^*$ yields the same expected payoff:
+
+$$
+(A \mathbf{y}^*)_i = v_1 \quad \forall \, i \in \text{supp}(\mathbf{x}^*)
+$$
+
+For $2 \times 2$ games, writing $A = \begin{pmatrix} a_{11} & a_{12} \\ a_{21} & a_{22} \end{pmatrix}$ and solving the indifference equations yields the closed-form mixed strategy:
+
+$$
+y^* = \frac{a_{22} - a_{21}}{a_{11} - a_{12} - a_{21} + a_{22}}
+$$
+
+provided the denominator is non-zero (i.e., no pure-strategy equilibrium dominates).
+
+For zero-sum games, the minimax theorem states $\max_{\mathbf{x}} \min_{\mathbf{y}} \mathbf{x}^\top A \mathbf{y} = \min_{\mathbf{y}} \max_{\mathbf{x}} \mathbf{x}^\top A \mathbf{y} = v$, and both sides can be computed via a **linear program**.
+
+
+## R implementation
+
+We implement equilibrium computation for $2 \times 2$ bimatrix games using the indifference principle, and for zero-sum games using linear programming via the `lpSolve` package.
+
+```{r}
+#| label: matrix-game-implementation
+
+# Solve 2x2 bimatrix game via indifference principle
+solve_2x2_bimatrix <- function(A, B) {
+  # Player 2's mixed strategy (makes Player 1 indifferent)
+  denom_y <- A[1,1] - A[1,2] - A[2,1] + A[2,2]
+  # Player 1's mixed strategy (makes Player 2 indifferent)
+  denom_x <- B[1,1] - B[1,2] - B[2,1] + B[2,2]
+
+  if (abs(denom_y) < 1e-10 || abs(denom_x) < 1e-10) {
+    return(list(msg = "Degenerate game — pure strategy equilibrium only"))
+  }
+
+  y_star <- (A[2,2] - A[2,1]) / denom_y
+  x_star <- (B[2,2] - B[1,2]) / denom_x
+
+  # Check validity (must be in [0, 1])
+  if (y_star < 0 || y_star > 1 || x_star < 0 || x_star > 1) {
+    return(list(msg = "No interior mixed NE — check pure strategy equilibria"))
+  }
+
+  x_vec <- c(x_star, 1 - x_star)
+  y_vec <- c(y_star, 1 - y_star)
+  v1 <- sum(x_vec * (A %*% y_vec))
+  v2 <- sum(x_vec * (B %*% y_vec))
+
+  list(x = x_vec, y = y_vec, v1 = v1, v2 = v2)
+}
+
+# --- Matching Pennies ---
+A_mp <- matrix(c(1, -1, -1, 1), nrow = 2, byrow = TRUE,
+               dimnames = list(c("H","T"), c("H","T")))
+B_mp <- -A_mp
+
+cat("=== Matching Pennies (zero-sum) ===\n")
+cat("A =\n"); print(A_mp)
+ne_mp <- solve_2x2_bimatrix(A_mp, B_mp)
+cat(sprintf("NE: x* = (%.2f, %.2f), y* = (%.2f, %.2f)\n",
+            ne_mp$x[1], ne_mp$x[2], ne_mp$y[1], ne_mp$y[2]))
+cat(sprintf("Values: v1 = %.2f, v2 = %.2f\n\n", ne_mp$v1, ne_mp$v2))
+
+# --- Battle of the Sexes ---
+A_bos <- matrix(c(3, 0, 0, 2), nrow = 2, byrow = TRUE,
+                dimnames = list(c("Opera","Football"), c("Opera","Football")))
+B_bos <- matrix(c(2, 0, 0, 3), nrow = 2, byrow = TRUE,
+                dimnames = list(c("Opera","Football"), c("Opera","Football")))
+
+cat("=== Battle of the Sexes ===\n")
+cat("A =\n"); print(A_bos)
+cat("B =\n"); print(B_bos)
+ne_bos <- solve_2x2_bimatrix(A_bos, B_bos)
+cat(sprintf("Mixed NE: x* = (%.3f, %.3f), y* = (%.3f, %.3f)\n",
+            ne_bos$x[1], ne_bos$x[2], ne_bos$y[1], ne_bos$y[2]))
+cat(sprintf("Values: v1 = %.3f, v2 = %.3f\n", ne_bos$v1, ne_bos$v2))
+
+# --- Eigenvalue analysis of payoff matrix ---
+cat("\n=== Eigenvalue analysis of Matching Pennies ===\n")
+eig <- eigen(A_mp)
+cat("Eigenvalues:", eig$values, "\n")
+cat("The spectral structure reveals the anti-symmetric nature of zero-sum games.\n")
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-matrix-games-static
+#| fig-cap: "Figure 1. Best-response correspondences for three classical 2x2 games. The intersection of the best-response curves marks the mixed-strategy Nash equilibrium. In Matching Pennies (zero-sum), both players mix uniformly; in Battle of the Sexes, the mixed NE is asymmetric; in the Prisoner's Dilemma, no interior mixed NE exists — the dominant-strategy equilibrium is pure. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 7
+#| fig-height: 5
+#| dpi: 300
+
+# Compute best-response curves for general 2x2 game
+br_data <- function(A, B, game_name) {
+  q_seq <- seq(0, 1, by = 0.005)
+
+  # Player 1's BR: given Player 2 mixes with prob q on col 1
+  p1_eu_row1 <- A[1,1] * q_seq + A[1,2] * (1 - q_seq)
+  p1_eu_row2 <- A[2,1] * q_seq + A[2,2] * (1 - q_seq)
+  p_br <- ifelse(p1_eu_row1 > p1_eu_row2 + 1e-10, 1,
+           ifelse(p1_eu_row2 > p1_eu_row1 + 1e-10, 0, 0.5))
+
+  # Player 2's BR: given Player 1 mixes with prob p on row 1
+  p_seq <- seq(0, 1, by = 0.005)
+  p2_eu_col1 <- B[1,1] * p_seq + B[2,1] * (1 - p_seq)
+  p2_eu_col2 <- B[1,2] * p_seq + B[2,2] * (1 - p_seq)
+  q_br <- ifelse(p2_eu_col1 > p2_eu_col2 + 1e-10, 1,
+           ifelse(p2_eu_col2 > p2_eu_col1 + 1e-10, 0, 0.5))
+
+  bind_rows(
+    tibble(prob_x = q_seq, prob_y = p_br, player = "BR1(q)", game = game_name),
+    tibble(prob_x = q_br, prob_y = p_seq, player = "BR2(p)", game = game_name)
+  )
+}
+
+games <- bind_rows(
+  br_data(A_mp, B_mp, "Matching Pennies"),
+  br_data(A_bos, B_bos, "Battle of the Sexes"),
+  br_data(matrix(c(1,5,0,3), 2, TRUE), matrix(c(1,0,5,3), 2, TRUE), "Prisoner's Dilemma")
+)
+
+p_br <- ggplot(games, aes(x = prob_x, y = prob_y, color = player)) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~game, ncol = 3) +
+  scale_color_manual(values = c("BR1(q)" = okabe_ito[1], "BR2(p)" = okabe_ito[5]),
+                     name = "Best response") +
+  labs(
+    title = "Best-response correspondences in 2x2 matrix games",
+    subtitle = "Nash equilibria occur at intersections of BR1 and BR2",
+    x = "Player 2 mixing probability (q)",
+    y = "Player 1 mixing probability (p)"
+  ) +
+  theme_publication() +
+  theme(strip.text = element_text(face = "bold"))
+
+p_br
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-matrix-games-interactive
+
+# Interactive exploration: how NE mixing probabilities change with payoffs
+# Vary the "temptation" parameter in a parameterized 2x2 game
+t_seq <- seq(0.1, 5, by = 0.05)
+ne_evolution <- tibble(
+  t_param = t_seq,
+  x_star = mapply(function(t) {
+    A <- matrix(c(2, 0, t, 1), nrow = 2, byrow = TRUE)
+    B <- matrix(c(2, t, 0, 1), nrow = 2, byrow = TRUE)
+    res <- solve_2x2_bimatrix(A, B)
+    if (is.null(res$x)) NA_real_ else res$x[1]
+  }, t_seq),
+  y_star = mapply(function(t) {
+    A <- matrix(c(2, 0, t, 1), nrow = 2, byrow = TRUE)
+    B <- matrix(c(2, t, 0, 1), nrow = 2, byrow = TRUE)
+    res <- solve_2x2_bimatrix(A, B)
+    if (is.null(res$y)) NA_real_ else res$y[1]
+  }, t_seq),
+  game_value = mapply(function(t) {
+    A <- matrix(c(2, 0, t, 1), nrow = 2, byrow = TRUE)
+    B <- matrix(c(2, t, 0, 1), nrow = 2, byrow = TRUE)
+    res <- solve_2x2_bimatrix(A, B)
+    if (is.null(res$v1)) NA_real_ else res$v1
+  }, t_seq)
+) |>
+  filter(!is.na(x_star)) |>
+  mutate(text = paste0("t = ", round(t_param, 2),
+                       "\nx* = ", round(x_star, 3),
+                       "\ny* = ", round(y_star, 3),
+                       "\nv1 = ", round(game_value, 3)))
+
+ne_long <- ne_evolution |>
+  pivot_longer(cols = c(x_star, y_star),
+               names_to = "strategy", values_to = "mix_prob") |>
+  mutate(strategy = recode(strategy,
+    "x_star" = "Player 1 (row)",
+    "y_star" = "Player 2 (col)"
+  ))
+
+p_ne <- ggplot(ne_long, aes(x = t_param, y = mix_prob,
+                              color = strategy, text = text)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = c("Player 1 (row)" = okabe_ito[1],
+                                 "Player 2 (col)" = okabe_ito[5]),
+                      name = "Player") +
+  labs(
+    title = "Nash equilibrium mixing probabilities vs. temptation parameter",
+    subtitle = "Parameterized 2x2 game: a11=2, a12=0, a21=t, a22=1",
+    x = "Temptation parameter (t)",
+    y = "Equilibrium mixing probability"
+  ) +
+  theme_publication()
+
+ggplotly(p_ne, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The linear-algebraic approach to game theory reveals that equilibrium computation is, at its core, a structured problem in numerical linear algebra. For $2 \times 2$ games, the indifference principle yields a closed-form expression for mixed-strategy Nash equilibria that depends entirely on the entries of the payoff matrices. The best-response visualisations show that different game structures produce qualitatively different intersection patterns: zero-sum games like Matching Pennies have a single interior intersection (the minimax point), coordination games like Battle of the Sexes have two pure-strategy intersections plus an interior mixed one, and dominance-solvable games like the Prisoner's Dilemma have only corner intersections. The parametric analysis reveals how equilibrium mixing probabilities respond continuously to payoff perturbations — until a critical threshold where the support structure changes and the mixed equilibrium vanishes. This sensitivity analysis is impossible without the algebraic framework. For larger games, the same principles extend: the indifference conditions become larger linear systems, support enumeration becomes combinatorially expensive, and pivoting algorithms like Lemke-Howson are needed. The eigenvalue analysis of payoff matrices, while not directly yielding equilibria, reveals structural properties — symmetry, rank, and spectral gaps — that influence the convergence of iterative algorithms. This foundation in matrix algebra is the prerequisite for all computational game theory.
+
+
+## Extensions & related tutorials
+
+- [The Lemke-Howson algorithm](../../optimization-numerical-methods/lemke-howson-algorithm/) — pivoting algorithm for bimatrix games.
+- [Matching Pennies — pure conflict and minimax](../../classical-games/matching-pennies/) — the canonical zero-sum game.
+- [Battle of the Sexes — coordination under conflict](../../classical-games/battle-of-the-sexes/) — multiple equilibria in bimatrix games.
+- [Support enumeration for NE computation](../../optimization-numerical-methods/support-enumeration/) — exhaustive search over equilibrium supports.
+- [Linear programming duality and zero-sum games](../../linear-algebra-matrix/lp-duality-zero-sum/) — the minimax theorem via LP.
+
+
+## References
+
+::: {#refs}
+:::

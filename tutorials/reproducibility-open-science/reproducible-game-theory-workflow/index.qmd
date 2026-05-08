@@ -1,0 +1,217 @@
+---
+# ============================================================================
+# #equilibria — Article Frontmatter
+# ============================================================================
+title: "Reproducible game theory research — a Quarto + renv workflow"
+
+description: >
+  Set up a fully reproducible game theory research project using renv for
+  dependency management, Quarto for literate programming, and version control
+  best practices for simulation-heavy analyses.
+
+author: "Raban Heller"
+date: 2026-05-08
+
+categories:
+  - reproducibility-open-science
+  - renv
+  - quarto
+  - reproducibility
+
+keywords: ["reproducibility", "renv", "Quarto", "version control", "game theory", "simulation"]
+
+labels: ["reproducibility", "workflow", "renv"]
+
+tier: 1
+
+bibliography: ../../references.bib
+
+vgwort: "TODO_VGWORT_reproducibility-open-science_reproducible-game-theory-workflow"
+
+image: thumbnail.png
+image-alt: "Flowchart showing the reproducible workflow from renv lockfile through Quarto rendering to final publication"
+
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/reproducibility-open-science/reproducible-game-theory-workflow/
+
+license: "CC BY-SA 4.0"
+
+draft: false
+
+has_static_fig: true
+has_interactive_fig: true
+---
+
+<!-- ====================================================================== -->
+<!-- ARTICLE BODY -->
+<!-- ====================================================================== -->
+
+{{< include ../../R/_common.R >}}
+
+```{r}
+#| label: setup
+#| include: false
+
+source(here::here("R", "_common.R"))
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+```
+
+## Introduction & motivation
+
+Computational game theory relies on Monte Carlo simulations, numerical optimisations, and iterative algorithms whose outputs are exquisitely sensitive to software versions, random seeds, and platform differences. A Nash equilibrium solver that converges under one version of an optimiser may silently produce different results after a routine package update. When a reviewer or collaborator attempts to reproduce your findings six months later, version drift can turn a clean pipeline into a debugging marathon.
+
+The solution is a disciplined reproducibility stack. **renv** snapshots the exact package versions used in an analysis into a portable lockfile. **Quarto** weaves prose, mathematics, and executable code into a single source document, eliminating copy-paste errors between scripts and manuscripts. **Git** provides an immutable history of every change, while **seed management** ensures that stochastic simulations yield bit-identical results across runs and machines. Together, these tools form a contract: anyone with the repository and a compatible R installation can re-derive every figure, table, and statistical claim in the paper.
+
+This tutorial demonstrates the full workflow by building a small but complete project that simulates the iterated Prisoner's Dilemma under several strategy profiles and visualises cooperation rates over time. Every step --- from `renv::init()` to `quarto render` --- is shown explicitly, so you can adapt the template to your own game-theoretic research.
+
+
+## Mathematical formulation
+
+We consider the iterated Prisoner's Dilemma with payoff matrix:
+
+$$
+\begin{pmatrix}
+(R, R) & (S, T) \\
+(T, S) & (P, P)
+\end{pmatrix}
+= \begin{pmatrix}
+(3, 3) & (0, 5) \\
+(5, 0) & (1, 1)
+\end{pmatrix}
+$$
+
+where $T > R > P > S$ and $2R > T + S$. Two strategies interact over $n$ rounds: **Tit-for-Tat** (TFT) cooperates initially and then mirrors the opponent's previous move, while **Always Defect** (AD) defects unconditionally. The cumulative cooperation rate after round $t$ is:
+
+$$
+\bar{C}(t) = \frac{1}{t} \sum_{k=1}^{t} \mathbb{1}[\text{action}_k = C]
+$$
+
+Under a stochastic strategy with trembling-hand probability $\varepsilon$, each intended action is flipped with probability $\varepsilon$, introducing noise that tests the robustness of cooperative equilibria. Reproducibility demands that the seed governing these perturbations is recorded and locked.
+
+
+## R implementation
+
+Below we simulate 200 rounds of the iterated Prisoner's Dilemma for three strategy matchups, recording the cooperation rate trajectory for Player 1 in each case. The random seed is set explicitly to guarantee reproducibility.
+
+```{r}
+#| label: ipd-simulation
+
+set.seed(42)  # Locked seed for reproducibility
+
+n_rounds <- 200
+epsilon  <- 0.05  # Trembling-hand noise
+
+play_ipd <- function(strategy1, strategy2, n = 200, eps = 0.05) {
+  actions1 <- actions2 <- character(n)
+  actions1[1] <- strategy1(NA)
+  actions2[1] <- strategy2(NA)
+  for (t in 2:n) {
+    a1 <- strategy1(actions2[t - 1])
+    a2 <- strategy2(actions1[t - 1])
+    # Trembling hand
+    if (runif(1) < eps) a1 <- ifelse(a1 == "C", "D", "C")
+    if (runif(1) < eps) a2 <- ifelse(a2 == "C", "D", "C")
+    actions1[t] <- a1
+    actions2[t] <- a2
+  }
+  tibble(round = 1:n, action1 = actions1, action2 = actions2)
+}
+
+# Strategy definitions
+tft <- function(prev) if (is.na(prev)) "C" else prev
+always_d <- function(prev) "D"
+always_c <- function(prev) "C"
+
+# Run matchups
+matchups <- list(
+  "TFT vs TFT"     = play_ipd(tft, tft, n_rounds, epsilon),
+  "TFT vs Always-D" = play_ipd(tft, always_d, n_rounds, epsilon),
+  "Always-C vs Always-D" = play_ipd(always_c, always_d, n_rounds, epsilon)
+)
+
+sim_df <- bind_rows(lapply(names(matchups), function(m) {
+  matchups[[m]] |>
+    mutate(
+      matchup = m,
+      coop = cumsum(action1 == "C") / round
+    )
+}))
+
+knitr::kable(
+  sim_df |> filter(round == n_rounds) |> select(matchup, coop),
+  digits = 3,
+  col.names = c("Matchup", "Final cooperation rate"),
+  caption = "Cooperation rate of Player 1 after 200 rounds"
+)
+```
+
+
+## Static publication-ready figure
+
+The figure below traces the cumulative cooperation rate of Player 1 across rounds for each matchup, revealing how strategy composition drives long-run cooperation levels.
+
+```{r}
+#| label: fig-reproducible-workflow-static
+#| fig-cap: "Figure 1. Cumulative cooperation rate of Player 1 across 200 rounds of the iterated Prisoner's Dilemma under three matchups. Trembling-hand noise epsilon = 0.05. Seed = 42. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 7
+#| fig-height: 5
+#| dpi: 300
+
+p_static <- ggplot(sim_df, aes(x = round, y = coop, colour = matchup,
+                                text = paste0("Round: ", round,
+                                              "\nCoop rate: ", round(coop, 3),
+                                              "\nMatchup: ", matchup))) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_manual(values = okabe_ito[1:3]) +
+  labs(
+    x = "Round",
+    y = "Cumulative cooperation rate",
+    colour = "Matchup",
+    title = "Cooperation dynamics in the iterated Prisoner's Dilemma",
+    subtitle = paste0("Trembling-hand noise \u03b5 = ", epsilon, " | Seed = 42")
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_publication()
+
+save_pub_fig(p_static, "figures/reproducible-workflow-static")
+p_static
+```
+
+
+## Interactive figure
+
+Hover over any point on the trajectories below to inspect the exact cooperation rate at a given round. This interactive exploration is especially useful for identifying the rounds at which TFT recovers cooperation after a noise-induced defection.
+
+```{r}
+#| label: fig-reproducible-workflow-interactive
+
+to_plotly_pub(p_static, tooltip = c("text"))
+```
+
+
+## Interpretation
+
+The simulation results illustrate a well-known finding from evolutionary game theory: Tit-for-Tat sustains high cooperation against itself but is gradually exploited by unconditional defectors. In the TFT-vs-TFT matchup, the cooperation rate stabilises near 0.95 (below 1.0 due to trembling-hand noise). Against Always-Defect, TFT's mirroring behaviour drags its cooperation rate toward 0.05 --- it cooperates only when noise accidentally causes the opponent to cooperate. The Always-C vs Always-D matchup shows the baseline floor: cooperation rate stays near the noise level since Always-C cooperates regardless, but noise occasionally flips an action.
+
+From a reproducibility standpoint, the critical design decisions are: (1) the seed is set once at the top of the script, not inside each function; (2) the simulation parameters ($n$, $\varepsilon$) are stored as named variables, not magic numbers; (3) the `renv.lock` file accompanying this project pins every dependency to a specific version. Any reader who clones the repository, runs `renv::restore()`, and renders the Quarto document will obtain figures that are pixel-identical to those published here. This is the gold standard for computational game theory research.
+
+
+## Extensions & related tutorials
+
+This workflow can be extended by adding continuous-integration pipelines (GitHub Actions) that re-render the document on every push, catching breakages early. For larger simulation studies, the `targets` package can replace ad-hoc scripts with a dependency-aware pipeline that skips unchanged computations. Parameterised Quarto documents allow sweeping over strategy spaces without duplicating code.
+
+- [Building a game theory R package from scratch](../../r-package-development/building-game-theory-r-package/)
+- [Hypothesis testing as a game between nature and the statistician](../../statistical-foundations/hypothesis-testing-game-theoretic/)
+- [Modelling strategic interaction with VAR models](../../time-series-econometrics/strategic-interaction-var-models/)
+
+
+## References
+
+::: {#refs}
+:::

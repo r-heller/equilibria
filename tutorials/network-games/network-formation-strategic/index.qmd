@@ -1,0 +1,295 @@
+---
+title: "Strategic network formation — who links with whom?"
+description: "Implement the Jackson-Wolinsky connections model in R, analyse pairwise stability and efficiency of network structures, and visualise the tension between stable and efficient networks using igraph."
+author: "Raban Heller"
+date: 2026-05-08
+categories:
+  - network-games
+  - network-formation
+  - pairwise-stability
+keywords: ["network formation", "Jackson-Wolinsky", "connections model", "pairwise stability", "efficiency", "star network", "complete network", "igraph", "R"]
+labels: ["network-games", "strategic-formation"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_network-games_network-formation-strategic"
+image: thumbnail.png
+image-alt: "Comparison of star and complete network structures with utility annotations showing pairwise stability"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/network-games/network-formation-strategic/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+Networks are everywhere in strategic life: firms form alliances, countries sign treaties, researchers co-author papers, and individuals choose friendships. But unlike random graphs, real networks are shaped by strategic choices — agents form links when the benefits of connection outweigh the costs. The foundational model for understanding this process is the Jackson-Wolinsky connections model (1996), which assigns each agent a utility that depends on the entire network topology. Direct links provide benefits but cost resources to maintain; indirect connections (friends of friends) provide decaying benefits at no direct cost. The central questions are: which networks are stable (no agent wants to sever a link, and no pair of agents wants to add one) and which are efficient (maximise total utility)? The striking result is that stable and efficient networks often diverge: the star network may be efficient because it connects everyone at minimal total cost, but it is unstable because the hub bears disproportionate costs. Conversely, the complete network may be stable when link costs are low but is inefficient due to redundant connections. This tension between stability and efficiency is the network-formation analogue of the Prisoner's Dilemma — individual rationality fails to produce the socially optimal outcome. Understanding this tension is essential for policy: when should we subsidise link formation, and when should we discourage it? This tutorial implements the connections model in R using igraph, computes pairwise stability for candidate networks, evaluates efficiency, and visualises the results across the parameter space.
+
+
+## Mathematical formulation
+
+Consider $n$ agents. A **network** $g$ is a set of undirected links $\{ij\}$. In the **Jackson-Wolinsky connections model**, agent $i$'s utility in network $g$ is:
+
+$$
+u_i(g) = \sum_{j \neq i} \delta^{d_{ij}(g)} - \sum_{j : ij \in g} c
+$$
+
+where $d_{ij}(g)$ is the geodesic distance between $i$ and $j$ (set to $\infty$ if disconnected, with $\delta^\infty = 0$), $\delta \in (0, 1)$ is the decay parameter measuring the value of indirect connections, and $c > 0$ is the cost per direct link.
+
+A network $g$ is **pairwise stable** if:
+
+1. No agent benefits from severing a link: $u_i(g) \geq u_i(g - ij)$ for all $ij \in g$.
+2. No pair benefits from adding a link: if $u_i(g + ij) > u_i(g)$, then $u_j(g + ij) < u_j(g)$ for all $ij \notin g$.
+
+A network is **efficient** if it maximises total utility $W(g) = \sum_i u_i(g)$.
+
+**Key results** (Jackson & Wolinsky, 1996):
+
+- If $c < \delta - \delta^2$: the complete network is the unique pairwise stable and efficient network.
+- If $\delta - \delta^2 < c < \delta$: the star network is efficient but not necessarily pairwise stable.
+- If $c > \delta$: the empty network is pairwise stable.
+
+
+## R implementation
+
+We implement the connections model using igraph for network operations and compute utility, pairwise stability, and efficiency.
+
+```{r}
+#| label: network-formation-implementation
+
+library(igraph)
+
+# Compute utility for agent i in network g
+jw_utility <- function(g, i, delta, cost) {
+  n <- vcount(g)
+  dists <- distances(g, v = i, to = V(g))
+  benefit <- sum(delta^dists[dists < Inf & dists > 0])
+  n_links <- degree(g, v = i)
+  benefit - n_links * cost
+}
+
+# Total welfare
+jw_welfare <- function(g, delta, cost) {
+  sum(sapply(V(g), function(i) jw_utility(g, i, delta, cost)))
+}
+
+# Check pairwise stability
+is_pairwise_stable <- function(g, delta, cost) {
+  n <- vcount(g)
+
+  # Check no agent wants to sever a link
+  for (e in E(g)) {
+    endpoints <- ends(g, e)
+    i <- endpoints[1]; j <- endpoints[2]
+    g_minus <- delete_edges(g, e)
+    if (jw_utility(g_minus, i, delta, cost) > jw_utility(g, i, delta, cost)) {
+      return(FALSE)
+    }
+    if (jw_utility(g_minus, j, delta, cost) > jw_utility(g, j, delta, cost)) {
+      return(FALSE)
+    }
+  }
+
+  # Check no pair wants to add a link
+  for (i in 1:(n-1)) {
+    for (j in (i+1):n) {
+      if (!are_adjacent(g, i, j)) {
+        g_plus <- add_edges(g, c(i, j))
+        gain_i <- jw_utility(g_plus, i, delta, cost) - jw_utility(g, i, delta, cost)
+        gain_j <- jw_utility(g_plus, j, delta, cost) - jw_utility(g, j, delta, cost)
+        if (gain_i > 0 && gain_j > 0) return(FALSE)
+      }
+    }
+  }
+  TRUE
+}
+
+# --- Analysis for n=5 agents ---
+n <- 5
+
+# Candidate networks
+empty_net <- make_empty_graph(n, directed = FALSE)
+star_net <- make_star(n, mode = "undirected")
+complete_net <- make_full_graph(n, directed = FALSE)
+cycle_net <- make_ring(n, directed = FALSE)
+
+networks <- list(
+  "Empty" = empty_net,
+  "Star" = star_net,
+  "Cycle" = cycle_net,
+  "Complete" = complete_net
+)
+
+# Evaluate across parameter space
+delta <- 0.5
+costs <- c(0.05, 0.15, 0.3, 0.6)
+
+results <- bind_rows(lapply(costs, function(c_val) {
+  bind_rows(lapply(names(networks), function(net_name) {
+    g <- networks[[net_name]]
+    tibble(
+      cost = c_val,
+      network = net_name,
+      welfare = jw_welfare(g, delta, c_val),
+      stable = is_pairwise_stable(g, delta, c_val),
+      n_edges = ecount(g)
+    )
+  }))
+}))
+
+cat("=== Jackson-Wolinsky analysis (delta = 0.5, n = 5) ===\n")
+print(as.data.frame(results))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-network-formation-static
+#| fig-cap: "Figure 1. Total welfare of four network structures in the Jackson-Wolinsky connections model as a function of link cost (delta = 0.5, n = 5). At low cost, the complete network is both efficient and stable. As cost rises, the star becomes efficient but may not be stable — the hub pays too much. At high cost, only the empty network survives. Solid points indicate pairwise stable networks. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 7
+#| fig-height: 5
+#| dpi: 300
+
+# Fine-grained cost sweep
+cost_seq <- seq(0.01, 0.7, by = 0.005)
+sweep_results <- bind_rows(lapply(cost_seq, function(c_val) {
+  bind_rows(lapply(names(networks), function(net_name) {
+    g <- networks[[net_name]]
+    tibble(
+      cost = c_val,
+      network = net_name,
+      welfare = jw_welfare(g, delta, c_val)
+    )
+  }))
+}))
+
+# Mark pairwise stability at sampled points
+stability_points <- bind_rows(lapply(seq(0.02, 0.68, by = 0.04), function(c_val) {
+  bind_rows(lapply(names(networks), function(net_name) {
+    g <- networks[[net_name]]
+    tibble(
+      cost = c_val,
+      network = net_name,
+      welfare = jw_welfare(g, delta, c_val),
+      stable = is_pairwise_stable(g, delta, c_val)
+    )
+  })) |> filter(stable)
+}))
+
+p_welfare <- ggplot(sweep_results, aes(x = cost, y = welfare, color = network)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(data = stability_points, aes(x = cost, y = welfare),
+             size = 2, alpha = 0.7) +
+  geom_vline(xintercept = c(delta - delta^2, delta),
+             linetype = "dashed", color = "grey50", linewidth = 0.3) +
+  annotate("text", x = delta - delta^2, y = max(sweep_results$welfare) * 0.95,
+           label = expression(delta - delta^2), size = 3, hjust = -0.1) +
+  annotate("text", x = delta, y = max(sweep_results$welfare) * 0.95,
+           label = expression(delta), size = 3, hjust = -0.1) +
+  scale_color_manual(values = c("Empty" = okabe_ito[8],
+                                  "Star" = okabe_ito[1],
+                                  "Cycle" = okabe_ito[3],
+                                  "Complete" = okabe_ito[5]),
+                      name = "Network") +
+  labs(
+    title = "Welfare comparison across network structures",
+    subtitle = expression(paste("Jackson-Wolinsky model: ", delta, " = 0.5, n = 5. Dots = pairwise stable.")),
+    x = "Link cost (c)", y = "Total welfare W(g)"
+  ) +
+  theme_publication()
+
+p_welfare
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-network-formation-interactive
+
+# Interactive: vary delta and cost, show which network is efficient
+delta_seq <- seq(0.1, 0.9, by = 0.02)
+cost_seq_2 <- seq(0.01, 0.8, by = 0.02)
+
+regime_data <- expand.grid(delta = delta_seq, cost = cost_seq_2) |>
+  as_tibble() |>
+  mutate(
+    efficient = mapply(function(d, c_val) {
+      welfares <- sapply(networks, function(g) jw_welfare(g, d, c_val))
+      names(which.max(welfares))
+    }, delta, cost),
+    text = paste0("delta = ", round(delta, 2),
+                  "\ncost = ", round(cost, 2),
+                  "\nEfficient: ", efficient)
+  )
+
+p_regime <- ggplot(regime_data, aes(x = delta, y = cost,
+                                      fill = efficient, text = text)) +
+  geom_tile() +
+  scale_fill_manual(values = c("Empty" = okabe_ito[8],
+                                 "Star" = okabe_ito[1],
+                                 "Cycle" = okabe_ito[3],
+                                 "Complete" = okabe_ito[5]),
+                     name = "Efficient\nnetwork") +
+  labs(
+    title = "Efficient network structure across parameter space",
+    subtitle = "Jackson-Wolinsky connections model, n = 5",
+    x = expression(delta~"(decay parameter)"),
+    y = "Link cost (c)"
+  ) +
+  theme_publication() +
+  theme(panel.grid = element_blank())
+
+ggplotly(p_regime, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The Jackson-Wolinsky connections model reveals a fundamental tension in strategic network formation that mirrors classical game-theoretic dilemmas. At low link costs ($c < \delta - \delta^2$), connections are cheap enough that everyone benefits from linking to everyone else — the complete network is both efficient and pairwise stable, a happy alignment of individual and social incentives. As costs rise into the intermediate range ($\delta - \delta^2 < c < \delta$), the efficient network structure transitions to the star: a single hub connects all peripheral agents, minimising total link costs while maintaining connectivity. But the star is often not pairwise stable because the hub agent bears $n-1$ link costs while peripheral agents bear only one — the hub may prefer to sever some links. This is the network analogue of the free-rider problem: peripheral agents benefit from the hub's investment without bearing proportional costs. The regime map in the interactive figure shows how the efficient network varies across the full $(\delta, c)$ parameter space, revealing sharp phase transitions between complete, star, and empty networks. The cycle network, while never the most efficient for $n = 5$, occupies an interesting middle ground — it is sometimes pairwise stable when neither the complete nor the star network is, because link costs and benefits are distributed symmetrically. These insights extend to policy design: subsidising link formation (reducing $c$) or increasing the value of indirect connections (raising $\delta$) can push the system toward denser, more efficient networks.
+
+
+## Extensions & related tutorials
+
+- [Centrality measures for game-theoretic networks](../../network-science/centrality-measures-game-theory/) — quantifying structural power in networks.
+- [Public goods games on networks](../../network-games/public-goods-networks/) — how network structure affects cooperation.
+- [The Prisoner's Dilemma — formal setup](../../classical-games/prisoners-dilemma-formal/) — the bilateral dilemma underlying link formation.
+- [Spatial evolutionary games](../../evolutionary-gt/spatial-games/) — evolution on fixed network structures.
+- [Mechanism design for networks](../../mechanism-design/network-mechanism-design/) — designing rules to promote efficient network formation.
+
+
+## References
+
+::: {#refs}
+:::
