@@ -35,3 +35,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 5.16 | Batch 4: 6 second articles (group A) | nudge, tragedy-of-commons, DiD-strategic, ZKP, dictator-game, nash-existence-proof |
 | 2026-05-08 | 5.17 | Batch 4: 6 second articles (group B) | VOI-games, LP-duality-zero-sum, fictitious-play, congestion-games, cascades, support-enumeration |
 | 2026-05-08 | 5.18 | Batch 4: 6 second articles (group C) | FRED-data, testthat-GT, quarto-params, bootstrap-GT, granger-causality, privacy-game |
+| 2026-05-09 | 5.19 | Batch 5: evolutionary-gt + cooperative-gt ×2 | hawk-dove-war-of-attrition, rubinstein-alternating-offers |
+| 2026-05-09 | 5.20 | Batch 5: 6 third articles (group A) | reserve-prices, reference-dependence, level-k, penalty-kicks, climate-coalition, ABM-markets |
+| 2026-05-09 | 5.21 | Batch 5: 6 third articles (group B) | trust-game, network-PG, mental-accounting, adversarial-ML, RDD-strategic, cheap-talk |
+| 2026-05-09 | 5.22 | Batch 5: 6 third articles (group C) | voting-paradoxes, plotly-dashboards, power-law-networks, eigenvalue-repeated, selten-THP, blockchain |
