@@ -13,24 +13,38 @@ jobs:
 
       - name: Check for static + interactive figures in each article
         run: |
-          exit_code=0
-          # Find article qmd files (not section index pages)
-          find tutorials -path "*/*/index.qmd" -not -path "tutorials/*/index.qmd" | while read f; do
-            has_static=$(grep -cE '(dev\s*=|save_pub_fig|fig\.format|\.pdf|\.png)' "$f" || echo 0)
-            has_interactive=$(grep -ciE '(plotly|htmlwidget|gganimate|shiny|app-embed)' "$f" || echo 0)
+          failed=0
+
+          # Find article qmd files: tutorials/<section>/<slug>/index.qmd
+          # Exclude section index pages and _template
+          for f in $(find tutorials -path "*/*/index.qmd" \
+                       -not -path "tutorials/*/index.qmd" \
+                       -not -path "tutorials/_template/*" 2>/dev/null); do
+
+            has_static=$(grep -cE '(dev\s*=|save_pub_fig|fig\.format|dpi.*300|\.pdf)' "$f" || true)
+            has_interactive=$(grep -ciE '(plotly|htmlwidget|gganimate|shiny|app-embed|iframe)' "$f" || true)
 
             if [ "$has_static" -eq 0 ]; then
-              echo "::warning file=${f}::Missing static figure reference"
+              echo "::error file=${f}::Missing static figure (need dev=[png,pdf] or save_pub_fig())"
+              failed=1
             fi
             if [ "$has_interactive" -eq 0 ]; then
-              echo "::warning file=${f}::Missing interactive figure reference"
+              echo "::error file=${f}::Missing interactive figure (need plotly/htmlwidget/gganimate/shiny)"
+              failed=1
             fi
           done
 
-          # Also check shiny tutorial pages
-          find shiny/tutorials -name "index.qmd" 2>/dev/null | while read f; do
-            has_interactive=$(grep -ciE '(plotly|htmlwidget|shiny|app-embed|iframe)' "$f" || echo 0)
+          # Check shiny tutorial pages for interactive elements
+          for f in $(find shiny/tutorials -name "index.qmd" 2>/dev/null); do
+            has_interactive=$(grep -ciE '(plotly|htmlwidget|shiny|app-embed|iframe)' "$f" || true)
             if [ "$has_interactive" -eq 0 ]; then
-              echo "::warning file=${f}::Missing interactive element reference"
+              echo "::error file=${f}::Missing interactive element (need plotly/htmlwidget/shiny/iframe)"
+              failed=1
             fi
           done
+
+          if [ "$failed" -eq 1 ]; then
+            echo "Figure check failed — see errors above"
+            exit 1
+          fi
+          echo "All articles have both static and interactive figures"
