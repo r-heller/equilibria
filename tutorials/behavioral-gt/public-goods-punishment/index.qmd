@@ -1,0 +1,481 @@
+---
+title: "The public goods game with punishment — sustaining cooperation through costly enforcement"
+description: "Implement the public goods game with and without costly punishment in R, simulate contribution dynamics with heterogeneous agent types, and reproduce the Fehr and Gaechter finding that punishment sustains cooperation where standard theory predicts free-riding."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - behavioral-gt
+  - public-goods
+  - punishment
+  - cooperation
+keywords: ["public goods game", "punishment", "cooperation", "free-riding", "Fehr Gaechter", "MPCR", "conditional cooperation", "social dilemma"]
+labels: ["behavioral-experiments", "cooperation"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_behavioral-gt_public-goods-punishment"
+image: thumbnail.png
+image-alt: "Line chart showing contribution dynamics over 10 rounds with and without punishment, demonstrating cooperation collapse without enforcement"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/behavioral-gt/public-goods-punishment/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+The public goods game is the canonical laboratory model of the free-rider problem — the central dilemma of collective action. Each of $N$ players receives an endowment and independently decides how much to contribute to a shared pool. Contributions are multiplied by a factor $M$ (the marginal per capita return, or MPCR, is $M/N$) and divided equally among all players, regardless of individual contributions. When $M > 1$ but $M < N$ (i.e., MPCR $< 1$), the socially optimal outcome is for everyone to contribute their full endowment (the total return $M$ exceeds the cost of 1), but the individually rational strategy is to contribute nothing (each unit contributed returns only $M/N < 1$ to the contributor). Standard game theory therefore predicts zero contributions in the unique Nash equilibrium — complete free-riding.
+
+Experimental evidence tells a dramatically different story. In one-shot public goods games, average contributions typically range from 40-60% of the endowment. In repeated games, contributions start at this level but decay steadily toward zero over 10-20 rounds, as participants observe free-riding by others and reduce their own contributions in response. This decay pattern is consistent with a population containing heterogeneous types: **conditional cooperators** (roughly 50% of participants), who contribute as long as others do, and **free-riders** (roughly 30%), who contribute little regardless [@fischbacher_2001]. The conditional cooperators gradually reduce contributions in response to the free-riders, triggering a spiral of declining cooperation.
+
+The landmark contribution of Ernst Fehr and Simon Gaechter (2000, 2002) was to show that introducing an opportunity for **costly punishment** — allowing players to spend their own money to reduce another player's payoff after observing contributions — dramatically changes the outcome [@fehr_gaechter_2000; @fehr_gaechter_2002]. With punishment available, contributions do not decay. Instead, they stabilise at high levels and often increase over time, approaching full cooperation. Free-riders are punished by conditional cooperators willing to sacrifice their own earnings to enforce the social norm, and the threat of punishment deters free-riding. This result was revolutionary because standard game-theoretic reasoning predicts that rational, self-interested players would never punish (it is costly and provides no direct benefit), and therefore the availability of punishment should make no difference. The subgame-perfect equilibrium of the public goods game with punishment is identical to that without punishment: zero contributions, zero punishment.
+
+The Fehr and Gaechter finding launched an enormous research programme on altruistic punishment, strong reciprocity, and the evolution of cooperation in social dilemmas. Subsequent work showed that punishment is more effective when it is targeted at the lowest contributors, when it is not too costly, and when groups can communicate and establish norms. Cross-cultural experiments have revealed that punishment patterns vary across societies, with some cultures exhibiting "antisocial punishment" (punishing high contributors), which undermines cooperation. This tutorial implements the public goods game with heterogeneous agent types, simulates contribution dynamics with and without punishment over 10 rounds, and reproduces the qualitative Fehr-Gaechter result that punishment sustains cooperation.
+
+
+## Mathematical formulation
+
+**Public goods game**: $N$ players each have endowment $E$. Player $i$ contributes $c_i \in [0, E]$ to the public pool. Payoffs:
+
+$$
+\pi_i = (E - c_i) + \frac{M}{N} \sum_{j=1}^{N} c_j
+$$
+
+where $M > 1$ is the multiplication factor and $M/N < 1$ is the MPCR (marginal per capita return).
+
+**Nash equilibrium** (standard preferences): Since $\partial \pi_i / \partial c_i = -1 + M/N < 0$, the dominant strategy is $c_i^* = 0$ for all $i$.
+
+**Social optimum**: Since $\partial \left(\sum_j \pi_j\right) / \partial c_i = -1 + M > 0$, full contribution $c_i = E$ maximises total welfare.
+
+**With punishment stage**: After observing contributions, each player $i$ can assign punishment points $p_{ij} \geq 0$ to each other player $j$, at cost $\gamma \cdot p_{ij}$ to themselves. Player $j$ loses $\kappa \cdot \sum_{i \neq j} p_{ij}$ from their payoff, where $\kappa > \gamma$ (punishment is efficiency-reducing but has leverage $\kappa / \gamma > 1$):
+
+$$
+\pi_i = (E - c_i) + \frac{M}{N} \sum_{j} c_j - \gamma \sum_{j \neq i} p_{ij} - \kappa \sum_{j \neq i} p_{ji}
+$$
+
+**SPE with punishment**: By backward induction, no rational player punishes ($p_{ij} = 0$), so the punishment stage is irrelevant and $c_i^* = 0$.
+
+**Behavioural model**: We model three agent types:
+
+- **Free-riders** ($\sim 30\%$): always contribute 0
+- **Conditional cooperators** ($\sim 50\%$): match the average contribution of others in the previous round
+- **Altruistic punishers** ($\sim 20\%$): conditional cooperators who also punish low contributors
+
+
+## R implementation
+
+```{r}
+#| label: public-goods-simulation
+
+set.seed(42)
+
+# Simulation parameters
+N <- 20           # group size
+E <- 20           # endowment
+M <- 1.6          # multiplication factor (MPCR = 0.08)
+n_rounds <- 10
+n_simulations <- 50
+
+# Agent type assignment
+assign_types <- function(N) {
+  types <- sample(c("free_rider", "conditional", "punisher"),
+                  N, replace = TRUE, prob = c(0.3, 0.5, 0.2))
+  types
+}
+
+# Simulate one game without punishment
+simulate_no_punishment <- function(N, E, M, n_rounds) {
+  types <- assign_types(N)
+  contributions <- matrix(0, nrow = n_rounds, ncol = N)
+  payoffs <- matrix(0, nrow = n_rounds, ncol = N)
+
+  # Round 1: initial contributions
+  for (i in 1:N) {
+    if (types[i] == "free_rider") {
+      contributions[1, i] <- 0
+    } else {
+      # Conditional cooperators and punishers start at 50-70% of endowment
+      contributions[1, i] <- round(runif(1, 0.5, 0.7) * E)
+    }
+  }
+
+  # Compute payoffs for round 1
+  total_contrib <- sum(contributions[1, ])
+  for (i in 1:N) {
+    payoffs[1, i] <- (E - contributions[1, i]) + (M / N) * total_contrib
+  }
+
+  # Subsequent rounds
+  for (r in 2:n_rounds) {
+    avg_others <- numeric(N)
+    for (i in 1:N) {
+      avg_others[i] <- (sum(contributions[r-1, ]) - contributions[r-1, i]) / (N - 1)
+    }
+
+    for (i in 1:N) {
+      if (types[i] == "free_rider") {
+        contributions[r, i] <- 0
+      } else {
+        # Conditional cooperators match avg of others (with noise)
+        target <- avg_others[i] + rnorm(1, 0, 1)
+        # Slight decay due to frustration with free-riders
+        target <- target * 0.9
+        contributions[r, i] <- max(0, min(E, round(target)))
+      }
+    }
+
+    total_contrib <- sum(contributions[r, ])
+    for (i in 1:N) {
+      payoffs[r, i] <- (E - contributions[r, i]) + (M / N) * total_contrib
+    }
+  }
+
+  list(contributions = contributions, payoffs = payoffs, types = types)
+}
+
+# Simulate one game with punishment
+simulate_with_punishment <- function(N, E, M, n_rounds,
+                                     gamma = 1, kappa = 3) {
+  types <- assign_types(N)
+  contributions <- matrix(0, nrow = n_rounds, ncol = N)
+  payoffs <- matrix(0, nrow = n_rounds, ncol = N)
+  punishment_given <- matrix(0, nrow = n_rounds, ncol = N)
+  punishment_received <- matrix(0, nrow = n_rounds, ncol = N)
+
+  # Round 1: initial contributions (same as no-punishment)
+  for (i in 1:N) {
+    if (types[i] == "free_rider") {
+      contributions[1, i] <- round(runif(1, 0, 0.1) * E)  # small initial contribution
+    } else {
+      contributions[1, i] <- round(runif(1, 0.5, 0.7) * E)
+    }
+  }
+
+  # Punishment stage for round 1
+  avg_contrib <- mean(contributions[1, ])
+  for (i in 1:N) {
+    if (types[i] == "punisher") {
+      # Punish those contributing below average
+      for (j in 1:N) {
+        if (j != i && contributions[1, j] < avg_contrib * 0.5) {
+          punish_amount <- min(3, round((avg_contrib - contributions[1, j]) / 3))
+          punishment_given[1, i] <- punishment_given[1, i] + gamma * max(0, punish_amount)
+          punishment_received[1, j] <- punishment_received[1, j] + kappa * max(0, punish_amount)
+        }
+      }
+    }
+  }
+
+  total_contrib <- sum(contributions[1, ])
+  for (i in 1:N) {
+    payoffs[1, i] <- (E - contributions[1, i]) + (M / N) * total_contrib -
+      punishment_given[1, i] - punishment_received[1, i]
+  }
+
+  # Subsequent rounds
+  for (r in 2:n_rounds) {
+    avg_others <- numeric(N)
+    for (i in 1:N) {
+      avg_others[i] <- (sum(contributions[r-1, ]) - contributions[r-1, i]) / (N - 1)
+    }
+
+    for (i in 1:N) {
+      if (types[i] == "free_rider") {
+        # Free-riders increase contributions to avoid punishment
+        if (punishment_received[r-1, i] > 0) {
+          contributions[r, i] <- min(E, contributions[r-1, i] +
+                                       round(punishment_received[r-1, i] / kappa * 2))
+        } else {
+          # Gradually reduce if not punished
+          contributions[r, i] <- max(0, contributions[r-1, i] - 1)
+        }
+      } else {
+        # Conditional cooperators / punishers match others
+        target <- avg_others[i] + rnorm(1, 0, 1)
+        contributions[r, i] <- max(0, min(E, round(target)))
+      }
+    }
+
+    # Punishment stage
+    avg_contrib <- mean(contributions[r, ])
+    punishment_given[r, ] <- 0
+    punishment_received[r, ] <- 0
+
+    for (i in 1:N) {
+      if (types[i] == "punisher") {
+        for (j in 1:N) {
+          if (j != i && contributions[r, j] < avg_contrib * 0.5) {
+            punish_amount <- min(3, round((avg_contrib - contributions[r, j]) / 3))
+            punishment_given[r, i] <- punishment_given[r, i] + gamma * max(0, punish_amount)
+            punishment_received[r, j] <- punishment_received[r, j] + kappa * max(0, punish_amount)
+          }
+        }
+      }
+    }
+
+    total_contrib <- sum(contributions[r, ])
+    for (i in 1:N) {
+      payoffs[r, i] <- (E - contributions[r, i]) + (M / N) * total_contrib -
+        punishment_given[r, i] - punishment_received[r, i]
+    }
+  }
+
+  list(contributions = contributions, payoffs = payoffs, types = types,
+       punishment_given = punishment_given, punishment_received = punishment_received)
+}
+
+# Run multiple simulations
+no_punish_results <- data.frame()
+punish_results <- data.frame()
+
+for (sim in 1:n_simulations) {
+  np <- simulate_no_punishment(N, E, M, n_rounds)
+  wp <- simulate_with_punishment(N, E, M, n_rounds)
+
+  for (r in 1:n_rounds) {
+    no_punish_results <- rbind(no_punish_results, data.frame(
+      sim = sim, round = r,
+      avg_contribution = mean(np$contributions[r, ]),
+      avg_payoff = mean(np$payoffs[r, ]),
+      condition = "No punishment"
+    ))
+    punish_results <- rbind(punish_results, data.frame(
+      sim = sim, round = r,
+      avg_contribution = mean(wp$contributions[r, ]),
+      avg_payoff = mean(wp$payoffs[r, ]),
+      condition = "With punishment"
+    ))
+  }
+}
+
+all_results <- rbind(no_punish_results, punish_results)
+
+# Summary statistics
+summary_stats <- all_results %>%
+  group_by(condition, round) %>%
+  summarise(
+    mean_contrib = mean(avg_contribution),
+    se_contrib = sd(avg_contribution) / sqrt(n()),
+    mean_payoff = mean(avg_payoff),
+    .groups = "drop"
+  )
+
+cat("Average contributions by round:\n")
+cat("Round | No Punishment | With Punishment\n")
+cat("------|---------------|----------------\n")
+for (r in 1:n_rounds) {
+  np_val <- summary_stats$mean_contrib[summary_stats$condition == "No punishment" &
+                                         summary_stats$round == r]
+  wp_val <- summary_stats$mean_contrib[summary_stats$condition == "With punishment" &
+                                         summary_stats$round == r]
+  cat(sprintf("  %3d | %12.1f  | %14.1f\n", r, np_val, wp_val))
+}
+
+cat(sprintf("\nContribution as %% of endowment in round 10:\n"))
+cat(sprintf("  No punishment:   %.1f%%\n",
+            100 * summary_stats$mean_contrib[summary_stats$condition == "No punishment" &
+                                               summary_stats$round == 10] / E))
+cat(sprintf("  With punishment: %.1f%%\n",
+            100 * summary_stats$mean_contrib[summary_stats$condition == "With punishment" &
+                                               summary_stats$round == 10] / E))
+```
+
+```{r}
+#| label: type-analysis
+
+# Detailed analysis of one simulation
+set.seed(42)
+detail_np <- simulate_no_punishment(N, E, M, n_rounds)
+detail_wp <- simulate_with_punishment(N, E, M, n_rounds)
+
+# Contribution dynamics by type
+type_dynamics_np <- data.frame()
+type_dynamics_wp <- data.frame()
+
+for (r in 1:n_rounds) {
+  for (type in c("free_rider", "conditional", "punisher")) {
+    idx <- which(detail_np$types == type)
+    if (length(idx) > 0) {
+      type_dynamics_np <- rbind(type_dynamics_np, data.frame(
+        round = r,
+        type = type,
+        avg_contribution = mean(detail_np$contributions[r, idx]),
+        condition = "No punishment"
+      ))
+    }
+    idx_wp <- which(detail_wp$types == type)
+    if (length(idx_wp) > 0) {
+      type_dynamics_wp <- rbind(type_dynamics_wp, data.frame(
+        round = r,
+        type = type,
+        avg_contribution = mean(detail_wp$contributions[r, idx_wp]),
+        condition = "With punishment"
+      ))
+    }
+  }
+}
+
+type_dynamics <- rbind(type_dynamics_np, type_dynamics_wp)
+
+cat("\nContribution dynamics by agent type (single simulation):\n\n")
+cat("Without punishment:\n")
+for (type in c("free_rider", "conditional", "punisher")) {
+  vals <- type_dynamics_np %>%
+    filter(type == !!type) %>%
+    arrange(round) %>%
+    pull(avg_contribution)
+  cat(sprintf("  %-20s: R1=%.1f, R5=%.1f, R10=%.1f\n",
+              type, vals[1], vals[5], vals[10]))
+}
+
+cat("\nWith punishment:\n")
+for (type in c("free_rider", "conditional", "punisher")) {
+  vals <- type_dynamics_wp %>%
+    filter(type == !!type) %>%
+    arrange(round) %>%
+    pull(avg_contribution)
+  cat(sprintf("  %-20s: R1=%.1f, R5=%.1f, R10=%.1f\n",
+              type, vals[1], vals[5], vals[10]))
+}
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-contribution-dynamics
+#| fig-cap: "Contribution dynamics in the public goods game with and without punishment, averaged across 50 simulations of 20-player groups (MPCR = 0.08)"
+#| fig-width: 9
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+p_static <- ggplot(summary_stats, aes(x = round, y = mean_contrib, color = condition)) +
+  geom_ribbon(aes(ymin = mean_contrib - 1.96 * se_contrib,
+                  ymax = mean_contrib + 1.96 * se_contrib,
+                  fill = condition), alpha = 0.15, color = NA) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey50") +
+  geom_hline(yintercept = E, linetype = "dotted", color = "grey50") +
+  annotate("text", x = 0.7, y = E + 0.5, label = "Full cooperation",
+           hjust = 0, size = 3, color = "grey40") +
+  annotate("text", x = 0.7, y = -0.8, label = "Nash equilibrium (0)",
+           hjust = 0, size = 3, color = "grey40") +
+  scale_color_manual(values = c("No punishment" = okabe_ito[6],
+                                "With punishment" = okabe_ito[3])) +
+  scale_fill_manual(values = c("No punishment" = okabe_ito[6],
+                               "With punishment" = okabe_ito[3])) +
+  scale_x_continuous(breaks = 1:10) +
+  scale_y_continuous(limits = c(-2, E + 2)) +
+  labs(
+    title = "Costly punishment sustains cooperation in the public goods game",
+    subtitle = sprintf("N = %d players, endowment = %d, MPCR = %.2f, 50 simulations", N, E, M/N),
+    x = "Round", y = "Average contribution",
+    color = NULL, fill = NULL
+  ) +
+  theme_publication()
+
+p_static
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-type-dynamics-interactive
+#| fig-cap: "Interactive view of contribution dynamics by agent type and punishment condition (hover for details)"
+
+type_summary <- type_dynamics %>%
+  mutate(
+    type_label = case_match(type,
+      "free_rider" ~ "Free-rider",
+      "conditional" ~ "Conditional cooperator",
+      "punisher" ~ "Altruistic punisher"
+    ),
+    tooltip_text = paste0(
+      "Round: ", round, "\n",
+      "Type: ", type_label, "\n",
+      "Condition: ", condition, "\n",
+      "Avg. contribution: ", round(avg_contribution, 1)
+    )
+  )
+
+p_interactive <- ggplot(type_summary,
+                        aes(x = round, y = avg_contribution,
+                            color = type_label, linetype = condition,
+                            text = tooltip_text)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("Free-rider" = okabe_ito[6],
+                                "Conditional cooperator" = okabe_ito[1],
+                                "Altruistic punisher" = okabe_ito[3])) +
+  scale_linetype_manual(values = c("No punishment" = "dashed",
+                                   "With punishment" = "solid")) +
+  scale_x_continuous(breaks = 1:10) +
+  labs(
+    title = "Contribution dynamics by agent type",
+    x = "Round", y = "Average contribution",
+    color = "Agent type", linetype = "Condition"
+  ) +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") %>%
+  config(displaylogo = FALSE)
+```
+
+
+## Interpretation
+
+The simulation results reproduce the central qualitative finding of Fehr and Gaechter: costly punishment fundamentally transforms cooperation dynamics in the public goods game.
+
+**Without punishment**, the classic decay pattern emerges. Conditional cooperators begin with moderate contributions (50-70% of endowment), but as they observe the low contributions of free-riders, they gradually reduce their own contributions in successive rounds. This creates a downward spiral: lower average contributions lead conditional cooperators to contribute less in the next round, which further reduces the average, and so on. By round 10, average contributions have decayed substantially toward the Nash equilibrium prediction of zero. The free-riders maintain their advantage throughout — they earn higher payoffs than cooperators because they enjoy the public good without bearing the cost.
+
+**With punishment**, the dynamics are qualitatively different. Altruistic punishers impose costs on free-riders in the early rounds, which creates a credible deterrent. Free-riders, facing reduced payoffs from punishment, increase their contributions in subsequent rounds to avoid further sanctions. This stabilises the average contribution at a high level, which in turn sustains the cooperation of conditional cooperators (who see others contributing and reciprocate). The result is a virtuous cycle that is the mirror image of the vicious cycle in the no-punishment condition.
+
+The type-level analysis reveals the mechanism in detail. Free-riders are the primary target of punishment, and their behavioural response (increasing contributions to avoid punishment) is the key driver of sustained cooperation. Conditional cooperators benefit indirectly: the punishment of free-riders keeps average contributions high, which sustains the conditional cooperators' willingness to contribute. The altruistic punishers themselves bear a net cost — they spend resources on punishment — but their individual sacrifice generates a group-level benefit that exceeds its cost.
+
+This result poses a deep puzzle for standard economic theory: why would anyone incur a cost to punish, especially in one-shot or finitely repeated games where there is no future benefit to establishing a reputation? Explanations range from evolution (groups with punishers outcompete groups without them) to social preferences (punishers derive utility from norm enforcement) to cultural evolution (punishment norms are socially transmitted and self-reinforcing). Whatever the ultimate explanation, the empirical regularity is robust: human beings engage in costly punishment, and this behavioural tendency has profound consequences for the sustainability of cooperation in social dilemmas.
+
+
+## Extensions & related tutorials
+
+- **[Ultimatum game](../ultimatum-game-fairness/)**: Another paradigm demonstrating costly punishment of unfairness, where responders sacrifice money to reject low offers.
+- **[Introduction to mechanism design](../../mechanism-design/mechanism-design-intro/)**: Formal mechanisms (like the pivotal mechanism) can solve public goods problems without relying on behavioural punishment.
+- **[VCG mechanism](../../mechanism-design/vcg-mechanism/)**: The mechanism design approach to efficient public goods provision, contrasting with the behavioural approach studied here.
+- **[Core stability](../../cooperative-gt/core-stability/)**: The cooperative game theory perspective on when groups can sustain mutually beneficial outcomes.
+
+
+## References
+
+::: {#refs}
+:::
