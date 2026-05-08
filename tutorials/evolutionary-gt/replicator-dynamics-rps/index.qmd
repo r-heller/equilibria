@@ -1,0 +1,232 @@
+---
+title: "Replicator dynamics for Rock-Paper-Scissors with deSolve"
+description: "Derive and simulate the replicator dynamics for the Rock-Paper-Scissors game in R using deSolve, visualizing cyclic orbits on the 2-simplex."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - evolutionary-gt
+  - replicator-dynamics
+  - rock-paper-scissors
+  - deSolve
+keywords: ["replicator dynamics", "rock-paper-scissors", "simplex", "evolutionary game theory", "deSolve"]
+labels: ["evolutionary-dynamics", "cyclic-games"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_evolutionary-gt_replicator-dynamics-rps"
+image: thumbnail.png
+image-alt: "Phase portrait showing cyclic replicator dynamics orbits on the RPS simplex"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/replicator-dynamics-rps/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: "replicator-dynamics-rps-simplex"
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(deSolve)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+Rock-Paper-Scissors (RPS) is the simplest game with no pure-strategy Nash equilibrium and no evolutionary stable strategy — only a mixed equilibrium at $(1/3, 1/3, 1/3)$. When embedded in a large population playing according to the replicator dynamics, RPS produces closed cyclic orbits around the interior equilibrium rather than convergence to it. This makes RPS the canonical example for illustrating how evolutionary dynamics can differ qualitatively from static equilibrium analysis. The replicator dynamics, introduced by @taylor_jonker_1978, describes how the frequency of each strategy in a population changes over time: strategies that earn above-average payoffs grow, while those earning below-average payoffs shrink. For RPS, the resulting trajectories form nested closed curves — the system is **conservative** (it has a constant of motion analogous to energy in Hamiltonian mechanics), so orbits never spiral in or out. This tutorial derives the replicator equations for RPS, solves them numerically with the `deSolve` package in R, and visualizes the orbits both in time-series form and on the 2-simplex using barycentric coordinates. Understanding replicator dynamics on this simple game builds the foundation for analyzing richer evolutionary games with multiple strategies and complex fitness landscapes.
+
+
+## Mathematical formulation
+
+The RPS payoff matrix (row player's payoffs against column player's strategy) is:
+
+$$
+A = \begin{pmatrix} 0 & -1 & 1 \\ 1 & 0 & -1 \\ -1 & 1 & 0 \end{pmatrix}
+$$
+
+where $a_{ij}$ is the payoff to a player using strategy $i$ against a player using strategy $j$. Let $x = (x_R, x_P, x_S)$ be the population state on the 2-simplex ($x_i \geq 0$, $\sum x_i = 1$). The fitness of strategy $i$ is $(Ax)_i = \sum_j a_{ij} x_j$ and the average population fitness is $\bar{f} = x^\top A x$. The **replicator equation** is:
+
+$$
+\dot{x}_i = x_i \left[ (Ax)_i - x^\top A x \right], \quad i \in \{R, P, S\}
+$$
+
+For the RPS matrix, the interior equilibrium $x^* = (1/3, 1/3, 1/3)$ is the unique Nash equilibrium. A remarkable property of RPS under the replicator dynamics is the existence of a conserved quantity. Define $V(x) = x_R \cdot x_P \cdot x_S$. One can verify that $\dot{V} = 0$ along any trajectory, so $V$ is a **constant of motion** — every orbit lies on a level set $\{x : x_R x_P x_S = c\}$, which is a closed curve on the simplex [@maynard_smith_1982]. The maximum of $V$ occurs at the interior equilibrium where $V(x^*) = 1/27$. This Lyapunov-like structure ensures that orbits neither converge to $x^*$ nor diverge to the boundary — they cycle perpetually, as observed empirically in biological RPS systems such as the side-blotched lizard *Uta stansburiana*.
+
+
+## R implementation
+
+We implement the replicator dynamics as an ODE system and solve it with `deSolve::ode()`.
+
+```{r}
+#| label: replicator-ode
+
+# RPS payoff matrix
+A_rps <- matrix(c(0, -1, 1,
+                   1,  0, -1,
+                  -1,  1, 0), nrow = 3, byrow = TRUE)
+
+# Replicator dynamics ODE
+replicator_rps <- function(t, state, parms) {
+  x <- state
+  A <- parms$A
+  fitness <- as.numeric(A %*% x)
+  avg_fitness <- sum(x * fitness)
+  dxdt <- x * (fitness - avg_fitness)
+  list(dxdt)
+}
+
+# Solve from several initial conditions
+times <- seq(0, 40, by = 0.05)
+initial_conditions <- list(
+  c(0.5, 0.3, 0.2),
+  c(0.6, 0.2, 0.2),
+  c(0.8, 0.1, 0.1),
+  c(0.34, 0.33, 0.33)
+)
+
+all_trajectories <- lapply(seq_along(initial_conditions), function(k) {
+  x0 <- initial_conditions[[k]]
+  sol <- ode(y = x0, times = times, func = replicator_rps,
+             parms = list(A = A_rps), method = "rk4")
+  df <- as.data.frame(sol)
+  names(df) <- c("time", "Rock", "Paper", "Scissors")
+  df$trajectory <- paste0("IC", k)
+  df$V <- df$Rock * df$Paper * df$Scissors
+  df
+})
+
+traj_df <- bind_rows(all_trajectories)
+
+cat("Conserved quantity V = x_R * x_P * x_S for each trajectory:\n")
+traj_df |>
+  group_by(trajectory) |>
+  summarise(V_start = first(V), V_end = last(V),
+            V_range = max(V) - min(V), .groups = "drop") |>
+  print()
+```
+
+
+## Static publication-ready figure
+
+We plot the time series of all three strategy frequencies for one trajectory, showing the characteristic cyclic pattern.
+
+```{r}
+#| label: fig-rps-timeseries
+#| fig-cap: "Figure 1. Replicator dynamics for Rock-Paper-Scissors from initial state (0.5, 0.3, 0.2). Strategy frequencies cycle perpetually around the interior equilibrium (1/3, 1/3, 1/3) without converging. The conserved quantity V = x_R x_P x_S remains constant along the orbit. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 8
+#| fig-height: 5
+#| dpi: 300
+
+traj1 <- traj_df |> filter(trajectory == "IC1")
+traj1_long <- traj1 |>
+  select(time, Rock, Paper, Scissors) |>
+  pivot_longer(-time, names_to = "Strategy", values_to = "Frequency")
+
+p_ts <- ggplot(traj1_long, aes(x = time, y = Frequency, color = Strategy)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = 1/3, linetype = "dashed", color = "grey50", linewidth = 0.3) +
+  scale_color_manual(values = c(Rock = okabe_ito[1], Paper = okabe_ito[5],
+                                 Scissors = okabe_ito[3])) +
+  labs(
+    title = "Replicator dynamics — Rock-Paper-Scissors",
+    subtitle = "Cyclic orbits from x₀ = (0.5, 0.3, 0.2); dashed line = interior equilibrium 1/3",
+    x = "Time", y = "Population frequency"
+  ) +
+  theme_publication()
+
+p_ts
+```
+
+
+## Interactive figure
+
+The interactive simplex plot shows multiple trajectories as closed orbits on the 2-simplex, using barycentric-to-Cartesian coordinate conversion.
+
+```{r}
+#| label: fig-rps-simplex-interactive
+
+# Barycentric to Cartesian conversion for equilateral triangle
+bary_to_cart <- function(x1, x2, x3) {
+  # Vertices of equilateral triangle: R=(0,0), P=(1,0), S=(0.5, sqrt(3)/2)
+  px <- x2 + 0.5 * x3
+  py <- (sqrt(3)/2) * x3
+  data.frame(cx = px, cy = py)
+}
+
+simplex_data <- traj_df |>
+  mutate(bary_to_cart(Rock, Paper, Scissors)) |>
+  mutate(text = sprintf("R=%.3f, P=%.3f, S=%.3f\nV=%.6f",
+                         Rock, Paper, Scissors, V))
+
+# Simplex boundary
+boundary <- data.frame(
+  cx = c(0, 1, 0.5, 0),
+  cy = c(0, 0, sqrt(3)/2, 0)
+)
+
+# Equilibrium point
+eq_cart <- bary_to_cart(1/3, 1/3, 1/3)
+
+p_simplex <- ggplot() +
+  geom_path(data = boundary, aes(x = cx, y = cy), color = "grey60") +
+  geom_path(data = simplex_data,
+            aes(x = cx, y = cy, color = trajectory, text = text),
+            linewidth = 0.5, alpha = 0.8) +
+  geom_point(data = eq_cart, aes(x = cx, y = cy),
+             shape = 3, size = 3, color = "black") +
+  annotate("text", x = 0, y = -0.05, label = "Rock", size = 3) +
+  annotate("text", x = 1, y = -0.05, label = "Paper", size = 3) +
+  annotate("text", x = 0.5, y = sqrt(3)/2 + 0.05, label = "Scissors", size = 3) +
+  scale_color_manual(values = okabe_ito[1:4]) +
+  coord_fixed() +
+  labs(title = "RPS replicator orbits on the 2-simplex", color = "Trajectory") +
+  theme_publication() +
+  theme(axis.text = element_blank(), axis.title = element_blank(),
+        axis.ticks = element_blank(), axis.line = element_blank(),
+        panel.grid = element_blank())
+
+ggplotly(p_simplex, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The simulations confirm the theoretical prediction: all trajectories form closed orbits around $(1/3, 1/3, 1/3)$ with the conserved quantity $V = x_R x_P x_S$ remaining constant (up to numerical precision of the RK4 solver) along each orbit. Orbits starting closer to the interior equilibrium are tighter; those starting near a vertex trace larger cycles that pass close to the simplex boundary, where one strategy is nearly extinct before cycling back. This conservative dynamics is structurally fragile — adding even a small amount of mutation (replicator-mutator dynamics), frequency-dependent selection noise, or finite population effects (as in Moran or Wright-Fisher processes) will break the conservation law, typically causing orbits to spiral inward toward the equilibrium or outward toward the boundary depending on the perturbation. This sensitivity makes RPS a natural testbed for comparing different evolutionary dynamics frameworks and understanding when mean-field predictions (the replicator equation) succeed or fail.
+
+
+## Extensions & related tutorials
+
+- [Generalized Rock-Paper-Scissors with cycles](../../classical-games/generalized-rps/) — extending to n-strategy cyclic games.
+- [Replicator dynamics on the RPS simplex (Shiny app)](../../../shiny/tutorials/replicator-dynamics-rps-simplex-tutorial/) — interactive exploration of initial conditions and payoff perturbations.
+- [Moran processes and finite population effects](../moran-processes/) — stochastic evolutionary dynamics.
+- [Spatial Prisoner's Dilemma on a lattice](../../simulations/spatial-prisoners-dilemma-nowak-may/) — spatial structure changes evolutionary outcomes.
+- [ESS — Evolutionarily Stable Strategies](../ess-definition/) — when and why the interior equilibrium is not an ESS.
+
+
+## References
+
+::: {#refs}
+:::
