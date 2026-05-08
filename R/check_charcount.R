@@ -62,8 +62,10 @@ check_all_articles <- function(min_chars = 2500,
   for (d in dirs) {
     if (dir.exists(d)) {
       found <- list.files(d, pattern = "\\.qmd$", recursive = TRUE, full.names = TRUE)
-      # Exclude section index pages
+      # Exclude section index pages (but keep article index pages)
       found <- found[!grepl("/index\\.qmd$", found) | grepl("tutorials/[^/]+/[^/]+/index\\.qmd$", found)]
+      # Exclude template directory
+      found <- found[!grepl("/_template/", found)]
       files <- c(files, found)
     }
   }
