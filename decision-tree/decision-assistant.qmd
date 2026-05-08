@@ -1,0 +1,109 @@
+---
+title: "Decision Assistant — Interactive Model Selector"
+description: "Answer questions about your strategic interaction and get a recommended game-theoretic framework."
+toc: false
+page-layout: full
+---
+
+# Decision Assistant
+
+Answer the questions below to find the right game-theoretic model for your problem. Click an option to proceed.
+
+::: {#wizard-container}
+:::
+
+::: {#wizard-result style="display:none;"}
+:::
+
+[Start over](#wizard-container){.btn .btn-outline-primary #restart-btn}
+
+```{=html}
+<script>
+(async function() {
+  let tree;
+  try {
+    const resp = await fetch('../artifacts/decision-tree.json');
+    tree = await resp.json();
+  } catch(e) {
+    document.getElementById('wizard-container').innerHTML =
+      '<p>Decision tree data not yet available. Run <code>Rscript R/build_decision_tree.R</code> first.</p>';
+    return;
+  }
+
+  const nodeMap = {};
+  if (tree.nodes) {
+    tree.nodes.forEach(n => { nodeMap[n.id] = n; });
+  }
+  nodeMap[tree.id] = tree;
+
+  let history = [];
+
+  function renderNode(nodeId) {
+    const node = nodeMap[nodeId];
+    if (!node) {
+      document.getElementById('wizard-container').innerHTML = '<p>Unknown node. Please start over.</p>';
+      return;
+    }
+
+    const container = document.getElementById('wizard-container');
+    const result = document.getElementById('wizard-result');
+
+    if (node.result) {
+      container.style.display = 'none';
+      result.style.display = 'block';
+      let html = '<div class="decision-node active">';
+      html += '<h3>' + node.result + '</h3>';
+      if (node.tutorials && node.tutorials.length > 0) {
+        html += '<p><strong>Recommended tutorials:</strong></p><ul>';
+        node.tutorials.forEach(t => {
+          html += '<li><a href="../' + t + '">' + t + '</a></li>';
+        });
+        html += '</ul>';
+      }
+      html += '</div>';
+      result.innerHTML = html;
+      return;
+    }
+
+    container.style.display = 'block';
+    result.style.display = 'none';
+
+    let html = '<div class="decision-node active">';
+    html += '<h3>' + node.question + '</h3>';
+    if (node.options) {
+      node.options.forEach(opt => {
+        html += '<button class="btn btn-outline-primary decision-btn" data-next="' + opt.next_id + '">' + opt.label + '</button> ';
+      });
+    }
+    if (history.length > 0) {
+      html += '<br/><button class="btn btn-sm btn-outline-secondary mt-2" id="back-btn">Back</button>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    container.querySelectorAll('.decision-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        history.push(nodeId);
+        renderNode(btn.dataset.next);
+      });
+    });
+
+    const backBtn = document.getElementById('back-btn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        const prev = history.pop();
+        renderNode(prev);
+      });
+    }
+  }
+
+  document.getElementById('restart-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    history = [];
+    renderNode(tree.id);
+  });
+
+  renderNode(tree.id);
+})();
+</script>
+```

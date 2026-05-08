@@ -1,0 +1,53 @@
+name: Citation verification
+on:
+  pull_request:
+    paths:
+      - 'references.bib'
+      - 'tutorials/**/*.qmd'
+
+jobs:
+  citations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::httr2
+            any::bibtex
+
+      - name: Verify all DOIs and arXiv IDs resolve
+        run: |
+          Rscript -e '
+          bib <- bibtex::read.bib("references.bib")
+          failures <- character(0)
+          for (key in names(bib)) {
+            entry <- bib[[key]]
+            doi <- entry$doi
+            if (!is.null(doi) && nchar(doi) > 0) {
+              url <- paste0("https://doi.org/", doi)
+              resp <- tryCatch(
+                httr2::request(url) |>
+                  httr2::req_method("HEAD") |>
+                  httr2::req_timeout(15) |>
+                  httr2::req_perform(),
+                error = function(e) NULL
+              )
+              if (is.null(resp) || httr2::resp_status(resp) >= 400) {
+                failures <- c(failures, paste0(key, ": DOI ", doi, " unresolvable"))
+              }
+            }
+          }
+          if (length(failures) > 0) {
+            cat("FAILED citations:\n")
+            cat(paste(failures, collapse = "\n"), "\n")
+            stop("Citation check failed for ", length(failures), " entry/entries.")
+          } else {
+            cat("All citations verified.\n")
+          }
+          '
