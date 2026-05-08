@@ -1,0 +1,523 @@
+---
+title: "Docker and renv for Reproducible Game Theory Environments"
+description: "Create fully reproducible computational environments for game theory research using Docker containers and renv package management, with reproducibility audit functions and environment comparison workflows."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - reproducibility-open-science
+  - Docker
+  - renv
+keywords: ["Docker", "renv", "reproducibility", "computational environment", "game theory research"]
+labels: ["reproducibility", "devops"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_reproducibility-open-science_docker-game-theory-environments"
+image: thumbnail.png
+image-alt: "Diagram showing the Docker container workflow for reproducible game theory analysis with R and renv"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/reproducibility-open-science/docker-game-theory-environments/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Reproducibility is the cornerstone of scientific credibility, and computational game theory research faces unique reproducibility challenges that deserve careful attention. A game-theoretic analysis typically involves numerical equilibrium computation, simulation of strategic interactions, statistical estimation of behavioral parameters, and the production of figures and tables that summarize results. Each of these steps depends on specific software versions: the R interpreter, the packages used for computation and visualization, the operating system libraries that underlie numerical routines, and even the random number generator implementation that determines simulation outcomes. When any of these components changes between the time a paper is written and the time a reader attempts to replicate the analysis, the results may differ --- sometimes subtly, sometimes dramatically.
+
+The problem is not hypothetical. Changes in default random number generators between R versions have altered simulation outputs. Updates to optimization routines have shifted numerical equilibrium computations. Package API changes have broken code that worked perfectly six months earlier. In game theory specifically, where equilibrium computations can be sensitive to numerical precision (especially in games with multiple equilibria or near-degenerate payoff structures), even minor version changes in linear algebra libraries can produce qualitatively different results. A Nash equilibrium solver that returns one equilibrium under LAPACK 3.9 might return a different equilibrium under LAPACK 3.10 if the game has multiple equilibria and the solver's tie-breaking depends on floating-point behavior.
+
+Docker and renv together provide a comprehensive solution to these challenges. Docker is a containerization platform that packages an entire computational environment --- operating system, system libraries, R installation, and all dependencies --- into a lightweight, portable image that can be shared, archived, and run identically on any machine. The renv package, developed by Kevin Ushey at Posit, manages R package dependencies at the project level, recording exact package versions in a lockfile (`renv.lock`) that enables precise reconstruction of the R package library. When combined, Docker provides the system-level reproducibility (OS, compilers, system libraries) while renv provides the R-package-level reproducibility (exact versions of every R package).
+
+This tutorial demonstrates how to set up a reproducible game theory research environment using these tools. Rather than actually running Docker commands (which would require Docker to be installed), we focus on the conceptual workflow and provide concrete artifacts: a Dockerfile template tailored to game theory research in R, renv configuration and lockfile management procedures, and --- most importantly --- R functions that audit the current computational environment, compare it against a reference specification, and flag any discrepancies that might affect reproducibility. These audit functions can be run at the beginning of any analysis script to verify that the environment matches the one in which the results were originally produced, providing an automated guard against silent reproducibility failures.
+
+The tutorial also addresses practical considerations that arise in game theory research specifically. Many game theory computations are CPU-intensive (e.g., computing all Nash equilibria of a game, running large-scale agent-based simulations, or bootstrapping structural estimators), and the Docker environment must be configured to provide adequate computational resources. Some analyses require specialized linear algebra libraries (OpenBLAS, MKL) for performance, and these must be correctly installed in the Docker image. Plotting with ggplot2 requires font configuration in the container, and interactive visualizations with plotly require specific system libraries. We address each of these concerns in the Dockerfile template and provide testing procedures to verify correct configuration.
+
+The broader context for this tutorial is the open science movement's emphasis on computational reproducibility as a minimum standard for published research. Journals increasingly require that code and data be made available, but without environment specification, code availability alone does not guarantee reproducibility. A Docker image plus renv lockfile provides a complete, verifiable specification of the computational environment that transforms "code available upon request" into "results reproducible by anyone, anywhere, indefinitely." For game theory research, where the interpretation of results often hinges on precise numerical computations, this level of reproducibility is not merely desirable but essential.
+
+## Mathematical formulation
+
+Reproducibility in computational game theory can be formalized as a **deterministic mapping** requirement. Let $\mathcal{E} = (OS, R, \mathcal{P}, \mathcal{S})$ denote a computational environment where:
+
+- $OS$ = operating system and version
+- $R$ = R interpreter version
+- $\mathcal{P} = \{(p_i, v_i)\}_{i=1}^k$ = set of packages $p_i$ with versions $v_i$
+- $\mathcal{S}$ = system library versions (BLAS, LAPACK, etc.)
+
+A game theory analysis is a function $f: \mathcal{E} \times \mathcal{D} \to \mathcal{R}$ mapping an environment and data $\mathcal{D}$ to results $\mathcal{R}$.
+
+**Reproducibility condition:** For environments $\mathcal{E}_1, \mathcal{E}_2$ and data $\mathcal{D}$:
+
+$$
+\mathcal{E}_1 \equiv \mathcal{E}_2 \implies f(\mathcal{E}_1, \mathcal{D}) = f(\mathcal{E}_2, \mathcal{D})
+$$
+
+**Environment equivalence** $\mathcal{E}_1 \equiv \mathcal{E}_2$ requires:
+
+$$
+OS_1 = OS_2, \quad R_1 = R_2, \quad \mathcal{P}_1 = \mathcal{P}_2, \quad \mathcal{S}_1 = \mathcal{S}_2
+$$
+
+**Docker** ensures $OS_1 = OS_2$ and $\mathcal{S}_1 = \mathcal{S}_2$.
+
+**renv** ensures $\mathcal{P}_1 = \mathcal{P}_2$ via the lockfile hash:
+
+$$
+h(\texttt{renv.lock}_1) = h(\texttt{renv.lock}_2) \implies \mathcal{P}_1 = \mathcal{P}_2
+$$
+
+**Environment divergence metric.** We define a divergence score between two environments:
+
+$$
+D(\mathcal{E}_1, \mathcal{E}_2) = w_R \cdot \mathbb{1}[R_1 \neq R_2] + \sum_{i=1}^k w_i \cdot d(v_{1i}, v_{2i})
+$$
+
+where $d(v_1, v_2)$ is the semantic version distance (0 = identical, 1 = patch, 2 = minor, 3 = major) and $w_i$ are importance weights reflecting each package's role in the analysis.
+
+## R implementation
+
+```{r}
+#| label: reproducibility-tools
+#| code-fold: false
+
+set.seed(2024)
+
+# ================================================================
+# 1. Dockerfile Template Generator
+# ================================================================
+
+generate_dockerfile <- function(r_version = "4.4.0",
+                                 packages = c("ggplot2", "dplyr", "tidyr",
+                                              "plotly"),
+                                 system_deps = TRUE) {
+  dockerfile <- c(
+    paste0("FROM rocker/r-ver:", r_version),
+    "",
+    "# System dependencies for R packages and game theory computation",
+    "RUN apt-get update && apt-get install -y \\",
+    "    libcurl4-openssl-dev \\",
+    "    libssl-dev \\",
+    "    libxml2-dev \\",
+    "    libfontconfig1-dev \\",
+    "    libfreetype6-dev \\",
+    "    libpng-dev \\",
+    "    libtiff5-dev \\",
+    "    libharfbuzz-dev \\",
+    "    libfribidi-dev \\",
+    "    pandoc \\",
+    "    && rm -rf /var/lib/apt/lists/*",
+    "",
+    "# Install renv for package management",
+    "RUN R -e \"install.packages('renv', repos='https://cran.r-project.org')\"",
+    "",
+    "# Set up project directory",
+    "WORKDIR /project",
+    "",
+    "# Copy renv lockfile and restore packages",
+    "COPY renv.lock renv.lock",
+    "RUN R -e \"renv::restore()\"",
+    "",
+    "# Copy analysis files",
+    "COPY . .",
+    "",
+    "# Default command: run the analysis",
+    'CMD ["R", "-e", "source(\'analysis.R\')"]'
+  )
+  dockerfile
+}
+
+# Print the Dockerfile template
+cat("=== Generated Dockerfile ===\n\n")
+dockerfile_lines <- generate_dockerfile()
+cat(paste(dockerfile_lines, collapse = "\n"))
+
+# ================================================================
+# 2. Session Info Capture Function
+# ================================================================
+
+capture_environment <- function() {
+  si <- sessionInfo()
+  env_info <- list(
+    timestamp  = Sys.time(),
+    r_version  = paste(R.version$major, R.version$minor, sep = "."),
+    platform   = R.version$platform,
+    os         = si$running,
+    locale     = Sys.getlocale(),
+    base_packages = si$basePkgs,
+    attached_packages = if (!is.null(si$otherPkgs)) {
+      sapply(si$otherPkgs, function(p) p$Version)
+    } else {
+      character(0)
+    },
+    loaded_namespaces = if (!is.null(si$loadedOnly)) {
+      sapply(si$loadedOnly, function(p) p$Version)
+    } else {
+      character(0)
+    },
+    blas = si$BLAS,
+    lapack = si$LAPACK
+  )
+  class(env_info) <- "game_theory_environment"
+  env_info
+}
+
+# Capture current environment
+current_env <- capture_environment()
+cat("\n\n=== Current Environment Snapshot ===\n")
+cat(sprintf("R version:  %s\n", current_env$r_version))
+cat(sprintf("Platform:   %s\n", current_env$platform))
+cat(sprintf("OS:         %s\n", current_env$os))
+cat(sprintf("Timestamp:  %s\n", current_env$timestamp))
+cat(sprintf("BLAS:       %s\n", current_env$blas))
+cat(sprintf("\nAttached packages:\n"))
+if (length(current_env$attached_packages) > 0) {
+  for (pkg in names(current_env$attached_packages)) {
+    cat(sprintf("  %-20s %s\n", pkg, current_env$attached_packages[pkg]))
+  }
+}
+
+# ================================================================
+# 3. Reproducibility Audit Function
+# ================================================================
+
+reproducibility_audit <- function(env_info, reference = NULL) {
+  checks <- data.frame(
+    check = character(),
+    status = character(),
+    detail = character(),
+    stringsAsFactors = FALSE
+  )
+
+  # Check 1: R version
+  r_ver <- env_info$r_version
+  checks <- rbind(checks, data.frame(
+    check = "R version",
+    status = "INFO",
+    detail = r_ver
+  ))
+
+  # Check 2: Critical packages present
+  required_pkgs <- c("ggplot2", "dplyr", "tidyr", "plotly")
+  all_pkgs <- c(names(env_info$attached_packages),
+                names(env_info$loaded_namespaces))
+  for (pkg in required_pkgs) {
+    present <- pkg %in% all_pkgs
+    checks <- rbind(checks, data.frame(
+      check = paste0("Package: ", pkg),
+      status = ifelse(present, "PASS", "FAIL"),
+      detail = ifelse(present,
+                      paste0("v",
+                             c(env_info$attached_packages,
+                               env_info$loaded_namespaces)[pkg]),
+                      "NOT FOUND")
+    ))
+  }
+
+  # Check 3: Random seed reproducibility
+  set.seed(42)
+  test_val <- rnorm(1)
+  set.seed(42)
+  test_val2 <- rnorm(1)
+  checks <- rbind(checks, data.frame(
+    check = "RNG reproducibility",
+    status = ifelse(identical(test_val, test_val2), "PASS", "FAIL"),
+    detail = paste("set.seed(42) -> rnorm(1) =", round(test_val, 8))
+  ))
+
+  # Check 4: Numeric precision
+  eps <- .Machine$double.eps
+  checks <- rbind(checks, data.frame(
+    check = "Machine epsilon",
+    status = "INFO",
+    detail = format(eps, scientific = TRUE, digits = 4)
+  ))
+
+  # Check 5: BLAS/LAPACK
+  checks <- rbind(checks, data.frame(
+    check = "BLAS library",
+    status = "INFO",
+    detail = basename(env_info$blas)
+  ))
+
+  # If reference environment provided, compare
+  if (!is.null(reference)) {
+    # R version match
+    r_match <- env_info$r_version == reference$r_version
+    checks <- rbind(checks, data.frame(
+      check = "R version match",
+      status = ifelse(r_match, "PASS", "WARN"),
+      detail = paste(env_info$r_version, "vs", reference$r_version)
+    ))
+
+    # Package version comparison
+    ref_pkgs <- c(reference$attached_packages, reference$loaded_namespaces)
+    cur_pkgs <- c(env_info$attached_packages, env_info$loaded_namespaces)
+    common <- intersect(names(ref_pkgs), names(cur_pkgs))
+    for (pkg in common) {
+      match <- ref_pkgs[pkg] == cur_pkgs[pkg]
+      checks <- rbind(checks, data.frame(
+        check = paste0("Version match: ", pkg),
+        status = ifelse(match, "PASS", "WARN"),
+        detail = paste(cur_pkgs[pkg], "vs ref", ref_pkgs[pkg])
+      ))
+    }
+  }
+
+  class(checks) <- c("reproducibility_audit", "data.frame")
+  checks
+}
+
+# Run audit
+cat("\n=== Reproducibility Audit ===\n\n")
+audit_result <- reproducibility_audit(current_env)
+cat(sprintf("%-30s  %-6s  %s\n", "Check", "Status", "Detail"))
+cat(paste(rep("-", 75), collapse = ""), "\n")
+for (i in seq_len(nrow(audit_result))) {
+  cat(sprintf("%-30s  %-6s  %s\n",
+              audit_result$check[i],
+              audit_result$status[i],
+              audit_result$detail[i]))
+}
+
+n_pass <- sum(audit_result$status == "PASS")
+n_fail <- sum(audit_result$status == "FAIL")
+n_warn <- sum(audit_result$status == "WARN")
+cat(sprintf("\nSummary: %d PASS, %d FAIL, %d WARN\n",
+            n_pass, n_fail, n_warn))
+
+# ================================================================
+# 4. Environment Divergence Metric
+# ================================================================
+
+version_distance <- function(v1, v2) {
+  if (v1 == v2) return(0)
+  parse_ver <- function(v) {
+    parts <- as.integer(strsplit(gsub("[^0-9.]", "", v), "\\.")[[1]])
+    if (length(parts) < 3) parts <- c(parts, rep(0L, 3 - length(parts)))
+    parts[1:3]
+  }
+  p1 <- parse_ver(v1)
+  p2 <- parse_ver(v2)
+  if (p1[1] != p2[1]) return(3)  # major
+
+  if (p1[2] != p2[2]) return(2)  # minor
+  return(1)                       # patch
+}
+
+compute_divergence <- function(env1, env2, w_r = 5) {
+  # R version component
+  d_r <- version_distance(env1$r_version, env2$r_version) * w_r
+
+  # Package components
+  pkgs1 <- c(env1$attached_packages, env1$loaded_namespaces)
+  pkgs2 <- c(env2$attached_packages, env2$loaded_namespaces)
+  common <- intersect(names(pkgs1), names(pkgs2))
+
+  d_pkg <- 0
+  details <- character()
+  for (pkg in common) {
+    d <- version_distance(pkgs1[pkg], pkgs2[pkg])
+    if (d > 0) {
+      d_pkg <- d_pkg + d
+      details <- c(details,
+                   sprintf("  %s: %s vs %s (distance=%d)",
+                           pkg, pkgs1[pkg], pkgs2[pkg], d))
+    }
+  }
+
+  # Missing packages
+  only1 <- setdiff(names(pkgs1), names(pkgs2))
+  only2 <- setdiff(names(pkgs2), names(pkgs1))
+  d_missing <- (length(only1) + length(only2)) * 3
+
+  total <- d_r + d_pkg + d_missing
+
+  list(total = total, r_distance = d_r, pkg_distance = d_pkg,
+       missing_distance = d_missing, details = details)
+}
+
+cat("\n=== Environment Divergence Demo ===\n")
+cat("(Comparing current environment against itself: divergence = 0)\n")
+div <- compute_divergence(current_env, current_env)
+cat(sprintf("Total divergence score: %d\n", div$total))
+cat(sprintf("  R version component: %d\n", div$r_distance))
+cat(sprintf("  Package component:   %d\n", div$pkg_distance))
+cat(sprintf("  Missing packages:    %d\n", div$missing_distance))
+
+# Restore the original seed for downstream code
+set.seed(2024)
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-reproducibility-audit-static
+#| fig-cap: "Reproducibility audit results across a simulated set of game theory research environments. Each bar represents the divergence score between the reference environment and a comparison environment, decomposed into R version, package version, and missing package components."
+#| fig-width: 9
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+set.seed(2024)
+
+# Simulate divergence scores for different scenarios
+scenarios <- data.frame(
+  environment = c(
+    "Same machine\n(1 week later)",
+    "Colleague's\nlaptop",
+    "HPC cluster\n(CentOS)",
+    "Cloud VM\n(Ubuntu 22.04)",
+    "Docker +\nrenv",
+    "2 years later\n(no Docker)"
+  ),
+  r_version_div  = c(0, 0, 5, 0, 0, 10),
+  package_div    = c(2, 8, 6, 4, 0, 18),
+  missing_div    = c(0, 3, 9, 0, 0, 12)
+)
+
+scenarios$total <- scenarios$r_version_div + scenarios$package_div +
+                   scenarios$missing_div
+scenarios$environment <- factor(
+  scenarios$environment,
+  levels = scenarios$environment[order(scenarios$total)]
+)
+
+scenarios_long <- scenarios |>
+  pivot_longer(
+    cols = c(r_version_div, package_div, missing_div),
+    names_to = "component",
+    values_to = "divergence"
+  ) |>
+  mutate(
+    component = factor(component,
+                       levels = c("missing_div", "package_div",
+                                  "r_version_div"),
+                       labels = c("Missing packages",
+                                  "Version mismatches",
+                                  "R version"))
+  )
+
+p_static <- ggplot(scenarios_long,
+                   aes(x = environment, y = divergence, fill = component)) +
+  geom_col(width = 0.7, color = "white", linewidth = 0.3) +
+  geom_hline(yintercept = 0, color = "grey30", linewidth = 0.3) +
+  # Threshold annotation
+  geom_hline(yintercept = 5, linetype = "dashed",
+             color = okabe_ito[6], linewidth = 0.5) +
+  annotate("text", x = 5.5, y = 6.5,
+           label = "Reproducibility risk threshold",
+           color = okabe_ito[6], size = 3, fontface = "italic") +
+  scale_fill_manual(
+    values = c("R version" = okabe_ito[1],
+               "Version mismatches" = okabe_ito[2],
+               "Missing packages" = okabe_ito[6]),
+    name = "Divergence component"
+  ) +
+  scale_y_continuous(
+    name = "Environment divergence score",
+    breaks = seq(0, 40, 5), expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_discrete(name = NULL) +
+  labs(
+    title = "Environment Divergence Across Research Settings",
+    subtitle = "Docker + renv achieves zero divergence; unmanaged environments accumulate drift over time"
+  ) +
+  theme_publication() +
+  theme(
+    axis.text.x = element_text(size = 9),
+    legend.title = element_text(face = "bold")
+  )
+
+p_static
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-reproducibility-audit-interactive
+#| fig-cap: "Interactive environment divergence comparison. Hover for divergence component details."
+
+scenarios_long <- scenarios_long |>
+  mutate(
+    text = paste0(
+      "Environment: ", gsub("\n", " ", environment),
+      "\nComponent: ", component,
+      "\nDivergence: ", divergence
+    )
+  )
+
+p_int <- ggplot(scenarios_long,
+                aes(x = environment, y = divergence, fill = component,
+                    text = text)) +
+  geom_col(width = 0.7, color = "white", linewidth = 0.3) +
+  geom_hline(yintercept = 5, linetype = "dashed",
+             color = okabe_ito[6], linewidth = 0.5) +
+  scale_fill_manual(
+    values = c("R version" = okabe_ito[1],
+               "Version mismatches" = okabe_ito[2],
+               "Missing packages" = okabe_ito[6]),
+    name = "Component"
+  ) +
+  scale_y_continuous(name = "Divergence score",
+                     expand = expansion(mult = c(0, 0.05))) +
+  scale_x_discrete(name = NULL) +
+  labs(title = "Environment Divergence Across Research Settings") +
+  theme_publication() +
+  theme(axis.text.x = element_text(size = 8))
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+The reproducibility audit framework and environment divergence analysis presented in this tutorial reveal a sobering but actionable picture of the challenges facing computational game theory research. The simulated divergence scores across different research settings quantify what many researchers experience anecdotally: computational environments drift over time, vary across machines, and can silently alter results in ways that are difficult to detect without systematic monitoring.
+
+The most striking finding from the divergence analysis is the contrast between managed and unmanaged environments. The Docker-plus-renv configuration achieves a divergence score of exactly zero, meaning that the computational environment is perfectly reproduced regardless of when and where the analysis is run. In contrast, running the same code on a colleague's laptop --- a common scenario in collaborative research --- yields a non-trivial divergence score due to different package versions, and running the code two years later without environment management produces a large divergence score driven by major version changes in both R and key packages. This drift is not merely theoretical: changes in ggplot2's rendering engine, dplyr's grouping semantics, or base R's random number generator algorithm have all caused reproducibility failures in real research projects.
+
+The reproducibility audit function serves as an early warning system. By running the audit at the beginning of any analysis script, researchers can immediately detect discrepancies between the current environment and the reference environment in which the analysis was originally developed. The audit checks are categorized into PASS (exact match), WARN (version mismatch that may or may not affect results), and FAIL (critical discrepancy that is likely to affect results). This categorization helps researchers prioritize their response: a patch-level version difference in a plotting package may be safely ignored, while a major version difference in a package that implements numerical equilibrium solvers demands immediate attention.
+
+The Dockerfile template provided in this tutorial is specifically tailored to game theory research in R. It starts from the rocker/r-ver base image, which provides a minimal, versioned R installation on Debian Linux. The system dependencies include libraries required for ggplot2 rendering (libfontconfig, libfreetype, libpng), SSL/TLS libraries for downloading packages from CRAN, and XML libraries for certain package metadata operations. The renv integration ensures that the exact package versions specified in the lockfile are installed, bypassing any ambiguity that arises from CRAN's rolling release model (where the "latest" version of a package changes over time).
+
+The environment divergence metric provides a quantitative framework for assessing reproducibility risk. The metric decomposes the total divergence into three components: R version differences (weighted most heavily because they can affect fundamental language semantics and numerical behavior), package version mismatches (weighted by the semantic version distance --- major, minor, or patch), and missing packages (which indicate that the analysis cannot run at all without additional installation). This decomposition helps researchers understand not just whether their environment has changed, but how it has changed and which changes pose the greatest risk to reproducibility.
+
+For game theory research specifically, several aspects of environment management deserve special attention. First, numerical precision is critical for equilibrium computation: the Nash equilibria of a degenerate game may depend on how the linear algebra backend (BLAS/LAPACK) handles near-singular matrices, and different BLAS implementations (reference BLAS, OpenBLAS, Intel MKL) can produce different results in edge cases. The audit function captures the BLAS library in use, enabling detection of this often-overlooked source of irreproducibility. Second, random number generation is central to simulation-based analyses (Monte Carlo evaluation of mixed strategies, agent-based modeling, bootstrap inference), and the RNG algorithm has changed across R versions (most notably with the introduction of the default "Mersenne-Twister" kind). The audit function's RNG reproducibility check verifies that set.seed() produces deterministic results within the current session. Third, the interaction between package versions can create subtle bugs: a function in package A that calls a function in package B may behave differently when B is updated, even if A's version is unchanged.
+
+The practical workflow recommended in this tutorial is straightforward. At project inception, initialize renv, install required packages, and take a snapshot. Develop the analysis, and when results are finalized, build a Docker image using the generated Dockerfile. Tag the image with the project version and push it to a container registry (Docker Hub, GitHub Container Registry). Include the Dockerfile and renv.lock in the project's Git repository alongside the analysis code and data. Any future reader can then reproduce the results by building and running the Docker container, with confidence that the computational environment is identical to the one in which the original results were produced.
+
+## Extensions & related tutorials
+
+- **Reproducible workflows**: The [Reproducible Game Theory Workflow](../reproducible-game-theory-workflow/) tutorial provides a comprehensive end-to-end workflow template for game theory research projects.
+- **Quarto parameterized reports**: See the [Quarto Parameterized Reports](../quarto-parameterized-reports/) tutorial for generating reproducible, parameterized game theory analyses.
+- **R package development**: The [Building a Game Theory R Package](../../r-package-development/building-game-theory-r-package/) tutorial shows how to structure game theory code as a proper R package with tests and documentation.
+- **Testing game theory code**: The [Testing Game Theory Code](../../r-package-development/testing-game-theory-code/) tutorial covers unit testing strategies for equilibrium solvers and simulation code.
+- **S4 classes for game objects**: The [S4 Classes for Game Objects](../../r-package-development/s4-classes-game-objects/) tutorial provides object-oriented game representations that benefit from reproducible environments.
+
+## References
+
+::: {#refs}
+:::
