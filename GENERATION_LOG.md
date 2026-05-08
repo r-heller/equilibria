@@ -17,3 +17,6 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 4.8 | Article: world-bank-wdi-economic-indicators | public-apis — WDI data for game-theoretic calibration |
 | 2026-05-08 | 4.9 | Shiny app + tutorial: two-by-two-nash-explorer | shiny — Complete app with solver, BR plot, payoff surfaces |
 | 2026-05-08 | 4.10 | Article: publication-ready-ggplot-theme | visualization — theme_publication() end-to-end + Okabe-Ito showcase |
+| 2026-05-08 | 5.1 | Batch: foundations ×4 | dominant-strategies-IESDS, extensive-form-SPE, zero-sum-minimax, nash-bargaining |
+| 2026-05-08 | 5.2 | Batch: classical-games ×5 | PD-formal, battle-of-sexes, matching-pennies, stag-hunt, chicken-hawk-dove |
+| 2026-05-08 | 5.3 | Batch: new-section seeds ×4 | decision-theory/EU-VNM, cooperative-gt/shapley, mechanism-design/vickrey, behavioral-gt/ultimatum |
