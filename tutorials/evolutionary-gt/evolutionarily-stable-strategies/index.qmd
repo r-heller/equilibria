@@ -1,0 +1,369 @@
+---
+title: "Evolutionarily stable strategies (ESS)"
+description: "Define and compute evolutionarily stable strategies for symmetric 2x2 games, apply to Hawk-Dove, Stag Hunt, and Prisoner's Dilemma, and visualize invasion dynamics and fitness landscapes."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - evolutionary-gt
+  - evolutionarily-stable-strategies
+  - hawk-dove
+  - stag-hunt
+keywords: ["ESS", "evolutionarily stable strategy", "Maynard Smith", "Hawk-Dove", "invasion barrier", "fitness"]
+labels: ["evolutionary-dynamics", "stability-concepts"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_evolutionary-gt_evolutionarily-stable-strategies"
+image: thumbnail.png
+image-alt: "Invasion fitness plot showing mutant fitness versus incumbent fitness as a function of mutant frequency for the Hawk-Dove game"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/evolutionarily-stable-strategies/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+The concept of an evolutionarily stable strategy (ESS), introduced by @maynard_smith_1982 and John Maynard Smith together with George R. Price in their seminal 1973 paper, is one of the most influential ideas in evolutionary biology and evolutionary game theory. An ESS is a strategy that, if adopted by a population, cannot be invaded by any rare mutant strategy. Unlike Nash equilibrium, which is a static concept defined by best-response conditions, ESS captures a dynamic stability notion: even if a small fraction of mutants appear playing an alternative strategy, the incumbent population will resist invasion because the mutant's fitness is lower than the incumbent's when the mutant is rare. This makes ESS a refinement of Nash equilibrium — every ESS corresponds to a symmetric Nash equilibrium, but not every symmetric Nash equilibrium is an ESS.
+
+The formal definition involves two conditions. Let $u(x, y)$ denote the payoff to a player using strategy $x$ against an opponent using strategy $y$ in a symmetric two-player game. A strategy $x^*$ is an ESS if for every alternative strategy $y \neq x^*$: (1) $u(x^*, x^*) \geq u(y, x^*)$ — the incumbent is a best reply to itself (Nash equilibrium condition), and (2) if $u(x^*, x^*) = u(y, x^*)$ then $u(x^*, y) > u(y, y)$ — when the mutant does equally well against the incumbent, the incumbent must do strictly better against the mutant than the mutant does against itself (the stability condition). This second condition is what distinguishes ESS from Nash equilibrium and captures the idea that even if a mutant can match the incumbent's performance against the incumbent population, it will be outperformed in head-to-head encounters when mutants are rare.
+
+The ESS concept has proven extraordinarily productive in biology, where it explains a wide range of phenomena: the coexistence of hawks and doves in animal conflict, the evolution of sex ratios, the emergence of cooperation through reciprocity, and the evolution of signaling and communication. The Hawk-Dove game, which models contests over resources where escalation is costly, is the canonical application. In this tutorial, we implement a general ESS checker for symmetric $2 \times 2$ games and apply it to three foundational games: Hawk-Dove, Stag Hunt, and the Prisoner's Dilemma. We then visualize the invasion dynamics — plotting the fitness of a mutant versus the incumbent as a function of the mutant's frequency in the population — to build geometric intuition for why some strategies are evolutionarily stable and others are not. Finally, we explore how the ESS of the Hawk-Dove game depends on the value-to-cost ratio $V/C$, a parameter with rich biological interpretation: when the resource value $V$ exceeds the cost of fighting $C$, pure Hawk is the ESS; when $V < C$, a mixed strategy is the unique ESS.
+
+
+## Mathematical formulation
+
+Consider a symmetric two-player game with strategy set $\{1, 2\}$ and payoff matrix:
+
+$$
+A = \begin{pmatrix} a_{11} & a_{12} \\ a_{21} & a_{22} \end{pmatrix}
+$$
+
+where $a_{ij}$ is the payoff to a player using strategy $i$ against an opponent using strategy $j$. A mixed strategy is $\mathbf{p} = (p, 1-p)$ where $p$ is the probability of playing strategy 1. The payoff to strategy $\mathbf{p}$ against strategy $\mathbf{q}$ is:
+
+$$
+u(\mathbf{p}, \mathbf{q}) = \mathbf{p}^\top A \mathbf{q}
+$$
+
+**ESS conditions** for a strategy $\mathbf{p}^*$: for all $\mathbf{q} \neq \mathbf{p}^*$,
+
+1. **Best reply:** $u(\mathbf{p}^*, \mathbf{p}^*) \geq u(\mathbf{q}, \mathbf{p}^*)$
+2. **Stability:** If $u(\mathbf{p}^*, \mathbf{p}^*) = u(\mathbf{q}, \mathbf{p}^*)$, then $u(\mathbf{p}^*, \mathbf{q}) > u(\mathbf{q}, \mathbf{q})$
+
+**Invasion fitness.** When a mutant playing $\mathbf{q}$ invades an incumbent playing $\mathbf{p}^*$ at frequency $\epsilon$, the population state is $(1-\epsilon)\mathbf{p}^* + \epsilon \mathbf{q}$. The fitness of the mutant and incumbent are:
+
+$$
+W_{\text{mutant}}(\epsilon) = u(\mathbf{q}, (1-\epsilon)\mathbf{p}^* + \epsilon \mathbf{q})
+$$
+
+$$
+W_{\text{incumbent}}(\epsilon) = u(\mathbf{p}^*, (1-\epsilon)\mathbf{p}^* + \epsilon \mathbf{q})
+$$
+
+The strategy $\mathbf{p}^*$ is an ESS if and only if $W_{\text{incumbent}}(\epsilon) > W_{\text{mutant}}(\epsilon)$ for all sufficiently small $\epsilon > 0$ and all $\mathbf{q} \neq \mathbf{p}^*$.
+
+**Hawk-Dove game** with value $V$ and cost $C$:
+
+$$
+A = \begin{pmatrix} (V-C)/2 & V \\ 0 & V/2 \end{pmatrix}
+$$
+
+When $V < C$, the unique ESS is the mixed strategy $p^* = V/C$ (probability of playing Hawk).
+
+
+## R implementation
+
+We implement a general ESS checker for symmetric $2 \times 2$ games and apply it to three canonical games.
+
+```{r}
+#| label: ess-implementation
+
+# ESS checker for symmetric 2x2 games
+# A: 2x2 payoff matrix, p: probability of strategy 1 (Hawk/Stag/Cooperate)
+# Returns list with is_ess, details
+
+check_ess_pure <- function(A, strategy) {
+  # Check if pure strategy 'strategy' (1 or 2) is an ESS
+  other <- 3 - strategy
+
+  # Condition 1: best reply to itself
+  payoff_self <- A[strategy, strategy]
+  payoff_mutant <- A[other, strategy]
+
+  if (payoff_self > payoff_mutant) {
+    return(list(is_ess = TRUE, reason = "Strict best reply (condition 1 strict)"))
+  } else if (payoff_self == payoff_mutant) {
+    # Check condition 2
+    if (A[strategy, other] > A[other, other]) {
+      return(list(is_ess = TRUE, reason = "Weak best reply + stability condition holds"))
+    } else {
+      return(list(is_ess = FALSE, reason = "Weak best reply but stability condition fails"))
+    }
+  } else {
+    return(list(is_ess = FALSE, reason = "Not a best reply to itself"))
+  }
+}
+
+check_ess_mixed <- function(A) {
+  # Check if interior mixed ESS exists for 2x2 symmetric game
+  # Mixed ESS at p* where player is indifferent: A[1,1]*p + A[1,2]*(1-p) = A[2,1]*p + A[2,2]*(1-p)
+  # => p*(A[1,1]-A[1,2]-A[2,1]+A[2,2]) = A[2,2] - A[1,2]
+  denom <- A[1,1] - A[1,2] - A[2,1] + A[2,2]
+  if (abs(denom) < 1e-12) {
+    return(list(exists = FALSE, p_star = NA, is_ess = FALSE,
+                reason = "No interior equilibrium (degenerate)"))
+  }
+  p_star <- (A[2,2] - A[1,2]) / denom
+  if (p_star <= 0 || p_star >= 1) {
+    return(list(exists = FALSE, p_star = p_star, is_ess = FALSE,
+                reason = paste0("Interior equilibrium p*=", round(p_star, 4),
+                                " outside (0,1)")))
+  }
+
+  # For 2x2 games, the mixed ESS condition reduces to:
+  # The ESS stability requires A[1,1] + A[2,2] < A[1,2] + A[2,1]
+  # (the game must be an anti-coordination game)
+  stability <- A[1,2] + A[2,1] - A[1,1] - A[2,2]
+  if (stability > 0) {
+    return(list(exists = TRUE, p_star = p_star, is_ess = TRUE,
+                reason = paste0("Mixed ESS at p*=", round(p_star, 4),
+                                " (stability condition holds)")))
+  } else {
+    return(list(exists = TRUE, p_star = p_star, is_ess = FALSE,
+                reason = paste0("Mixed NE at p*=", round(p_star, 4),
+                                " but NOT an ESS (unstable)")))
+  }
+}
+
+# === Hawk-Dove (V=3, C=5, so V < C) ===
+cat("=== HAWK-DOVE GAME (V=3, C=5) ===\n")
+V <- 3; C <- 5
+A_hd <- matrix(c((V-C)/2, V, 0, V/2), nrow = 2, byrow = TRUE)
+cat("Payoff matrix:\n"); print(A_hd)
+cat("Pure Hawk:", check_ess_pure(A_hd, 1)$reason, "\n")
+cat("Pure Dove:", check_ess_pure(A_hd, 2)$reason, "\n")
+mixed_hd <- check_ess_mixed(A_hd)
+cat("Mixed:", mixed_hd$reason, "\n")
+cat("Theory predicts p* = V/C =", V/C, "\n\n")
+
+# === Stag Hunt ===
+cat("=== STAG HUNT ===\n")
+A_sh <- matrix(c(4, 0, 3, 2), nrow = 2, byrow = TRUE)
+cat("Payoff matrix (Stag=1, Hare=2):\n"); print(A_sh)
+cat("Pure Stag:", check_ess_pure(A_sh, 1)$reason, "\n")
+cat("Pure Hare:", check_ess_pure(A_sh, 2)$reason, "\n")
+mixed_sh <- check_ess_mixed(A_sh)
+cat("Mixed:", mixed_sh$reason, "\n\n")
+
+# === Prisoner's Dilemma ===
+cat("=== PRISONER'S DILEMMA ===\n")
+A_pd <- matrix(c(3, 0, 5, 1), nrow = 2, byrow = TRUE)
+cat("Payoff matrix (Cooperate=1, Defect=2):\n"); print(A_pd)
+cat("Pure Cooperate:", check_ess_pure(A_pd, 1)$reason, "\n")
+cat("Pure Defect:", check_ess_pure(A_pd, 2)$reason, "\n")
+mixed_pd <- check_ess_mixed(A_pd)
+cat("Mixed:", mixed_pd$reason, "\n")
+```
+
+Now we compute the invasion dynamics — the fitness advantage of the incumbent over the mutant as a function of mutant frequency.
+
+```{r}
+#| label: invasion-dynamics
+
+# Compute invasion fitness differential for a given game and ESS
+compute_invasion <- function(A, p_star, p_mutant_values, epsilon_values) {
+  # p_star: ESS (probability of strategy 1 for incumbent)
+  # p_mutant_values: vector of mutant strategies to test
+  # epsilon_values: vector of mutant frequencies
+
+  results <- expand.grid(p_mutant = p_mutant_values, epsilon = epsilon_values)
+  results$fitness_diff <- NA
+
+  for (i in seq_len(nrow(results))) {
+    p_m <- results$p_mutant[i]
+    eps <- results$epsilon[i]
+
+    # Population mixed strategy
+    pop_p <- (1 - eps) * p_star + eps * p_m
+    pop <- c(pop_p, 1 - pop_p)
+
+    incumbent <- c(p_star, 1 - p_star)
+    mutant <- c(p_m, 1 - p_m)
+
+    w_inc <- as.numeric(incumbent %*% A %*% pop)
+    w_mut <- as.numeric(mutant %*% A %*% pop)
+
+    results$fitness_diff[i] <- w_inc - w_mut
+  }
+  results
+}
+
+# Hawk-Dove invasion dynamics at the mixed ESS
+p_star_hd <- V / C  # = 0.6
+eps_grid <- seq(0.001, 0.3, length.out = 100)
+mutant_strategies <- c(0, 0.3, 0.6, 0.9, 1.0)  # pure Dove, sub-ESS, ESS, supra-ESS, pure Hawk
+
+invasion_hd <- compute_invasion(A_hd, p_star_hd,
+                                p_mutant_values = mutant_strategies,
+                                epsilon_values = eps_grid)
+invasion_hd$mutant_label <- paste0("p_mutant = ", invasion_hd$p_mutant)
+
+cat("Hawk-Dove invasion fitness (incumbent - mutant) at epsilon=0.01:\n")
+invasion_hd |>
+  filter(abs(epsilon - 0.01) < 0.005) |>
+  group_by(p_mutant) |>
+  summarise(fitness_advantage = mean(fitness_diff), .groups = "drop") |>
+  print()
+```
+
+
+## Static publication-ready figure
+
+We visualize the ESS for the Hawk-Dove game as the V/C ratio varies, showing the transition from pure Hawk ESS to mixed ESS.
+
+```{r}
+#| label: fig-ess-hawk-dove
+#| fig-cap: "Figure 1. Evolutionarily stable strategies in the Hawk-Dove game as a function of the value-to-cost ratio V/C. When V/C >= 1, pure Hawk is the unique ESS. When V/C < 1, the unique ESS is a mixed strategy where Hawk is played with probability V/C. The dashed line marks V/C = 1, the critical threshold. At the mixed ESS, the population exhibits a stable polymorphism of aggressive and peaceful phenotypes."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+vc_ratio <- seq(0.01, 2.0, by = 0.01)
+ess_data <- data.frame(
+  vc = vc_ratio,
+  p_hawk = pmin(vc_ratio, 1)  # ESS probability of Hawk = min(V/C, 1)
+)
+
+# Also compute expected payoff at ESS
+# When V/C < 1: ESS payoff = p*(V-C)/2 * p + p*V*(1-p) + 0*(1-p)*p + (1-p)*V/2*(1-p)
+# Simplification: at mixed ESS, expected payoff = V^2/(2C)... let's compute directly
+ess_data <- ess_data |>
+  mutate(
+    # At ESS, each player plays Hawk with prob p_hawk
+    # Expected payoff = p^2*(V-C)/2 + p*(1-p)*V + (1-p)*p*0 + (1-p)^2*V/2
+    payoff = p_hawk^2 * (vc * 1 - 1) / 2 +  # using normalized C=1
+             p_hawk * (1 - p_hawk) * vc +
+             (1 - p_hawk)^2 * vc / 2
+  )
+
+# Actually let's just use V and C=1 normalization properly
+ess_data <- data.frame(vc = vc_ratio) |>
+  mutate(
+    p_hawk = pmin(vc, 1),
+    region = ifelse(vc < 1, "Mixed ESS", "Pure Hawk ESS")
+  )
+
+p_ess <- ggplot(ess_data, aes(x = vc, y = p_hawk, color = region)) +
+  geom_line(linewidth = 1.2) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
+  scale_color_manual(values = c("Mixed ESS" = okabe_ito[5], "Pure Hawk ESS" = okabe_ito[6]),
+                     name = "ESS type") +
+  annotate("text", x = 0.5, y = 0.85, label = "Mixed ESS\np* = V/C",
+           color = okabe_ito[5], size = 3.5, fontface = "italic") +
+  annotate("text", x = 1.5, y = 0.85, label = "Pure Hawk ESS\np* = 1",
+           color = okabe_ito[6], size = 3.5, fontface = "italic") +
+  annotate("text", x = 1.05, y = 0.1, label = "V/C = 1", color = "grey50",
+           size = 3, hjust = 0) +
+  scale_x_continuous(breaks = seq(0, 2, 0.25)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2), labels = scales::percent_format()) +
+  labs(
+    title = "ESS Hawk probability in the Hawk-Dove game",
+    subtitle = "When fighting is too costly (V/C < 1), a stable polymorphism of Hawks and Doves emerges",
+    x = "Value-to-cost ratio (V/C)",
+    y = "ESS probability of playing Hawk"
+  ) +
+  theme_publication()
+
+p_ess
+```
+
+
+## Interactive figure
+
+The interactive figure shows invasion fitness dynamics: the fitness advantage of the ESS incumbent over various mutant strategies as a function of the mutant's frequency in the population.
+
+```{r}
+#| label: fig-invasion-interactive
+
+# Recompute invasion dynamics for Hawk-Dove with finer grid
+p_star_hd <- 3/5  # V/C = 3/5
+
+eps_fine <- seq(0.001, 0.25, length.out = 150)
+mutants_fine <- seq(0, 1, by = 0.2)
+
+inv_data <- compute_invasion(A_hd, p_star_hd,
+                             p_mutant_values = mutants_fine,
+                             epsilon_values = eps_fine)
+
+inv_data <- inv_data |>
+  mutate(
+    mutant_label = factor(paste0("Mutant p=", p_mutant)),
+    text = sprintf("Mutant freq: %.3f\nMutant strategy: p=%.1f\nFitness advantage: %.4f",
+                   epsilon, p_mutant, fitness_diff)
+  )
+
+p_inv <- ggplot(inv_data, aes(x = epsilon, y = fitness_diff,
+                               color = mutant_label, text = text)) +
+  geom_line(linewidth = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = okabe_ito[1:length(mutants_fine)], name = "Mutant strategy") +
+  labs(
+    title = "Invasion fitness: ESS incumbent advantage over mutants (Hawk-Dove)",
+    subtitle = paste0("ESS at p*=", round(p_star_hd, 2),
+                      " (V=3, C=5). Positive = incumbent wins."),
+    x = "Mutant frequency (\u03b5)",
+    y = "Fitness advantage (incumbent \u2212 mutant)"
+  ) +
+  theme_publication()
+
+ggplotly(p_inv, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The analysis reveals striking differences in evolutionary stability across the three canonical games. In the Prisoner's Dilemma, Defect is a strict Nash equilibrium and hence automatically an ESS — cooperators cannot invade a population of defectors under any circumstances. This is the evolutionary tragedy: the collectively optimal strategy (cooperation) is not only not an ESS, it is not even a Nash equilibrium. In the Stag Hunt, both pure strategies are ESS: a population of Stag hunters resists invasion by Hare hunters (because coordinating on Stag yields higher payoffs), and a population of Hare hunters resists invasion by Stag hunters (because Stag hunting fails when your partner hunts Hare). The mixed equilibrium in the Stag Hunt is *not* an ESS — it is an unstable saddle point in the replicator dynamics, separating the basins of attraction of the two pure ESS.
+
+The Hawk-Dove game exhibits the most interesting behavior. When $V < C$ (fighting is costly relative to the resource value), neither pure strategy is an ESS, and the unique ESS is a mixed strategy $p^* = V/C$. This mixed ESS can be interpreted either as every individual randomizing with probability $V/C$ of playing Hawk, or equivalently as a stable polymorphism where a fraction $V/C$ of the population plays Hawk and the rest play Dove. The invasion fitness plot confirms that at the mixed ESS, all mutant strategies (whether more aggressive or more peaceful than the ESS) have strictly negative fitness advantage when rare — the ESS genuinely resists all invasions. As the V/C ratio increases toward 1, the ESS shifts toward pure Hawk, and at $V/C = 1$ there is a phase transition to the pure Hawk ESS regime. This transition has been observed empirically in territorial animal contests where increasing resource value leads to escalated aggression.
+
+
+## Extensions & related tutorials
+
+- [Replicator dynamics for Rock-Paper-Scissors](../replicator-dynamics-rps/) — ESS analysis for a game with no pure-strategy ESS and cyclic dynamics.
+- [Moran process in finite populations](../moran-process-finite-populations/) — how finite population size alters ESS predictions through stochastic drift.
+- [Nash equilibrium in mixed strategies](../../foundations/nash-equilibrium-mixed/) — the underlying equilibrium concept that ESS refines.
+- [Dominant strategies and iterated elimination](../../foundations/dominant-strategies-iterated-elimination/) — a simpler solution concept for games where dominance resolves the game before ESS is needed.
+- [Spatial Prisoner's Dilemma on a lattice](../../simulations/spatial-prisoners-dilemma-nowak-may/) — spatial structure can enable cooperation to be an ESS even in Prisoner's Dilemma variants.
+
+
+## References
+
+::: {#refs}
+:::
