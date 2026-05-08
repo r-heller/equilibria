@@ -31,3 +31,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 5.12 | Batch 3: cooperative-gt ×2 | core-stability, voting-power-indices |
 | 2026-05-08 | 5.13 | Batch 3: cross-section ×6 | public-goods-punishment, colonel-blotto, bank-runs, allais-paradox, global-games, arms-race |
 | 2026-05-08 | 5.14 | refs: +11 BibTeX entries | VCG lineage, Gale-Shapley, Gibbard, Fehr-Gächter |
+| 2026-05-08 | 5.15 | Batch 4: simulations + ai-ml ×2 | monte-carlo-game-equilibria, gans-minimax-game |
+| 2026-05-08 | 5.16 | Batch 4: 6 second articles (group A) | nudge, tragedy-of-commons, DiD-strategic, ZKP, dictator-game, nash-existence-proof |
+| 2026-05-08 | 5.17 | Batch 4: 6 second articles (group B) | VOI-games, LP-duality-zero-sum, fictitious-play, congestion-games, cascades, support-enumeration |
+| 2026-05-08 | 5.18 | Batch 4: 6 second articles (group C) | FRED-data, testthat-GT, quarto-params, bootstrap-GT, granger-causality, privacy-game |
