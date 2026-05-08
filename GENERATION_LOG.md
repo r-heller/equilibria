@@ -24,3 +24,10 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 5.5 | Batch: 6 section seeds (behavioral-econ → history) | prospect-theory, spectrum-auction, IV-causal, MPC-crypto, public-goods-experiment, GT-timeline |
 | 2026-05-08 | 5.6 | Batch: 6 section seeds (info-theory → optimization) | entropy-info, matrix-games, MARL, network-formation, centrality, lemke-howson |
 | 2026-05-08 | 5.7 | Batch: 5 section seeds (R-pkg → ethics-apps) | R-package-dev, reproducible-workflow, hypothesis-testing, VAR-models, algorithmic-fairness |
+| 2026-05-08 | 5.8 | Batch 3: foundations ×4 | signaling-games-PBE, correlated-equilibrium, folk-theorem, rationalizability |
+| 2026-05-08 | 5.9 | Batch 3: evolutionary-gt ×2 | ESS-definition, moran-process-finite-populations |
+| 2026-05-08 | 5.10 | Batch 3: auction-theory ×3 | revenue-equivalence, common-value-winners-curse, GSP-auction |
+| 2026-05-08 | 5.11 | Batch 3: mechanism-design ×3 | VCG-mechanism, deferred-acceptance, mechanism-design-intro |
+| 2026-05-08 | 5.12 | Batch 3: cooperative-gt ×2 | core-stability, voting-power-indices |
+| 2026-05-08 | 5.13 | Batch 3: cross-section ×6 | public-goods-punishment, colonel-blotto, bank-runs, allais-paradox, global-games, arms-race |
+| 2026-05-08 | 5.14 | refs: +11 BibTeX entries | VCG lineage, Gale-Shapley, Gibbard, Fehr-Gächter |

@@ -1,0 +1,335 @@
+---
+title: "Folk theorem with perfect monitoring"
+description: "Prove and visualize the folk theorem for infinitely repeated games: any individually rational, feasible payoff can be sustained as a subgame-perfect equilibrium when players are sufficiently patient."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - foundations
+  - repeated-games
+  - folk-theorem
+  - subgame-perfection
+keywords: ["folk theorem", "repeated games", "discount factor", "grim trigger", "minimax", "feasible payoffs"]
+labels: ["repeated-games", "equilibrium-refinements"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_foundations_folk-theorem-perfect-monitoring"
+image: thumbnail.png
+image-alt: "Feasible and individually rational payoff region for the repeated Prisoner's Dilemma with the folk theorem equilibrium set shaded"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/foundations/folk-theorem-perfect-monitoring/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+The one-shot Prisoner's Dilemma has a unique Nash equilibrium in which both players defect, even though mutual cooperation would leave both strictly better off. This result is perhaps the most celebrated — and most troubling — prediction in all of game theory. It suggests that rational self-interest inexorably leads to collectively suboptimal outcomes. Yet in practice, cooperation is pervasive: firms sustain collusive pricing, nations uphold treaties without enforcement courts, and individuals cooperate in long-term relationships. The resolution to this tension lies in repetition. When players interact repeatedly and care sufficiently about the future, the threat of punishment in future periods can sustain cooperation as an equilibrium outcome today. The **folk theorem** formalizes this intuition with striking generality: it shows that *any* payoff profile that is both feasible (achievable by some mixture of action profiles) and individually rational (gives each player at least as much as they could guarantee themselves) can be sustained as a subgame-perfect Nash equilibrium of the infinitely repeated game, provided the discount factor $\delta$ is close enough to 1.
+
+The name "folk theorem" reflects the fact that the basic insight was known informally among game theorists in the 1950s before being published formally. The earliest rigorous versions are due to Aumann and Shapley (1976) and Rubinstein (1979) for Nash equilibrium, and to @osborne_rubinstein_1994 and Fudenberg and Maskin (1986) for the stronger subgame-perfect equilibrium refinement. The version we present here — for games with perfect monitoring, where all players observe the full action profile after each period — is the cleanest setting and serves as a foundation for extensions to imperfect monitoring, stochastic games, and the theory of relational contracts. Perfect monitoring means that deviations are immediately and publicly observed, making punishment straightforward to implement. The key equilibrium strategy we study is the **grim-trigger**: cooperate as long as everyone has cooperated in all previous periods; if anyone ever defects, switch to the stage-game Nash equilibrium (mutual defection) forever. While grim-trigger is not the only punishment strategy available — more sophisticated constructions like tit-for-tat, mutual punishment with forgiveness, or the Abreu (1988) optimal penal codes offer refinements — it provides the simplest proof vehicle for the folk theorem and clearly illustrates the economic logic: deviation yields a one-period gain but triggers permanent reversion to the worst credible continuation, and when the future matters enough ($\delta$ is large), the punishment outweighs the temptation.
+
+In this tutorial, we implement the folk theorem analysis for the canonical Prisoner's Dilemma. We compute the feasible payoff set as the convex hull of the four pure-strategy payoff profiles, identify the individually rational region by computing minimax values, derive the critical discount factor for grim-trigger to sustain cooperation, and visualize the folk theorem region — the set of payoff pairs that can be supported as equilibrium outcomes. This geometric perspective makes the folk theorem tangible: the equilibrium payoff set starts as a single point (the stage-game Nash equilibrium payoff) when $\delta = 0$ and expands continuously until it fills the entire individually rational feasible set as $\delta \to 1$.
+
+
+## Mathematical formulation
+
+Consider a two-player stage game with action sets $A_1$ and $A_2$ and payoff functions $u_i: A_1 \times A_2 \to \mathbb{R}$. The **Prisoner's Dilemma** has $A_i = \{C, D\}$ with payoff matrix (row player's payoff, column player's payoff):
+
+$$
+\begin{array}{c|cc}
+ & C & D \\
+\hline
+C & (3,3) & (0,5) \\
+D & (5,0) & (1,1)
+\end{array}
+$$
+
+The **feasible payoff set** $F$ is the convex hull of all achievable payoff vectors:
+
+$$
+F = \operatorname{conv}\{(3,3), (0,5), (5,0), (1,1)\}
+$$
+
+Players can achieve any point in $F$ through public randomization (correlated mixing) over the four pure action profiles. The **minimax value** for player $i$ is:
+
+$$
+\underline{v}_i = \min_{a_{-i} \in A_{-i}} \max_{a_i \in A_i} u_i(a_i, a_{-i})
+$$
+
+In the Prisoner's Dilemma, each player's minimax value is $\underline{v}_i = 1$ (player $i$ can guarantee payoff 1 by defecting, and the opponent minimizes $i$'s payoff by also defecting). The **individually rational feasible set** is:
+
+$$
+F^* = \{(v_1, v_2) \in F : v_i \geq \underline{v}_i \text{ for all } i\}
+$$
+
+**Folk Theorem (Fudenberg and Maskin 1986):** For any payoff vector $(v_1, v_2) \in F^*$ with $v_i > \underline{v}_i$ for all $i$, there exists $\bar{\delta} < 1$ such that for all $\delta \in (\bar{\delta}, 1)$, the payoff vector $(v_1, v_2)$ can be achieved by a subgame-perfect equilibrium of the infinitely repeated game with discount factor $\delta$.
+
+For the **grim-trigger** strategy sustaining mutual cooperation $(3,3)$, the critical discount factor solves:
+
+$$
+\frac{3}{1 - \delta} \geq 5 + \frac{\delta \cdot 1}{1 - \delta}
+$$
+
+$$
+\Rightarrow \quad \delta \geq \frac{T - R}{T - P} = \frac{5 - 3}{5 - 1} = \frac{1}{2}
+$$
+
+where $T=5$ (temptation), $R=3$ (reward), $P=1$ (punishment), and $S=0$ (sucker).
+
+
+## R implementation
+
+We compute the feasible payoff set, individually rational region, and critical discount factor for the repeated Prisoner's Dilemma.
+
+```{r}
+#| label: folk-theorem-computation
+
+# Stage-game payoffs: (row_payoff, col_payoff) for each action profile
+# Actions: C=Cooperate, D=Defect
+# Payoff matrix parameters
+R_pay <- 3   # Reward for mutual cooperation
+T_pay <- 5   # Temptation to defect
+S_pay <- 0   # Sucker's payoff
+P_pay <- 1   # Punishment for mutual defection
+
+# All pure-strategy payoff profiles (player1, player2)
+payoff_profiles <- data.frame(
+  p1 = c(R_pay, S_pay, T_pay, P_pay),
+  p2 = c(R_pay, T_pay, S_pay, P_pay),
+  profile = c("(C,C)", "(C,D)", "(D,C)", "(D,D)")
+)
+
+cat("Stage-game payoff profiles:\n")
+print(payoff_profiles)
+
+# Compute convex hull of feasible payoffs
+hull_indices <- chull(payoff_profiles$p1, payoff_profiles$p2)
+hull_indices <- c(hull_indices, hull_indices[1])  # close the polygon
+
+feasible_hull <- payoff_profiles[hull_indices, ]
+cat("\nConvex hull vertices (in order):\n")
+print(feasible_hull)
+
+# Minimax values
+# For PD: each player's minimax = P (punishment payoff)
+minimax_1 <- P_pay
+minimax_2 <- P_pay
+cat("\nMinimax values: player 1 =", minimax_1, ", player 2 =", minimax_2, "\n")
+
+# Critical discount factor for grim trigger
+delta_crit <- (T_pay - R_pay) / (T_pay - P_pay)
+cat("\nCritical discount factor (grim trigger for cooperation):",
+    delta_crit, "\n")
+
+# Verify: cooperation payoff stream vs deviation payoff stream
+cat("\nVerification at delta =", delta_crit, ":\n")
+cat("  Cooperation forever: R/(1-delta) =", R_pay / (1 - delta_crit), "\n")
+cat("  Deviate then punish: T + delta*P/(1-delta) =",
+    T_pay + delta_crit * P_pay / (1 - delta_crit), "\n")
+
+# Build the individually rational feasible set
+# We need to clip the feasible set to v1 >= minimax_1, v2 >= minimax_2
+# Generate feasible set as a fine grid
+grid_res <- 200
+alpha_grid <- seq(0, 1, length.out = grid_res)
+feasible_points <- expand.grid(a1 = alpha_grid, a2 = alpha_grid, a3 = alpha_grid)
+feasible_points$a4 <- 1 - feasible_points$a1 - feasible_points$a2 - feasible_points$a3
+feasible_points <- feasible_points |>
+  filter(a4 >= -1e-10) |>
+  mutate(a4 = pmax(a4, 0),
+         v1 = a1 * R_pay + a2 * S_pay + a3 * T_pay + a4 * P_pay,
+         v2 = a1 * R_pay + a2 * T_pay + a3 * S_pay + a4 * P_pay)
+
+# Filter to individually rational
+ir_points <- feasible_points |>
+  filter(v1 >= minimax_1, v2 >= minimax_2)
+
+cat("\nFolk theorem region (individually rational feasible set):\n")
+cat("  v1 range:", range(ir_points$v1), "\n")
+cat("  v2 range:", range(ir_points$v2), "\n")
+```
+
+
+## Static publication-ready figure
+
+We visualize the feasible payoff set, the individually rational region (the folk theorem set), and key payoff profiles.
+
+```{r}
+#| label: fig-folk-theorem-region
+#| fig-cap: "Figure 1. The folk theorem for the repeated Prisoner's Dilemma. The light blue region is the feasible payoff set (convex hull of stage-game payoffs). The darker shaded region above both minimax values (dashed lines) is the individually rational feasible set — the set of payoffs achievable as subgame-perfect equilibria when players are sufficiently patient. The Nash equilibrium (D,D) = (1,1) sits at the minimax point; mutual cooperation (3,3) is interior to the folk theorem region."
+#| dev: [png, pdf]
+#| fig-width: 8
+#| fig-height: 6
+#| dpi: 300
+
+# Convex hull polygon for the feasible set
+hull_poly <- payoff_profiles[chull(payoff_profiles$p1, payoff_profiles$p2), ]
+hull_poly <- rbind(hull_poly, hull_poly[1, ])  # close polygon
+
+# IR feasible set: clip the feasible polygon to v1 >= 1, v2 >= 1
+# The IR feasible set vertices for the PD are: (1,1), (1,5), (3,3), (5,1)
+# Actually we need to compute the intersection properly
+# For the standard PD, the IR feasible set is a quadrilateral
+ir_vertices <- data.frame(
+  p1 = c(1, 1, 3, 5),
+  p2 = c(5, 1, 3, 1)
+)
+ir_hull_idx <- chull(ir_vertices$p1, ir_vertices$p2)
+ir_hull_idx <- c(ir_hull_idx, ir_hull_idx[1])
+ir_poly <- ir_vertices[ir_hull_idx, ]
+
+p_folk <- ggplot() +
+  # Feasible set
+  geom_polygon(data = hull_poly, aes(x = p1, y = p2),
+               fill = okabe_ito[2], alpha = 0.25) +
+  geom_path(data = hull_poly, aes(x = p1, y = p2),
+            color = okabe_ito[2], linewidth = 0.6) +
+  # IR feasible set (folk theorem region)
+  geom_polygon(data = ir_poly, aes(x = p1, y = p2),
+               fill = okabe_ito[5], alpha = 0.35) +
+  geom_path(data = ir_poly, aes(x = p1, y = p2),
+            color = okabe_ito[5], linewidth = 0.8) +
+  # Minimax lines
+
+  geom_hline(yintercept = minimax_2, linetype = "dashed",
+             color = "grey50", linewidth = 0.4) +
+  geom_vline(xintercept = minimax_1, linetype = "dashed",
+             color = "grey50", linewidth = 0.4) +
+  # Stage-game payoff profiles
+
+  geom_point(data = payoff_profiles, aes(x = p1, y = p2),
+             size = 3.5, color = okabe_ito[6]) +
+  geom_text(data = payoff_profiles, aes(x = p1, y = p2, label = profile),
+            vjust = -0.8, size = 3.5, fontface = "bold") +
+  # Cooperative outcome highlighted
+  annotate("point", x = 3, y = 3, size = 5, shape = 18, color = okabe_ito[3]) +
+  # Labels
+  annotate("text", x = 0.3, y = 4.5, label = "Feasible\nset F",
+           color = okabe_ito[2], size = 3.5, fontface = "italic") +
+  annotate("text", x = 3.5, y = 1.8, label = "Folk theorem\nregion F*",
+           color = okabe_ito[5], size = 3.5, fontface = "italic") +
+  annotate("text", x = 0.5, y = 0.7, label = paste0("minimax = ", minimax_1),
+           color = "grey50", size = 3) +
+  scale_x_continuous(limits = c(-0.5, 5.5), breaks = 0:5) +
+  scale_y_continuous(limits = c(-0.5, 5.5), breaks = 0:5) +
+  coord_fixed() +
+  labs(
+    title = "Folk theorem region for the repeated Prisoner's Dilemma",
+    subtitle = paste0("Grim trigger sustains cooperation for \u03b4 \u2265 ",
+                      round(delta_crit, 3),
+                      "; entire shaded region achievable as \u03b4 \u2192 1"),
+    x = "Player 1 payoff",
+    y = "Player 2 payoff"
+  ) +
+  theme_publication()
+
+p_folk
+```
+
+
+## Interactive figure
+
+The interactive figure lets you explore the relationship between the discount factor and which payoff profiles can be sustained by grim-trigger-style strategies.
+
+```{r}
+#| label: fig-folk-theorem-interactive
+
+# Show how the critical discount factor varies for different target payoffs
+# along the Pareto frontier and the v1=v2 line
+target_payoffs <- seq(1.01, 3, by = 0.01)
+
+# For symmetric payoffs (v, v) sustained by grim trigger:
+# Deviation gain: T - v, Punishment loss per period: v - P
+# Critical delta: (T - v) / (T - P) ... wait, let's be precise.
+# To sustain (v,v) via mixing C,C with prob p and D,D with prob 1-p:
+# v = p*R + (1-p)*P => p = (v - P)/(R - P)
+# Deviation payoff when supposed to play C: T (play D instead)
+# Deviation payoff when supposed to play D: P (already best response)
+# So deviation gain = T - v (in a CC period, get T instead of R)
+# Expected one-shot deviation gain = p*(T - R)
+# Punishment = revert to (P,P) forever
+# No-deviation constraint: v/(1-delta) >= p*T + (1-p)*P + delta*P/(1-delta)
+# => v >= (1-delta)*(p*T + (1-p)*P) + delta*P
+# => v >= (1-delta)*v + (1-delta)*p*(T-R)... let me redo
+# Actually for a target payoff v on the symmetric line, sustained by
+# alternating/mixing, the simplest approach: use grim trigger where
+# "cooperate" means play the mixed action achieving v, deviation triggers (D,D).
+# If the stage payoff is v and best deviation gives T (when supposed to cooperate):
+# delta >= (T - v) / (T - P) for symmetric PD with these payoffs
+
+delta_for_v <- data.frame(
+  v = target_payoffs,
+  delta_crit = (T_pay - target_payoffs) / (T_pay - P_pay)
+)
+delta_for_v <- delta_for_v |>
+  mutate(text = sprintf("Target payoff: (%.2f, %.2f)\nCritical \u03b4: %.3f",
+                         v, v, delta_crit))
+
+p_delta <- ggplot(delta_for_v, aes(x = v, y = delta_crit, text = text)) +
+  geom_line(color = okabe_ito[5], linewidth = 1) +
+  geom_point(data = data.frame(v = R_pay, delta_crit = (T_pay - R_pay)/(T_pay - P_pay)),
+             aes(x = v, y = delta_crit),
+             color = okabe_ito[6], size = 3) +
+  geom_hline(yintercept = 0.5, linetype = "dotted", color = "grey60") +
+  annotate("text", x = 2.8, y = 0.55,
+           label = "\u03b4 = 1/2 (cooperation threshold)", size = 3, color = "grey40") +
+  labs(
+    title = "Critical discount factor vs. target symmetric payoff",
+    subtitle = "Lower target payoffs require less patience to sustain",
+    x = "Target payoff (v, v) on symmetric line",
+    y = "Minimum discount factor \u03b4"
+  ) +
+  theme_publication()
+
+ggplotly(p_delta, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The visualization reveals several key insights about the folk theorem. First, the feasible payoff set $F$ is a quadrilateral with vertices at the four pure-strategy payoff profiles. The individually rational feasible set $F^*$ — the folk theorem region — is the subset of $F$ where both players receive at least their minimax value of 1. This region contains a rich set of payoff profiles, from barely above mutual defection (close to $(1,1)$) to highly asymmetric outcomes like $(1, 5)$ where one player cooperates unconditionally while the other exploits them. The mutual cooperation outcome $(3,3)$ is interior to this region, confirming that cooperation is sustainable but not the only equilibrium outcome — the folk theorem tells us that repeated interaction enables cooperation but does not uniquely select it.
+
+The critical discount factor $\delta^* = 1/2$ for sustaining mutual cooperation via grim trigger has an intuitive interpretation: the one-period temptation gain from defecting ($T - R = 5 - 3 = 2$) must be outweighed by the discounted future punishment ($\delta(R - P)/(1 - \delta)$). At $\delta = 1/2$, these are exactly equal. As the interactive figure shows, sustaining payoffs closer to the minimax value requires less patience (lower $\delta$) because the temptation to deviate is smaller. This creates a monotone relationship between patience and the set of sustainable payoffs — a hallmark of the folk theorem.
+
+A critical caveat is that perfect monitoring is essential for grim trigger and related strategies. If players cannot observe each other's actions perfectly — the case of imperfect monitoring — the folk theorem requires more sophisticated construction techniques, including the use of statistical tests and public randomization devices. The extensions to imperfect monitoring (Green and Porter 1984; Abreu, Pearce, and Stacchetti 1990) are among the deepest results in the theory of repeated games. The perfect-monitoring case studied here, while foundational, represents the most optimistic scenario for cooperation.
+
+
+## Extensions & related tutorials
+
+- [Subgame perfection and extensive-form games](../extensive-form-subgame-perfection/) — the equilibrium refinement concept underlying the folk theorem.
+- [Nash equilibrium in mixed strategies](../nash-equilibrium-mixed/) — the stage-game equilibrium concept that forms the building block for repeated-game analysis.
+- [Correlated equilibrium](../correlated-equilibrium/) — an alternative equilibrium concept that also expands the set of achievable payoffs beyond Nash equilibrium.
+- [Replicator dynamics for Rock-Paper-Scissors](../../evolutionary-gt/replicator-dynamics-rps/) — evolutionary dynamics as an alternative approach to equilibrium selection in repeated settings.
+- [Signaling games and perfect Bayesian equilibrium](../signaling-games-pbe/) — extending to games of incomplete information, where the folk theorem requires additional refinements.
+
+
+## References
+
+::: {#refs}
+:::

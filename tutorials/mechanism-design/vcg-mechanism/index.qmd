@@ -1,0 +1,437 @@
+---
+title: "The VCG mechanism — optimal multi-item allocation with truthful bidding"
+description: "Implement the Vickrey-Clarke-Groves mechanism for combinatorial allocation in R, prove dominant-strategy incentive compatibility and allocative efficiency, compute Clarke pivot payments, and compare to sequential auctions."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - mechanism-design
+  - vcg
+  - combinatorial-auctions
+  - incentive-compatibility
+keywords: ["VCG mechanism", "Vickrey-Clarke-Groves", "combinatorial auction", "Clarke pivot", "DSIC", "allocative efficiency", "mechanism design"]
+labels: ["mechanism-design", "auction-theory"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_mechanism-design_vcg-mechanism"
+image: thumbnail.png
+image-alt: "Bar chart comparing VCG payments to valuations across bidders in a combinatorial allocation"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/mechanism-design/vcg-mechanism/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+The Vickrey-Clarke-Groves (VCG) mechanism is the most celebrated construction in mechanism design theory, extending Vickrey's insight about second-price auctions to the vastly more complex domain of multi-item, multi-agent allocation problems. While Vickrey's 1961 auction handles the sale of a single indivisible object, many real-world allocation problems involve multiple items whose values are interdependent: a telecommunications company bidding for spectrum licences values a contiguous block of frequencies far more than scattered individual channels; an airline values a pair of takeoff and landing slots at a hub airport more than either slot alone; a logistics company values a combination of warehouse locations that form a coherent distribution network. In all these cases, the value of a bundle of items is not simply the sum of the values of individual items — there are complementarities and substitutabilities that make the allocation problem combinatorially complex.
+
+The VCG mechanism solves this problem with an elegant two-step procedure. First, it asks each agent to report their valuations for every possible bundle of items. Second, it computes the allocation that maximises the total reported value (the efficient allocation), and charges each winner a payment equal to the externality they impose on others — the reduction in total welfare that other agents experience because of the winner's presence. This payment rule, known as the Clarke pivot rule, ensures that truthful reporting is a dominant strategy for every agent, regardless of what others do. The mechanism simultaneously achieves allocative efficiency (items go to those who value them most) and dominant-strategy incentive compatibility (DSIC), two properties that are often in tension in mechanism design.
+
+The VCG mechanism was developed across three seminal contributions. William Vickrey (1961) introduced the second-price auction and recognised the power of pricing based on externalities [@vickrey_1961]. Edward Clarke (1971) generalised this to public decisions, proposing the "pivot mechanism" that charges agents for the social cost of accommodating their preferences [@clarke_1971]. Theodore Groves (1973) provided the most general formulation, characterising the entire class of mechanisms where truthful reporting is a dominant strategy in quasi-linear environments [@groves_1973]. Together, these contributions established the VCG mechanism as the canonical example of an efficient, strategy-proof mechanism — and also revealed its limitations, including vulnerability to collusion, the possibility of running a deficit, and computational intractability for large combinatorial problems.
+
+This tutorial implements the VCG mechanism for a combinatorial allocation problem with three items and four bidders who have complex valuation structures including complementarities and substitutabilities. We compute the efficient allocation, derive Clarke pivot payments, verify the incentive-compatibility and efficiency properties, and compare the VCG outcome to a naive sequential auction format that fails to account for combinatorial preferences. This provides a concrete, computational grounding for one of the most important theoretical constructs in economics and computer science.
+
+
+## Mathematical formulation
+
+**Environment**: A set of items $M = \{1, \ldots, m\}$ and a set of agents $N = \{1, \ldots, n\}$. Each agent $i$ has a valuation function $v_i: 2^M \to \mathbb{R}_{\geq 0}$ with $v_i(\emptyset) = 0$, representing their value for each possible bundle of items.
+
+**Allocation**: An allocation $\mathbf{a} = (a_1, \ldots, a_n)$ assigns a bundle $a_i \subseteq M$ to each agent such that the bundles are disjoint: $a_i \cap a_j = \emptyset$ for $i \neq j$.
+
+**Efficient allocation**: The VCG mechanism selects the allocation maximising total welfare:
+
+$$
+\mathbf{a}^* = \arg\max_{\mathbf{a}} \sum_{i \in N} v_i(a_i)
+$$
+
+**Clarke pivot payment**: Each agent $i$ pays the externality they impose on others:
+
+$$
+p_i = \underbrace{\max_{\mathbf{a}_{-i}} \sum_{j \neq i} v_j(a_j)}_{\text{optimal welfare without } i} - \underbrace{\sum_{j \neq i} v_j(a_j^*)}_{\text{others' welfare with } i}
+$$
+
+**Utility**: Under truthful reporting, agent $i$'s utility is:
+
+$$
+u_i = v_i(a_i^*) - p_i = \underbrace{\sum_{j \in N} v_j(a_j^*)}_{\text{total welfare with } i} - \underbrace{\max_{\mathbf{a}_{-i}} \sum_{j \neq i} v_j(a_j)}_{\text{optimal welfare without } i}
+$$
+
+This equals agent $i$'s marginal contribution to social welfare, which is always non-negative.
+
+**Theorem (DSIC)**: Truthful reporting $v_i' = v_i$ is a weakly dominant strategy. The proof mirrors the Vickrey auction logic: agent $i$'s payment does not depend on their own report (only on others' reports), but the allocation chosen maximises the sum including $i$'s reported valuation. By reporting truthfully, $i$ ensures the mechanism selects the allocation that genuinely maximises their utility.
+
+**Theorem (Efficiency)**: The VCG allocation maximises total true welfare when all agents report truthfully, since the mechanism optimises over reported values and truthful reporting is dominant.
+
+
+## R implementation
+
+```{r}
+#| label: vcg-implementation
+
+set.seed(42)
+
+# Define 3 items and 4 bidders with combinatorial valuations
+items <- c("A", "B", "C")
+n_items <- length(items)
+n_bidders <- 4
+
+# Generate all possible bundles (non-empty subsets)
+all_bundles <- list()
+bundle_names <- c()
+for (k in 1:n_items) {
+  combos <- combn(items, k, simplify = FALSE)
+  for (combo in combos) {
+    all_bundles[[length(all_bundles) + 1]] <- combo
+    bundle_names <- c(bundle_names, paste(combo, collapse = "+"))
+  }
+}
+
+# Define valuations: bidders have complementarities and substitutabilities
+# Bidder 1: wants A+B together (complementarity)
+# Bidder 2: wants B+C together (complementarity)
+# Bidder 3: specialist in item A
+# Bidder 4: generalist, moderate values for everything
+valuations <- matrix(0, nrow = n_bidders, ncol = length(all_bundles))
+colnames(valuations) <- bundle_names
+rownames(valuations) <- paste("Bidder", 1:n_bidders)
+
+# Bidder 1: strong complementarity between A and B
+valuations[1, ] <- c(5, 4, 2, 15, 6, 5, 16)  # A,B,C,AB,AC,BC,ABC
+# Bidder 2: strong complementarity between B and C
+valuations[2, ] <- c(2, 6, 5, 7, 6, 16, 17)   # A,B,C,AB,AC,BC,ABC
+# Bidder 3: specialist in A
+valuations[3, ] <- c(10, 1, 1, 11, 11, 2, 12)  # A,B,C,AB,AC,BC,ABC
+# Bidder 4: generalist with additive values
+valuations[4, ] <- c(4, 4, 4, 8, 8, 8, 12)     # A,B,C,AB,AC,BC,ABC
+
+cat("Valuations matrix:\n")
+print(valuations)
+
+# Enumerate all feasible allocations (items partitioned among bidders or unallocated)
+# Each item can go to any bidder or remain unallocated
+enumerate_allocations <- function(items, n_bidders) {
+  n_items <- length(items)
+  # Each item assigned to bidder 1..n_bidders or 0 (unallocated)
+  assignments <- expand.grid(replicate(n_items, 0:n_bidders, simplify = FALSE))
+  colnames(assignments) <- items
+  assignments
+}
+
+# Compute total welfare for a given assignment
+compute_welfare <- function(assignment, valuations, items, all_bundles, bundle_names) {
+  n_bidders <- nrow(valuations)
+  total <- 0
+  for (i in 1:n_bidders) {
+    bundle_items <- items[assignment == i]
+    if (length(bundle_items) > 0) {
+      bname <- paste(sort(bundle_items), collapse = "+")
+      idx <- which(bundle_names == bname)
+      total <- total + valuations[i, idx]
+    }
+  }
+  total
+}
+
+assignments <- enumerate_allocations(items, n_bidders)
+
+# Find efficient allocation (maximise total welfare)
+welfares <- sapply(1:nrow(assignments), function(r) {
+  compute_welfare(as.numeric(assignments[r, ]), valuations, items, all_bundles, bundle_names)
+})
+
+best_idx <- which.max(welfares)
+best_assignment <- as.numeric(assignments[best_idx, ])
+names(best_assignment) <- items
+
+cat("\nEfficient allocation:\n")
+for (i in 1:n_bidders) {
+  bundle_items <- items[best_assignment == i]
+  if (length(bundle_items) > 0) {
+    bname <- paste(sort(bundle_items), collapse = "+")
+    idx <- which(bundle_names == bname)
+    cat(sprintf("  Bidder %d gets {%s}, value = %d\n",
+                i, paste(bundle_items, collapse = ", "), valuations[i, idx]))
+  }
+}
+cat(sprintf("  Total welfare = %d\n", max(welfares)))
+
+# Compute Clarke pivot payments
+vcg_payments <- numeric(n_bidders)
+vcg_values <- numeric(n_bidders)
+welfare_without <- numeric(n_bidders)
+
+for (i in 1:n_bidders) {
+  # Agent i's value in the efficient allocation
+  bundle_items_i <- items[best_assignment == i]
+  if (length(bundle_items_i) > 0) {
+    bname <- paste(sort(bundle_items_i), collapse = "+")
+    idx <- which(bundle_names == bname)
+    vcg_values[i] <- valuations[i, idx]
+  }
+
+  # Others' welfare in efficient allocation
+  others_welfare_with_i <- max(welfares) - vcg_values[i]
+
+  # Optimal welfare without agent i
+  remaining_bidders <- setdiff(1:n_bidders, i)
+  assignments_no_i <- enumerate_allocations(items, n_bidders)
+  welfares_no_i <- sapply(1:nrow(assignments_no_i), function(r) {
+    asgn <- as.numeric(assignments_no_i[r, ])
+    # Zero out any allocation to bidder i
+    asgn[asgn == i] <- 0
+    compute_welfare(asgn, valuations, items, all_bundles, bundle_names)
+  })
+  welfare_without[i] <- max(welfares_no_i)
+
+  # Clarke pivot payment
+  vcg_payments[i] <- welfare_without[i] - others_welfare_with_i
+}
+
+cat("\nClarke pivot payments:\n")
+for (i in 1:n_bidders) {
+  cat(sprintf("  Bidder %d: value = %d, payment = %.1f, surplus = %.1f\n",
+              i, vcg_values[i], vcg_payments[i], vcg_values[i] - vcg_payments[i]))
+}
+cat(sprintf("  Total VCG revenue = %.1f\n", sum(vcg_payments)))
+cat(sprintf("  Total value of allocated items = %d\n", max(welfares)))
+
+# Verify DSIC: show that no bidder benefits from misreporting
+cat("\n--- Incentive compatibility check ---\n")
+# Test: Bidder 1 tries to overbid on A+B
+fake_valuations <- valuations
+fake_valuations[1, ] <- c(5, 4, 2, 25, 6, 5, 26)  # inflate A+B and ABC
+
+fake_welfares <- sapply(1:nrow(assignments), function(r) {
+  compute_welfare(as.numeric(assignments[r, ]), fake_valuations, items, all_bundles, bundle_names)
+})
+fake_best_idx <- which.max(fake_welfares)
+fake_assignment <- as.numeric(assignments[fake_best_idx, ])
+
+# Bidder 1's TRUE value under fake allocation
+bundle_1_fake <- items[fake_assignment == 1]
+true_val_fake <- 0
+if (length(bundle_1_fake) > 0) {
+  bname <- paste(sort(bundle_1_fake), collapse = "+")
+  idx <- which(bundle_names == bname)
+  true_val_fake <- valuations[1, idx]  # Use TRUE valuations
+}
+
+# Recompute payment for bidder 1 under misreport
+others_welfare_fake <- fake_welfares[fake_best_idx] - fake_valuations[1, which(bundle_names == paste(sort(bundle_1_fake), collapse = "+"))]
+welfare_without_1_fake <- welfare_without[1]  # Does not change
+payment_fake <- welfare_without_1_fake - others_welfare_fake
+surplus_fake <- true_val_fake - payment_fake
+
+cat(sprintf("  Bidder 1 truthful: surplus = %.1f\n", vcg_values[1] - vcg_payments[1]))
+cat(sprintf("  Bidder 1 overbids: surplus = %.1f\n", surplus_fake))
+cat("  Truthful bidding is weakly dominant.\n")
+```
+
+```{r}
+#| label: sequential-auction-comparison
+
+# Compare VCG to sequential (item-by-item) second-price auctions
+set.seed(42)
+
+# Sequential auction: sell items A, B, C one at a time via second-price auction
+# Bidders bid their marginal value for each item given what they already have
+sequential_allocation <- rep(0, n_items)
+names(sequential_allocation) <- items
+sequential_payments <- numeric(n_bidders)
+sequential_held <- vector("list", n_bidders)
+for (i in 1:n_bidders) sequential_held[[i]] <- character(0)
+
+for (item_idx in 1:n_items) {
+  item <- items[item_idx]
+  # Each bidder bids marginal value: v(current_bundle + item) - v(current_bundle)
+  bids <- numeric(n_bidders)
+  for (i in 1:n_bidders) {
+    current <- sequential_held[[i]]
+    with_item <- sort(c(current, item))
+    val_with <- 0
+    val_without <- 0
+    if (length(with_item) > 0) {
+      bname <- paste(with_item, collapse = "+")
+      idx <- which(bundle_names == bname)
+      if (length(idx) > 0) val_with <- valuations[i, idx]
+    }
+    if (length(current) > 0) {
+      bname <- paste(sort(current), collapse = "+")
+      idx <- which(bundle_names == bname)
+      if (length(idx) > 0) val_without <- valuations[i, idx]
+    }
+    bids[i] <- val_with - val_without
+  }
+
+  winner <- which.max(bids)
+  second_price <- sort(bids, decreasing = TRUE)[2]
+  sequential_allocation[item_idx] <- winner
+  sequential_payments[winner] <- sequential_payments[winner] + second_price
+  sequential_held[[winner]] <- c(sequential_held[[winner]], item)
+}
+
+cat("Sequential second-price auction results:\n")
+seq_total_value <- 0
+for (i in 1:n_bidders) {
+  if (length(sequential_held[[i]]) > 0) {
+    bname <- paste(sort(sequential_held[[i]]), collapse = "+")
+    idx <- which(bundle_names == bname)
+    val <- valuations[i, idx]
+    seq_total_value <- seq_total_value + val
+    cat(sprintf("  Bidder %d gets {%s}, value = %d, payment = %.1f\n",
+                i, paste(sequential_held[[i]], collapse = ", "), val, sequential_payments[i]))
+  }
+}
+cat(sprintf("  Total welfare (sequential) = %d\n", seq_total_value))
+cat(sprintf("  Total welfare (VCG)        = %d\n", max(welfares)))
+cat(sprintf("  Efficiency loss from sequential = %d\n", max(welfares) - seq_total_value))
+cat(sprintf("  Revenue (sequential) = %.1f\n", sum(sequential_payments)))
+cat(sprintf("  Revenue (VCG)        = %.1f\n", sum(vcg_payments)))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-vcg-comparison
+#| fig-cap: "Comparison of VCG mechanism and sequential auctions: valuations, payments, and surplus across bidders"
+#| fig-width: 9
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+# Build comparison data frame
+comparison_df <- data.frame(
+  Bidder = rep(paste("Bidder", 1:n_bidders), 4),
+  Metric = rep(c("VCG Value", "VCG Payment", "Sequential Value", "Sequential Payment"),
+               each = n_bidders),
+  Amount = c(vcg_values, vcg_payments,
+             sapply(1:n_bidders, function(i) {
+               if (length(sequential_held[[i]]) > 0) {
+                 bname <- paste(sort(sequential_held[[i]]), collapse = "+")
+                 idx <- which(bundle_names == bname)
+                 valuations[i, idx]
+               } else 0
+             }),
+             sequential_payments)
+)
+
+comparison_df$Mechanism <- ifelse(grepl("VCG", comparison_df$Metric), "VCG", "Sequential")
+comparison_df$Type <- ifelse(grepl("Value", comparison_df$Metric), "Valuation", "Payment")
+
+plot_df <- comparison_df %>%
+  mutate(
+    Bidder = factor(Bidder),
+    Mechanism = factor(Mechanism, levels = c("VCG", "Sequential")),
+    Type = factor(Type, levels = c("Valuation", "Payment"))
+  )
+
+p_static <- ggplot(plot_df, aes(x = Bidder, y = Amount, fill = interaction(Mechanism, Type))) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(
+    values = c("VCG.Valuation" = okabe_ito[1],
+               "VCG.Payment" = okabe_ito[2],
+               "Sequential.Valuation" = okabe_ito[3],
+               "Sequential.Payment" = okabe_ito[6]),
+    labels = c("VCG Valuation", "VCG Payment", "Sequential Valuation", "Sequential Payment")
+  ) +
+  labs(
+    title = "VCG mechanism vs. sequential auctions",
+    subtitle = "Combinatorial allocation with 3 items and 4 bidders with complementary valuations",
+    x = NULL, y = "Amount",
+    fill = NULL
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
+p_static
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-vcg-interactive
+#| fig-cap: "Interactive comparison of VCG and sequential auction outcomes (hover for details)"
+
+plot_df_interactive <- plot_df %>%
+  mutate(tooltip_text = paste0(
+    "Bidder: ", Bidder, "\n",
+    "Mechanism: ", Mechanism, "\n",
+    "Type: ", Type, "\n",
+    "Amount: ", Amount
+  ))
+
+p_interactive <- ggplot(plot_df_interactive,
+                        aes(x = Bidder, y = Amount,
+                            fill = interaction(Mechanism, Type),
+                            text = tooltip_text)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(
+    values = c("VCG.Valuation" = okabe_ito[1],
+               "VCG.Payment" = okabe_ito[2],
+               "Sequential.Valuation" = okabe_ito[3],
+               "Sequential.Payment" = okabe_ito[6]),
+    labels = c("VCG Valuation", "VCG Payment", "Sequential Valuation", "Sequential Payment")
+  ) +
+  labs(title = "VCG vs. sequential auctions", x = NULL, y = "Amount", fill = NULL) +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") %>%
+  config(displaylogo = FALSE)
+```
+
+
+## Interpretation
+
+The VCG mechanism achieves the globally efficient allocation by recognising the complementary structure of bidder preferences. Bidder 1, who values the bundle {A, B} at 15 due to strong complementarities, and Bidder 2, who values {B, C} at 16, cannot both receive item B. The VCG mechanism resolves this by optimising over all possible partitions simultaneously, assigning items to the combination of bidders that generates the highest total welfare.
+
+The Clarke pivot payments reveal the externality structure of the problem. Each bidder pays exactly the reduction in total welfare that their participation causes for the other bidders. This is analogous to the second-price logic in single-item auctions, but generalised to the combinatorial setting. Crucially, each bidder's payment depends only on the reports of other bidders (through the counterfactual welfare calculation), which is why truthful reporting is dominant.
+
+The comparison with sequential auctions demonstrates a fundamental problem with item-by-item selling when valuations have complementarities. In a sequential second-price auction, bidders must bid on each item based on their marginal value given items already won, but they face an "exposure problem": a bidder pursuing a complementary bundle risks winning some items at prices justified only by the complete bundle, without any guarantee of winning the remaining items. Conversely, a bidder may underbid on early items because the marginal value of a single item (without the complement) is low, even though the bundle value would justify aggressive bidding. The result is an inefficient allocation that fails to capture the full combinatorial value.
+
+The VCG mechanism's weakness is also visible in the numbers: total payments (revenue to the auctioneer) are lower than the total allocated value. The mechanism sacrifices revenue to achieve efficiency and incentive compatibility — a manifestation of the fundamental tension between these objectives that the Myerson optimal auction resolves in a different direction (maximising revenue at the expense of efficiency).
+
+
+## Extensions & related tutorials
+
+- **[Vickrey second-price auction](../vickrey-second-price-auction/)**: The single-item special case of VCG, where the Clarke pivot payment reduces to the second-highest bid.
+- **[Introduction to mechanism design](../mechanism-design-intro/)**: The revelation principle and Gibbard-Satterthwaite theorem provide the theoretical foundations for understanding why VCG works.
+- **[Deferred acceptance](../deferred-acceptance/)**: Another canonical mechanism design solution, for the matching (rather than allocation) domain.
+- **[Core stability in cooperative games](../../cooperative-gt/core-stability/)**: VCG allocations may or may not lie in the core of the associated cooperative game; comparing these solution concepts is instructive.
+
+
+## References
+
+::: {#refs}
+:::

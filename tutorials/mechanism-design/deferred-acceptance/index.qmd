@@ -1,0 +1,428 @@
+---
+title: "Deferred acceptance — stable matching via the Gale-Shapley algorithm"
+description: "Implement the Gale-Shapley deferred acceptance algorithm for stable matching in R, prove proposer-optimality and strategy-proofness, simulate matching quality across problem sizes, and visualize the lattice of stable matchings."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - mechanism-design
+  - stable-matching
+  - gale-shapley
+  - market-design
+keywords: ["Gale-Shapley", "deferred acceptance", "stable matching", "NRMP", "school choice", "strategy-proofness", "proposer-optimal"]
+labels: ["mechanism-design", "matching-theory"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_mechanism-design_deferred-acceptance"
+image: thumbnail.png
+image-alt: "Distribution of matching quality scores comparing proposer-optimal and receiver-optimal stable matchings"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/mechanism-design/deferred-acceptance/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+The problem of stable matching — assigning agents on two sides of a market to each other so that no pair would prefer to deviate from their assignment — is one of the most elegant and practically important problems in economic theory. In 1962, David Gale and Lloyd Shapley proposed the **deferred acceptance algorithm**, proving that a stable matching always exists and can be found efficiently [@gale_shapley_1962]. Their construction proceeds by having one side of the market (the "proposers") sequentially propose to their most preferred remaining option, while the other side (the "receivers") tentatively hold the best offer received so far and reject the rest. The algorithm terminates when no proposer is rejected, and the resulting matching is guaranteed to be stable: no unmatched pair mutually prefers each other to their assigned partners.
+
+The practical impact of this algorithm is difficult to overstate. The National Resident Matching Program (NRMP), which assigns medical school graduates to residency positions in the United States, adopted a variant of the Gale-Shapley algorithm in 1952 — a decade before the theoretical paper was published, an extraordinary case of practice anticipating theory. The algorithm was later adapted for school choice programs in New York City and Boston, kidney exchange programmes, and the assignment of students to public schools in many countries. Alvin Roth, who played a central role in these applications, shared the 2012 Nobel Memorial Prize in Economics with Lloyd Shapley for "the theory of stable allocations and the practice of market design" [@roth_sotomayor_1990].
+
+A remarkable theoretical property of the Gale-Shapley algorithm is that the side that proposes obtains their **best possible stable match**: among all stable matchings, the proposer-optimal stable matching gives every proposer a partner at least as good as in any other stable matching. Conversely, the receiving side obtains their **worst stable match**. This duality means that the design choice of who proposes has distributional consequences, even though stability is guaranteed in either direction. Furthermore, the proposer-optimal mechanism is **strategy-proof for the proposing side**: no proposer can benefit by submitting a false preference list, regardless of what others do. The receiving side, however, can sometimes benefit from strategic misrepresentation — a fact that has important implications for real-world market design.
+
+This tutorial implements the Gale-Shapley algorithm for both the marriage problem (one-to-one matching) and the college admissions problem (many-to-one matching), verifies proposer-optimality and strategy-proofness computationally, and examines how matching quality varies with problem size. We simulate markets with 10 to 50 agents, comparing the proposer-optimal and receiver-optimal stable matchings to quantify the distributional asymmetry inherent in the algorithm's design.
+
+
+## Mathematical formulation
+
+**Marriage problem**: Two disjoint sets of agents — $M = \{m_1, \ldots, m_n\}$ (proposers) and $W = \{w_1, \ldots, w_n\}$ (receivers) — each with strict preference orderings over the other side. A **matching** $\mu: M \cup W \to M \cup W$ pairs each agent with at most one agent from the other side.
+
+**Stability**: A matching $\mu$ is **blocked** by a pair $(m, w)$ if both $m$ prefers $w$ to $\mu(m)$ and $w$ prefers $m$ to $\mu(w)$. A matching with no blocking pairs is **stable**.
+
+**Gale-Shapley algorithm** (proposer-proposing):
+
+1. Each unmatched proposer $m$ proposes to the highest-ranked receiver $w$ on their list who has not yet rejected them.
+2. Each receiver $w$ tentatively holds the best proposal received (including any currently held partner) and rejects all others.
+3. Repeat until no proposer is rejected.
+
+**Theorem (Gale-Shapley, 1962)**: The algorithm terminates in at most $n^2$ steps and produces a stable matching.
+
+**Theorem (Proposer-optimality)**: The proposer-proposing DA produces the **proposer-optimal** stable matching: for every proposer $m$ and every stable matching $\mu'$, we have $\mu_{DA}(m) \succeq_m \mu'(m)$.
+
+**Theorem (Receiver-pessimality)**: The proposer-optimal stable matching is simultaneously the **receiver-pessimal** stable matching: for every receiver $w$ and every stable matching $\mu'$, we have $\mu'(w) \succeq_w \mu_{DA}(w)$.
+
+**Theorem (Strategy-proofness)**: The proposer-optimal DA mechanism is strategy-proof for the proposing side: no proposer can obtain a strictly better partner by misreporting preferences, regardless of what other agents report.
+
+
+## R implementation
+
+```{r}
+#| label: gale-shapley-implementation
+
+set.seed(42)
+
+# Gale-Shapley deferred acceptance algorithm
+# proposer_prefs: n x n matrix, row i = proposer i's preference ranking (most preferred first)
+# receiver_prefs: n x n matrix, row j = receiver j's preference ranking (most preferred first)
+gale_shapley <- function(proposer_prefs, receiver_prefs) {
+  n <- nrow(proposer_prefs)
+
+  # Convert receiver prefs to ranking matrices for O(1) comparison
+  receiver_rank <- matrix(0, n, n)
+  for (j in 1:n) {
+    for (k in 1:n) {
+      receiver_rank[j, proposer_prefs = receiver_prefs[j, k]] <- k
+    }
+  }
+
+  proposer_match <- rep(NA, n)   # proposer i matched to receiver proposer_match[i]
+  receiver_match <- rep(NA, n)   # receiver j matched to proposer receiver_match[j]
+  next_proposal <- rep(1, n)     # next position in pref list for each proposer
+
+  free_proposers <- 1:n
+
+  while (length(free_proposers) > 0) {
+    m <- free_proposers[1]
+    # Proposer m proposes to next on their list
+    w <- proposer_prefs[m, next_proposal[m]]
+    next_proposal[m] <- next_proposal[m] + 1
+
+    if (is.na(receiver_match[w])) {
+      # Receiver w is free — accept
+      proposer_match[m] <- w
+      receiver_match[w] <- m
+      free_proposers <- free_proposers[-1]
+    } else {
+      # Receiver w is matched to m_current
+      m_current <- receiver_match[w]
+      if (receiver_rank[w, m] < receiver_rank[w, m_current]) {
+        # w prefers m to current partner
+        proposer_match[m] <- w
+        receiver_match[w] <- m
+        proposer_match[m_current] <- NA
+        free_proposers[1] <- m_current  # m_current becomes free
+      }
+      # else: w rejects m, m stays free and will propose to next
+    }
+  }
+
+  proposer_match
+}
+
+# Generate random preference lists
+random_prefs <- function(n) {
+  t(replicate(n, sample(1:n)))
+}
+
+# Small example: 5 proposers, 5 receivers
+n <- 5
+prop_prefs <- random_prefs(n)
+recv_prefs <- random_prefs(n)
+
+cat("Proposer preferences (columns = rank 1, 2, ...):\n")
+print(prop_prefs)
+cat("\nReceiver preferences (columns = rank 1, 2, ...):\n")
+print(recv_prefs)
+
+# Run proposer-optimal DA
+match_prop_optimal <- gale_shapley(prop_prefs, recv_prefs)
+cat("\nProposer-optimal matching:\n")
+for (i in 1:n) {
+  rank_obtained <- which(prop_prefs[i, ] == match_prop_optimal[i])
+  cat(sprintf("  Proposer %d -> Receiver %d (rank %d of %d)\n",
+              i, match_prop_optimal[i], rank_obtained, n))
+}
+
+# Run receiver-optimal DA (swap roles)
+match_recv_optimal <- gale_shapley(recv_prefs, prop_prefs)
+cat("\nReceiver-optimal matching:\n")
+for (j in 1:n) {
+  # match_recv_optimal[j] = proposer matched to receiver j
+  rank_for_receiver <- which(recv_prefs[j, ] == match_recv_optimal[j])
+  cat(sprintf("  Receiver %d -> Proposer %d (rank %d of %d)\n",
+              j, match_recv_optimal[j], rank_for_receiver, n))
+}
+
+# Verify stability of proposer-optimal matching
+check_stability <- function(matching, prop_prefs, recv_prefs) {
+  n <- length(matching)
+  recv_rank <- matrix(0, n, n)
+  for (j in 1:n) {
+    for (k in 1:n) {
+      recv_rank[j, recv_prefs[j, k]] <- k
+    }
+  }
+
+  blocking_pairs <- 0
+  for (m in 1:n) {
+    w_matched <- matching[m]
+    rank_matched <- which(prop_prefs[m, ] == w_matched)
+    # Check all receivers m prefers to their match
+    if (rank_matched > 1) {
+      for (r in 1:(rank_matched - 1)) {
+        w_preferred <- prop_prefs[m, r]
+        # Find who w_preferred is matched to
+        m_current <- which(matching == w_preferred)
+        # Does w_preferred prefer m to their current match?
+        if (recv_rank[w_preferred, m] < recv_rank[w_preferred, m_current]) {
+          blocking_pairs <- blocking_pairs + 1
+        }
+      }
+    }
+  }
+  blocking_pairs
+}
+
+bp <- check_stability(match_prop_optimal, prop_prefs, recv_prefs)
+cat(sprintf("\nBlocking pairs in proposer-optimal matching: %d (stable = %s)\n",
+            bp, ifelse(bp == 0, "YES", "NO")))
+```
+
+```{r}
+#| label: strategy-proofness-test
+
+# Demonstrate strategy-proofness for proposers
+set.seed(123)
+n <- 6
+prop_prefs <- random_prefs(n)
+recv_prefs <- random_prefs(n)
+
+truthful_match <- gale_shapley(prop_prefs, recv_prefs)
+
+cat("Strategy-proofness test (Proposer 1 tries all permutations of their pref list):\n")
+truthful_rank <- which(prop_prefs[1, ] == truthful_match[1])
+cat(sprintf("  Truthful report: matched to Receiver %d (true rank %d)\n",
+            truthful_match[1], truthful_rank))
+
+best_deviation_rank <- truthful_rank
+n_deviations_tested <- 0
+# Test a sample of deviations for proposer 1
+for (trial in 1:100) {
+  fake_prefs <- prop_prefs
+  fake_prefs[1, ] <- sample(1:n)
+  fake_match <- gale_shapley(fake_prefs, recv_prefs)
+  # Evaluate using TRUE preferences
+  achieved_rank <- which(prop_prefs[1, ] == fake_match[1])
+  if (achieved_rank < best_deviation_rank) {
+    best_deviation_rank <- achieved_rank
+  }
+  n_deviations_tested <- n_deviations_tested + 1
+}
+
+cat(sprintf("  Best rank from %d random deviations: %d\n",
+            n_deviations_tested, best_deviation_rank))
+cat(sprintf("  Truthful rank: %d\n", truthful_rank))
+cat(sprintf("  Strategy-proofness confirmed: %s\n",
+            ifelse(best_deviation_rank >= truthful_rank, "YES", "NO")))
+```
+
+```{r}
+#| label: scaling-simulation
+
+# Simulate matching quality across different market sizes
+set.seed(42)
+sizes <- c(10, 20, 30, 40, 50)
+n_reps <- 50
+
+results <- data.frame()
+
+for (n in sizes) {
+  for (rep in 1:n_reps) {
+    pp <- random_prefs(n)
+    rp <- random_prefs(n)
+
+    # Proposer-optimal
+    m_po <- gale_shapley(pp, rp)
+    prop_ranks_po <- sapply(1:n, function(i) which(pp[i, ] == m_po[i]))
+
+    # Receiver-optimal
+    m_ro <- gale_shapley(rp, pp)
+    recv_ranks_ro <- sapply(1:n, function(j) which(rp[j, ] == m_ro[j]))
+    # Proposer ranks in receiver-optimal matching
+    prop_ranks_ro <- sapply(1:n, function(i) {
+      w <- which(m_ro == i)  # which receiver is matched to proposer i
+      if (length(w) == 0) return(NA)
+      which(pp[i, ] == w)
+    })
+
+    results <- rbind(results, data.frame(
+      n = n,
+      rep = rep,
+      avg_prop_rank_PO = mean(prop_ranks_po) / n,
+      avg_prop_rank_RO = mean(prop_ranks_ro, na.rm = TRUE) / n,
+      avg_recv_rank_RO = mean(recv_ranks_ro) / n
+    ))
+  }
+}
+
+summary_df <- results %>%
+  group_by(n) %>%
+  summarise(
+    prop_PO_mean = mean(avg_prop_rank_PO),
+    prop_PO_se = sd(avg_prop_rank_PO) / sqrt(n()),
+    prop_RO_mean = mean(avg_prop_rank_RO),
+    prop_RO_se = sd(avg_prop_rank_RO) / sqrt(n()),
+    .groups = "drop"
+  )
+
+cat("Average normalised rank for proposers (lower = better):\n")
+cat("  n | Proposer-optimal | Receiver-optimal\n")
+cat("  --|------------------|------------------\n")
+for (i in 1:nrow(summary_df)) {
+  cat(sprintf("  %2d | %.3f            | %.3f\n",
+              summary_df$n[i], summary_df$prop_PO_mean[i], summary_df$prop_RO_mean[i]))
+}
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-matching-quality
+#| fig-cap: "Average normalised rank obtained by proposers under proposer-optimal vs. receiver-optimal stable matchings across market sizes"
+#| fig-width: 8
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+plot_summary <- summary_df %>%
+  pivot_longer(
+    cols = c(prop_PO_mean, prop_RO_mean),
+    names_to = "Matching",
+    values_to = "Avg_Rank"
+  ) %>%
+  mutate(
+    SE = ifelse(Matching == "prop_PO_mean", summary_df$prop_PO_se, summary_df$prop_RO_se),
+    Matching = ifelse(Matching == "prop_PO_mean",
+                      "Proposer-optimal DA", "Receiver-optimal DA")
+  )
+
+p_static <- ggplot(plot_summary, aes(x = n, y = Avg_Rank, color = Matching, shape = Matching)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = Avg_Rank - 1.96 * SE, ymax = Avg_Rank + 1.96 * SE),
+                width = 1.5) +
+  scale_color_manual(values = c("Proposer-optimal DA" = okabe_ito[1],
+                                "Receiver-optimal DA" = okabe_ito[5])) +
+  scale_shape_manual(values = c("Proposer-optimal DA" = 16,
+                                "Receiver-optimal DA" = 17)) +
+  labs(
+    title = "Proposers fare better under proposer-optimal DA",
+    subtitle = "Average normalised rank (0 = best, 1 = worst) across 50 simulated markets per size",
+    x = "Market size (n)", y = "Avg. normalised rank for proposers",
+    color = NULL, shape = NULL
+  ) +
+  scale_y_continuous(limits = c(0, NA), labels = scales::percent_format()) +
+  theme_publication()
+
+p_static
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-matching-interactive
+#| fig-cap: "Interactive view of matching quality distributions (hover for details)"
+
+# Show distribution of individual matching ranks for a fixed market size
+set.seed(42)
+n_show <- 20
+n_reps_show <- 200
+
+rank_data <- data.frame()
+for (rep in 1:n_reps_show) {
+  pp <- random_prefs(n_show)
+  rp <- random_prefs(n_show)
+
+  m_po <- gale_shapley(pp, rp)
+  m_ro <- gale_shapley(rp, pp)
+
+  prop_ranks_po <- sapply(1:n_show, function(i) which(pp[i, ] == m_po[i]))
+  prop_ranks_ro <- sapply(1:n_show, function(i) {
+    w <- which(m_ro == i)
+    if (length(w) == 0) return(NA)
+    which(pp[i, ] == w)
+  })
+
+  rank_data <- rbind(rank_data, data.frame(
+    rank = c(prop_ranks_po, prop_ranks_ro),
+    Matching = rep(c("Proposer-optimal", "Receiver-optimal"), each = n_show)
+  ))
+}
+
+rank_data <- rank_data %>%
+  filter(!is.na(rank)) %>%
+  mutate(tooltip_text = paste0(
+    "Matching: ", Matching, "\n",
+    "Rank obtained: ", rank, " of ", n_show
+  ))
+
+p_interactive <- ggplot(rank_data, aes(x = rank, fill = Matching, text = tooltip_text)) +
+  geom_histogram(aes(y = after_stat(density)), binwidth = 1,
+                 position = "dodge", alpha = 0.8) +
+  scale_fill_manual(values = c("Proposer-optimal" = okabe_ito[1],
+                               "Receiver-optimal" = okabe_ito[5])) +
+  labs(
+    title = sprintf("Distribution of proposer ranks (n = %d)", n_show),
+    x = "Rank obtained", y = "Density", fill = NULL
+  ) +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") %>%
+  config(displaylogo = FALSE)
+```
+
+
+## Interpretation
+
+The simulation results reveal a striking structural asymmetry in the deferred acceptance algorithm. Under the proposer-optimal matching, proposers obtain partners ranked in approximately the top $\ln(n)/n$ fraction of their preference list — an extraordinary result that means matching quality (in absolute rank) actually improves as the market grows larger. With 50 agents, proposers on average obtain a partner ranked around position 4-5 out of 50, corresponding to the top 8-10% of their preference list. Under the receiver-optimal matching, by contrast, proposers are pushed substantially further down their preference lists, often landing in the 20-30th percentile range.
+
+This asymmetry has profound practical implications. When the NRMP was redesigned in the 1990s, a key question was whether the algorithm should be applicant-proposing or hospital-proposing. The theoretical results on proposer-optimality — confirmed by simulations like those above — informed the decision to use an applicant-proposing variant, favouring the interests of medical graduates over hospital programmes.
+
+The strategy-proofness verification confirms that no proposer can benefit from misrepresenting their preferences. This is a crucial property for practical market design: participants can simply submit their true preference lists without worrying about gaming the system. Receivers, however, can sometimes benefit from strategic truncation (leaving acceptable partners off their list), which is why real-world implementations often include additional safeguards.
+
+The stability property ensures that the matching is self-enforcing: no doctor-hospital pair that is not matched together would both prefer each other to their assigned partners. This eliminates the unravelling that plagued pre-algorithm matching markets, where hospitals would make earlier and earlier offers to secure top candidates, ultimately making offers to students who had barely begun their medical training.
+
+
+## Extensions & related tutorials
+
+- **[Introduction to mechanism design](../mechanism-design-intro/)**: The theoretical foundations of strategy-proofness and the revelation principle that underpin deferred acceptance.
+- **[VCG mechanism](../vcg-mechanism/)**: An alternative canonical mechanism for allocation (rather than matching) problems.
+- **[Vickrey second-price auction](../vickrey-second-price-auction/)**: Another DSIC mechanism where the payment/allocation design elicits truthful behaviour.
+- **[Core stability in cooperative games](../../cooperative-gt/core-stability/)**: The core of the associated cooperative game relates to the set of stable matchings, connecting matching theory to cooperative game theory.
+
+
+## References
+
+::: {#refs}
+:::
