@@ -1,0 +1,263 @@
+---
+title: "The Shapley value — fair division of cooperative surplus"
+description: "Derive the Shapley value axiomatically, implement it for arbitrary coalitional games in R, and visualize marginal contributions and fairness properties with interactive examples."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - cooperative-gt
+  - shapley-value
+  - fair-division
+  - coalitional-games
+keywords: ["Shapley value", "cooperative game theory", "fair division", "marginal contribution", "coalitional game", "axiomatic"]
+labels: ["cooperative-solutions", "fairness"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_cooperative-gt_shapley-value"
+image: thumbnail.png
+image-alt: "Bar chart of Shapley values showing fair allocation of cooperative surplus"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/cooperative-gt/shapley-value/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+When a group of players cooperate and generate surplus, how should that surplus be divided? Lloyd Shapley proved in 1953 that there is exactly one division rule satisfying four fairness axioms: the **Shapley value**. Each player's share equals their average marginal contribution across all possible orderings in which the coalition could form. The Shapley value is the most widely used solution concept in cooperative game theory, with applications ranging from cost allocation in shared infrastructure to profit division in joint ventures, from computing feature importance in machine learning (SHAP values) to allocating airport runway costs among airlines of different sizes. Its appeal is that it provides a unique, axiomatically justified answer to the question "who deserves what?" — a question that arises whenever multiple agents collaborate and must divide the proceeds. This tutorial implements the Shapley value for arbitrary coalitional games in R, demonstrates it on classic examples (glove game, airport game, voting power), and visualizes the marginal contribution structure that determines each player's fair share.
+
+
+## Mathematical formulation
+
+A **coalitional game** $(N, v)$ consists of a finite player set $N = \{1, \ldots, n\}$ and a characteristic function $v: 2^N \to \mathbb{R}$ with $v(\emptyset) = 0$, where $v(S)$ is the worth of coalition $S$.
+
+The **Shapley value** of player $i$ is:
+
+$$
+\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|! \, (n - |S| - 1)!}{n!} \left[ v(S \cup \{i\}) - v(S) \right]
+$$
+
+The term $v(S \cup \{i\}) - v(S)$ is $i$'s **marginal contribution** to coalition $S$. The coefficient is the probability that $S$ is exactly the set of players who arrived before $i$ in a uniformly random ordering.
+
+**Shapley's axioms**: The unique function $\phi$ satisfying:
+
+1. **Efficiency**: $\sum_i \phi_i = v(N)$
+2. **Symmetry**: If $i$ and $j$ contribute identically, $\phi_i = \phi_j$
+3. **Null player**: If $i$'s marginal contribution is always 0, then $\phi_i = 0$
+4. **Additivity**: $\phi(v + w) = \phi(v) + \phi(w)$
+
+
+## R implementation
+
+```{r}
+#| label: shapley-value-solver
+
+# Compute Shapley value for a coalitional game
+# v_func: function mapping a set of player indices to coalition value
+shapley_value <- function(n, v_func) {
+  players <- 1:n
+  phi <- numeric(n)
+
+  # Generate all permutations (feasible for n ≤ 8)
+  if (n <= 8) {
+    # Use all orderings approach
+    perms <- combinat::permn(players)
+    for (perm in perms) {
+      for (pos in 1:n) {
+        i <- perm[pos]
+        predecessors <- if (pos > 1) perm[1:(pos-1)] else integer(0)
+        mc <- v_func(c(predecessors, i)) - v_func(predecessors)
+        phi[i] <- phi[i] + mc
+      }
+    }
+    phi <- phi / factorial(n)
+  } else {
+    # Monte Carlo approximation for large games
+    n_samples <- 10000
+    for (s in 1:n_samples) {
+      perm <- sample(players)
+      for (pos in 1:n) {
+        i <- perm[pos]
+        predecessors <- if (pos > 1) perm[1:(pos-1)] else integer(0)
+        mc <- v_func(c(predecessors, i)) - v_func(predecessors)
+        phi[i] <- phi[i] + mc
+      }
+    }
+    phi <- phi / n_samples
+  }
+
+  phi
+}
+
+# --- Example 1: Glove game (L, L, R) ---
+# 3 players: two have left gloves, one has right glove
+# v(S) = min(left gloves in S, right gloves in S)
+cat("=== Glove Game: Players 1,2 have left gloves, Player 3 has right glove ===\n")
+v_glove <- function(S) {
+  if (length(S) == 0) return(0)
+  left <- sum(S %in% c(1, 2))
+  right <- sum(S %in% c(3))
+  min(left, right)
+}
+
+phi_glove <- shapley_value(3, v_glove)
+cat(sprintf("Shapley values: P1=%.3f, P2=%.3f, P3=%.3f (sum=%.3f)\n",
+            phi_glove[1], phi_glove[2], phi_glove[3], sum(phi_glove)))
+cat("(The scarce right-glove owner gets the largest share)\n\n")
+
+# --- Example 2: Airport game ---
+cat("=== Airport Game: 3 airlines need runways of length 1, 2, 3 ===\n")
+# Cost = max runway length needed by coalition members
+v_airport <- function(S) {
+  if (length(S) == 0) return(0)
+  max(S)  # player i needs runway of length i
+}
+
+phi_airport <- shapley_value(3, v_airport)
+cat(sprintf("Cost allocation: Small=%.3f, Medium=%.3f, Large=%.3f (total=%.3f)\n",
+            phi_airport[1], phi_airport[2], phi_airport[3], sum(phi_airport)))
+cat("(Larger planes pay more but benefit from cost sharing)\n\n")
+
+# --- Example 3: Majority voting (weighted) ---
+cat("=== Weighted Voting: weights = (4, 3, 2, 1), quota = 6 ===\n")
+weights <- c(4, 3, 2, 1)
+quota <- 6
+v_vote <- function(S) {
+  if (length(S) == 0) return(0)
+  ifelse(sum(weights[S]) >= quota, 1, 0)
+}
+
+phi_vote <- shapley_value(4, v_vote)
+cat(sprintf("Shapley-Shubik power index: %.3f, %.3f, %.3f, %.3f\n",
+            phi_vote[1], phi_vote[2], phi_vote[3], phi_vote[4]))
+cat("(Power is not proportional to weight — Player 4 may have zero power!)\n")
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-shapley-values
+#| fig-cap: "Figure 1. Shapley values for three cooperative games. Left: Glove game — the scarce right-glove owner (P3) captures 2/3 of the surplus. Centre: Airport cost allocation — larger planes pay progressively more. Right: Shapley-Shubik voting power index — power is not proportional to voting weight (Player 4's weight of 1 gives nearly zero power). Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 10
+#| fig-height: 4
+#| dpi: 300
+
+shapley_df <- bind_rows(
+  tibble(game = "Glove game", player = paste0("P", 1:3),
+         value = phi_glove, type = c("Left", "Left", "Right")),
+  tibble(game = "Airport costs", player = c("Small", "Medium", "Large"),
+         value = phi_airport, type = c("Small", "Medium", "Large")),
+  tibble(game = "Voting power", player = paste0("P", 1:4),
+         value = phi_vote, type = paste0("w=", weights))
+)
+
+shapley_df$game <- factor(shapley_df$game,
+                           levels = c("Glove game", "Airport costs", "Voting power"))
+
+p_shapley <- ggplot(shapley_df, aes(x = player, y = value, fill = player)) +
+  geom_col(show.legend = FALSE, width = 0.7) +
+  geom_text(aes(label = round(value, 3)), vjust = -0.3, size = 3) +
+  facet_wrap(~game, scales = "free") +
+  scale_fill_manual(values = rep(okabe_ito[1:4], 2)) +
+  labs(
+    title = "Shapley values across three cooperative games",
+    subtitle = "Fair allocation of surplus based on average marginal contributions",
+    x = NULL, y = "Shapley value"
+  ) +
+  theme_publication() +
+  theme(strip.text = element_text(face = "bold"))
+
+p_shapley
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-marginal-contributions
+
+# Visualize all marginal contributions for the glove game
+perms <- combinat::permn(1:3)
+mc_data <- lapply(seq_along(perms), function(k) {
+  perm <- perms[[k]]
+  mcs <- numeric(3)
+  for (pos in 1:3) {
+    i <- perm[pos]
+    pred <- if (pos > 1) perm[1:(pos-1)] else integer(0)
+    mcs[i] <- v_glove(c(pred, i)) - v_glove(pred)
+  }
+  tibble(ordering = paste(perm, collapse = "→"),
+         player = paste0("P", 1:3),
+         mc = mcs)
+}) |> bind_rows()
+
+mc_data$text <- paste0("Ordering: ", mc_data$ordering,
+                        "\nPlayer: ", mc_data$player,
+                        "\nMarginal contribution: ", mc_data$mc)
+
+p_mc <- ggplot(mc_data, aes(x = ordering, y = mc, fill = player, text = text)) +
+  geom_col(position = "dodge", width = 0.7) +
+  scale_fill_manual(values = okabe_ito[1:3], name = "Player") +
+  labs(
+    title = "Marginal contributions across all orderings — Glove game",
+    subtitle = "Shapley value = average MC across orderings; P3 (right glove) contributes in 4/6 orderings",
+    x = "Arrival ordering", y = "Marginal contribution"
+  ) +
+  theme_publication() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
+
+ggplotly(p_mc, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The Shapley value captures a deep notion of fairness: each player receives their expected marginal contribution to a randomly forming coalition. In the glove game, this means the scarce resource owner (the right-glove holder) receives 2/3 of the surplus — not because of any market power or negotiation skill, but because scarcity makes their contribution valuable in more coalition orderings. The airport game shows how cost sharing works: the large airline needs the longest runway (cost 3) but only pays about 1.83 because the smaller airlines also benefit from parts of that runway. The voting power example reveals the most counterintuitive result: in a weighted voting game, a player's power (as measured by the Shapley-Shubik index) can be very different from their voting weight. Player 4 with weight 1 has almost no pivotal power because they can almost never change the outcome — the coalition either already has enough votes or doesn't, and Player 4's single vote rarely tips the balance. This disconnect between nominal weight and actual power is critical in political science (analysing the EU Council of Ministers, the UN Security Council, shareholder voting) and has been used to argue for voting weight reforms. The Shapley value's modern renaissance comes from machine learning, where SHAP (SHapley Additive exPlanations) values use the same formula to fairly attribute a model's prediction to individual features — showing that a 70-year-old cooperative game theory concept is now central to explainable AI.
+
+
+## Extensions & related tutorials
+
+- [Nash bargaining solution](../../foundations/nash-bargaining-solution/) — the bilateral counterpart to Shapley's multilateral solution.
+- [The core and stability in coalitional games](../core-stability/) — when is the Shapley value in the core?
+- [Voting power indices](../voting-power-indices/) — Shapley-Shubik vs Banzhaf power.
+- [SHAP values for ML interpretability](../../ai-ml-foundations-and-applications/shap-values/) — the modern ML application.
+- [Airport and cost allocation games](../airport-cost-allocation/) — deeper cost sharing analysis.
+
+
+## References
+
+::: {#refs}
+:::
