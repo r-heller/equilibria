@@ -1,0 +1,230 @@
+---
+title: "The Stag Hunt — coordination, trust, and risk dominance"
+description: "Analyse the Stag Hunt as a coordination game with Pareto-ranked equilibria in R, comparing payoff dominance and risk dominance, with basin-of-attraction analysis."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - classical-games
+  - stag-hunt
+  - coordination
+  - risk-dominance
+keywords: ["Stag Hunt", "coordination game", "risk dominance", "payoff dominance", "trust", "social contract"]
+labels: ["canonical-games", "coordination-games"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_classical-games_stag-hunt"
+image: thumbnail.png
+image-alt: "Basin of attraction diagram for Stag Hunt showing risk-dominant vs payoff-dominant equilibria"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/classical-games/stag-hunt/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+The Stag Hunt, attributed to Jean-Jacques Rousseau's *Discourse on Inequality* (1755), captures a social dilemma fundamentally different from the Prisoner's Dilemma: here, cooperation is an equilibrium — the problem is not that cooperation is irrational, but that it is **risky**. Two hunters can collaborate to catch a stag (high payoff) or individually hunt hare (low but safe payoff). If both hunt stag, they succeed; if one defects to hunt hare while the other hunts stag, the stag hunter gets nothing while the hare hunter gets a modest payoff. The Stag Hunt has **two pure Nash equilibria**: (Stag, Stag) is **payoff-dominant** (Pareto-superior), while (Hare, Hare) is **risk-dominant** (safer against uncertainty about the opponent's play). This creates a genuine coordination dilemma: should you trust your partner to cooperate, or play it safe? The tension between payoff dominance and risk dominance is central to economics (bank runs, technology adoption), political philosophy (social contracts), and evolutionary game theory (where the risk-dominant equilibrium tends to prevail under stochastic dynamics). Understanding the Stag Hunt is essential for distinguishing between games where cooperation fails because it is individually irrational (PD) and games where it fails because of insufficient trust.
+
+
+## Mathematical formulation
+
+$$
+\begin{array}{c|cc}
+ & \text{Stag} & \text{Hare} \\ \hline
+\text{Stag} & a, a & 0, b \\
+\text{Hare} & b, 0 & b, b
+\end{array}
+$$
+
+with $a > b > 0$. Standard: $a = 4, b = 3$.
+
+**Two pure NE**: (Stag, Stag) with payoff $a$ each; (Hare, Hare) with payoff $b$ each.
+
+**Mixed NE**: Each player hunts Stag with probability $p^* = b/a$. Expected payoff = $b$.
+
+**Risk dominance** (Harsanyi & Selten 1988): (Hare, Hare) risk-dominates if $b > a/2$, i.e., the safe option is attractive relative to the cooperative payoff. The **basin of attraction** of (Stag, Stag) under best-response dynamics is $p > b/a$; the basin of (Hare, Hare) is $p < b/a$. When $b/a > 1/2$, the risk-dominant equilibrium has the larger basin.
+
+
+## R implementation
+
+```{r}
+#| label: stag-hunt-analysis
+
+stag_hunt_analysis <- function(a, b) {
+  stopifnot(a > b, b > 0)
+
+  p_star <- b / a  # mixed NE probability of Stag
+  risk_dominant <- ifelse(b > a/2, "Hare", "Stag")
+  basin_stag <- 1 - p_star  # fraction of beliefs supporting Stag
+
+  list(
+    a = a, b = b, p_star = p_star,
+    payoff_dominant = "Stag",
+    risk_dominant = risk_dominant,
+    basin_stag = basin_stag,
+    basin_hare = p_star
+  )
+}
+
+cat("=== Standard Stag Hunt (a=4, b=3) ===\n")
+sh <- stag_hunt_analysis(4, 3)
+cat(sprintf("Mixed NE: p* = %.3f (each plays Stag with prob %.1f%%)\n",
+            sh$p_star, 100 * sh$p_star))
+cat(sprintf("Payoff dominant: %s (payoff %d > %d)\n", sh$payoff_dominant, sh$a, sh$b))
+cat(sprintf("Risk dominant: %s (basin = %.1f%% vs %.1f%%)\n",
+            sh$risk_dominant, 100 * sh$basin_hare, 100 * sh$basin_stag))
+
+cat("\n=== Easy coordination (a=10, b=3) ===\n")
+sh2 <- stag_hunt_analysis(10, 3)
+cat(sprintf("p* = %.2f, Risk dominant: %s, Stag basin = %.1f%%\n",
+            sh2$p_star, sh2$risk_dominant, 100 * sh2$basin_stag))
+
+cat("\n=== Difficult coordination (a=4, b=3.5) ===\n")
+sh3 <- stag_hunt_analysis(4, 3.5)
+cat(sprintf("p* = %.3f, Risk dominant: %s, Stag basin = %.1f%%\n",
+            sh3$p_star, sh3$risk_dominant, 100 * sh3$basin_stag))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-stag-hunt-basins
+#| fig-cap: "Figure 1. Basins of attraction for the Stag Hunt under best-response dynamics. The x-axis shows the population share playing Stag. Below p* = b/a = 0.75, best response is Hare (converges to Hare equilibrium); above p*, best response is Stag (converges to Stag equilibrium). The risk-dominant equilibrium (Hare) has the larger basin (75%), explaining why trust failures are common. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 8
+#| fig-height: 5
+#| dpi: 300
+
+a <- 4; b <- 3
+p_star <- b / a
+
+basin_df <- tibble(
+  p = seq(0, 1, by = 0.001),
+  eu_stag = p * a,
+  eu_hare = b,
+  best_response = ifelse(eu_stag > eu_hare, "Stag", "Hare")
+)
+
+p_basin <- ggplot(basin_df) +
+  # Basin regions
+  annotate("rect", xmin = 0, xmax = p_star, ymin = 0, ymax = a,
+           fill = okabe_ito[1], alpha = 0.1) +
+  annotate("rect", xmin = p_star, xmax = 1, ymin = 0, ymax = a,
+           fill = okabe_ito[3], alpha = 0.1) +
+  # Payoff lines
+  geom_line(aes(x = p, y = eu_stag), color = okabe_ito[3], linewidth = 1.2) +
+  geom_hline(yintercept = b, color = okabe_ito[1], linewidth = 1.2) +
+  # Threshold
+  geom_vline(xintercept = p_star, linetype = "dashed", color = "grey40") +
+  # Labels
+  annotate("text", x = p_star/2, y = a * 0.9, label = "Basin of Hare\n(risk-dominant)",
+           size = 3.5, fontface = "bold", color = okabe_ito[1]) +
+  annotate("text", x = (1 + p_star)/2, y = a * 0.9, label = "Basin of Stag\n(payoff-dominant)",
+           size = 3.5, fontface = "bold", color = okabe_ito[3]) +
+  annotate("text", x = 0.15, y = a - 0.3, label = "E[Stag] = pa", size = 3, color = okabe_ito[3]) +
+  annotate("text", x = 0.15, y = b + 0.2, label = "E[Hare] = b", size = 3, color = okabe_ito[1]) +
+  geom_point(aes(x = p_star, y = b), color = "black", size = 3, shape = 4, stroke = 1.5) +
+  annotate("text", x = p_star + 0.03, y = b - 0.3,
+           label = sprintf("p* = %.2f", p_star), size = 3) +
+  labs(
+    title = "Stag Hunt — basins of attraction",
+    subtitle = sprintf("a = %d, b = %d; Hare basin = %.0f%%, Stag basin = %.0f%%",
+                        a, b, 100 * p_star, 100 * (1 - p_star)),
+    x = "Population share playing Stag (p)", y = "Expected payoff"
+  ) +
+  theme_publication()
+
+p_basin
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-stag-hunt-parameter
+
+# How basin size varies with a and b
+a_vals <- seq(2, 10, by = 0.2)
+b_val <- 3
+
+basin_data <- tibble(a = a_vals) |>
+  filter(a > b_val) |>
+  mutate(
+    p_star = b_val / a,
+    basin_stag = 1 - p_star,
+    risk_dom = ifelse(p_star > 0.5, "Hare", "Stag"),
+    text = paste0("a = ", a, ", b = ", b_val,
+                  "\nStag basin: ", round(100 * basin_stag, 1), "%",
+                  "\nRisk dominant: ", risk_dom)
+  )
+
+p_param <- ggplot(basin_data, aes(x = a, y = basin_stag, color = risk_dom, text = text)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c(Hare = okabe_ito[1], Stag = okabe_ito[3]),
+                      name = "Risk dominant") +
+  annotate("text", x = 8, y = 0.45, label = "Below 50%: Hare risk-dominates",
+           size = 3, color = "grey40") +
+  labs(
+    title = "Stag basin of attraction vs cooperation payoff",
+    subtitle = sprintf("b = %d fixed; higher a makes coordination easier", b_val),
+    x = "Stag payoff (a)", y = "Basin of attraction for (Stag, Stag)"
+  ) +
+  theme_publication()
+
+ggplotly(p_param, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The Stag Hunt crystallizes the distinction between two types of cooperation failure. In the Prisoner's Dilemma, cooperation fails because defection is dominant — no rational player cooperates. In the Stag Hunt, cooperation is an equilibrium but can fail due to **insufficient trust**: if you believe the probability that your partner hunts stag is below the threshold $p^* = b/a$, your best response is to hunt hare. The parameter analysis reveals that the difficulty of coordination depends on the ratio $b/a$: when the safe option is nearly as good as the cooperative payoff (high $b/a$), the Stag basin shrinks and coordination becomes fragile. When the cooperative payoff is much larger (low $b/a$), Stag becomes risk-dominant and coordination is easy. This framework applies directly to real-world coordination problems: bank runs (depositors face a Stag Hunt — keep deposits vs withdraw), technology adoption (adopt new standard vs stick with old), and international cooperation (join a climate agreement vs free-ride). In evolutionary game theory, the risk-dominant equilibrium tends to prevail under stochastic dynamics because it has the larger basin of attraction — explaining why societies often settle on Pareto-inferior conventions that are robust to trembles. Overcoming this requires communication, trust-building institutions, or external incentives that shift the basin boundary.
+
+
+## Extensions & related tutorials
+
+- [The Prisoner's Dilemma — formal setup](../prisoners-dilemma-formal/) — contrast with the PD where cooperation is not an equilibrium.
+- [Battle of the Sexes](../battle-of-the-sexes/) — coordination with conflicting preferences.
+- [Replicator dynamics for RPS](../../evolutionary-gt/replicator-dynamics-rps/) — evolutionary dynamics and basins.
+- [Bank runs as coordination failure](../../real-world-data-applications/bank-runs-coordination/) — applied Stag Hunt.
+- [Correlated equilibrium](../../foundations/correlated-equilibrium/) — coordination through a mediator.
+
+
+## References
+
+::: {#refs}
+:::
