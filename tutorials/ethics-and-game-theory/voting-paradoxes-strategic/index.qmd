@@ -1,0 +1,405 @@
+---
+title: "Voting paradoxes and strategic voting"
+description: "Explore the Condorcet paradox, Arrow's impossibility theorem, and the Gibbard-Satterthwaite theorem through R simulations showing how rational voters manipulate elections and why no perfect voting rule exists."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - ethics-and-game-theory
+  - voting-theory
+  - social-choice
+  - mechanism-design
+keywords: ["Condorcet paradox", "Arrow impossibility theorem", "Gibbard-Satterthwaite", "strategic voting", "social choice", "voting manipulation", "plurality rule", "game theory"]
+labels: ["ethics-and-game-theory", "mechanism-design"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_ethics-and-game-theory_voting-paradoxes-strategic"
+image: thumbnail.png
+image-alt: "Cycle diagram showing three alternatives in a Condorcet paradox with arrows indicating majority preferences forming a loop"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/ethics-and-game-theory/voting-paradoxes-strategic/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Democratic societies rely on voting rules to aggregate individual preferences into collective decisions, yet a series of fundamental impossibility results from social choice theory reveals that no voting rule can satisfy even a modest set of fairness criteria simultaneously. These results are not merely academic curiosities --- they have direct implications for real elections, legislative procedures, and any institutional design problem where multiple alternatives must be ranked.
+
+The **Condorcet paradox**, discovered by the Marquis de Condorcet in 1785, demonstrates that majority rule can produce cyclical preferences even when every individual voter has perfectly transitive preferences. Consider three voters ranking three candidates: if voter 1 prefers A to B to C, voter 2 prefers B to C to A, and voter 3 prefers C to A to B, then a majority prefers A to B (voters 1 and 3), a majority prefers B to C (voters 1 and 2), but also a majority prefers C to A (voters 2 and 3). The collective preference is A beats B beats C beats A --- a cycle with no clear winner. This paradox lies at the heart of why collective decision-making is fundamentally harder than individual choice.
+
+Kenneth Arrow's **impossibility theorem** (1951) generalises this observation into a sweeping negative result: no social welfare function mapping individual preference orderings to a collective ordering can simultaneously satisfy universal domain, the Pareto principle, independence of irrelevant alternatives, and non-dictatorship. In other words, any aggregation rule that respects unanimity and does not depend on "irrelevant" alternatives must be dictatorial --- a single voter's preferences determine the social ordering regardless of what others prefer.
+
+The **Gibbard-Satterthwaite theorem** (1973) adds the strategic dimension that connects social choice to game theory [@gibbard_1973]. It proves that every non-dictatorial voting rule with at least three alternatives is susceptible to strategic manipulation: there exist preference profiles where a voter benefits by misrepresenting their true preferences. This result means that in any real election using a reasonable voting rule, some voters will face incentives to vote strategically rather than sincerely. The game-theoretic content is immediate: an election is a game, voters are strategic players, and the set of sincere preference reports is generically not a Nash equilibrium of the voting game.
+
+In this tutorial, we implement these three results computationally. We generate preference profiles, detect Condorcet cycles, and measure how frequently they arise as the number of voters and alternatives grows. We then model a concrete strategic voting scenario under the plurality rule: when polls reveal that your most-preferred candidate cannot win, should you vote sincerely or switch to your second choice to prevent your least-preferred candidate from winning? We simulate elections with populations of strategic voters and examine how strategic behaviour changes election outcomes and social welfare.
+
+## Mathematical formulation
+
+**Preference profiles.** Let $N = \{1, \dots, n\}$ be a set of voters and $A = \{a_1, \dots, a_m\}$ a set of alternatives. Each voter $i$ has a strict preference ordering $\succ_i$ over $A$. A preference profile is an $n$-tuple $(\succ_1, \dots, \succ_n)$.
+
+**Condorcet winner.** Alternative $a$ is a Condorcet winner if for every other alternative $b$:
+
+$$
+|\{i \in N : a \succ_i b\}| > \frac{n}{2}
+$$
+
+A Condorcet cycle exists when the majority preference relation is intransitive, i.e., there exist $a, b, c$ such that $a$ beats $b$, $b$ beats $c$, and $c$ beats $a$ by majority rule.
+
+**Arrow's theorem.** A social welfare function $f: \mathcal{L}(A)^n \to \mathcal{L}(A)$ (where $\mathcal{L}(A)$ is the set of linear orders on $A$) satisfying:
+
+1. **Universal domain:** $f$ is defined for all possible profiles.
+2. **Pareto:** If $a \succ_i b$ for all $i$, then $a \succ b$ in $f(\succ_1, \dots, \succ_n)$.
+3. **IIA:** The social ordering of $a$ vs $b$ depends only on individual orderings of $a$ vs $b$.
+
+must be **dictatorial**: there exists $i^*$ such that $f(\succ_1, \dots, \succ_n) = \succ_{i^*}$ for all profiles.
+
+**Gibbard-Satterthwaite.** A social choice function $g: \mathcal{L}(A)^n \to A$ (choosing a single winner) that is surjective and strategy-proof (no voter benefits from misreporting) must be dictatorial when $|A| \geq 3$.
+
+**Strategic voting under plurality.** Under plurality rule, each voter casts one vote for a single candidate, and the candidate with the most votes wins. Define voter $i$'s utility from candidate $j$ winning as $u_i(j)$. A strategic voter observes poll information $\pi$ (estimated vote shares) and votes for:
+
+$$
+v_i^* = \arg\max_{j \in A} \; u_i(j) \cdot P(j \text{ wins} \mid v_i = j, \pi)
+$$
+
+where $P(j \text{ wins} \mid v_i = j, \pi)$ is the probability that $j$ wins given voter $i$'s vote and the poll information.
+
+## R implementation
+
+We implement three core computations: (1) detecting Condorcet winners and cycles, (2) simulating the frequency of Condorcet paradoxes, and (3) modelling strategic voting under plurality rule with poll information.
+
+```{r}
+#| label: voting-computation
+
+# --- 1. Condorcet winner detection ---
+# A preference profile is a matrix: n_voters x n_alternatives
+# Each row is a permutation of 1:m (rank, 1 = most preferred)
+
+find_condorcet_winner <- function(prefs) {
+  n_voters <- nrow(prefs)
+  n_alts <- ncol(prefs)
+  alt_names <- colnames(prefs)
+  if (is.null(alt_names)) alt_names <- paste0("Alt", 1:n_alts)
+
+  # Pairwise majority matrix: pairwise[i,j] = number of voters preferring i to j
+  pairwise <- matrix(0, n_alts, n_alts, dimnames = list(alt_names, alt_names))
+  for (i in 1:n_alts) {
+    for (j in 1:n_alts) {
+      if (i != j) {
+        pairwise[i, j] <- sum(prefs[, i] < prefs[, j])
+      }
+    }
+  }
+
+  # Condorcet winner: beats all others by majority
+  threshold <- n_voters / 2
+  condorcet <- NULL
+  for (i in 1:n_alts) {
+    if (all(pairwise[i, -i] > threshold)) {
+      condorcet <- alt_names[i]
+      break
+    }
+  }
+
+  # Detect cycles (check for 3-cycles)
+  cycles <- list()
+  for (a in 1:(n_alts - 2)) {
+    for (b in (a + 1):(n_alts - 1)) {
+      for (cc in (b + 1):n_alts) {
+        ab <- pairwise[a, b] > threshold
+        bc <- pairwise[b, cc] > threshold
+        ca <- pairwise[cc, a] > threshold
+        ba <- pairwise[b, a] > threshold
+        cb <- pairwise[cc, b] > threshold
+        ac <- pairwise[a, cc] > threshold
+        if ((ab && bc && ca) || (ba && cb && ac)) {
+          cycles <- c(cycles, list(alt_names[c(a, b, cc)]))
+        }
+      }
+    }
+  }
+
+  list(pairwise = pairwise, winner = condorcet, cycles = cycles)
+}
+
+# Classic Condorcet paradox example
+prefs_condorcet <- matrix(
+  c(1, 2, 3,   # Voter 1: A > B > C
+    3, 1, 2,   # Voter 2: B > C > A
+    2, 3, 1),  # Voter 3: C > A > B
+  nrow = 3, byrow = TRUE,
+  dimnames = list(paste0("Voter", 1:3), c("A", "B", "C"))
+)
+
+result <- find_condorcet_winner(prefs_condorcet)
+cat("=== Classic Condorcet Paradox ===\n")
+cat("Preference profile:\n")
+print(prefs_condorcet)
+cat("\nPairwise majority counts:\n")
+print(result$pairwise)
+cat("\nCondorcet winner:", ifelse(is.null(result$winner), "NONE (cycle!)", result$winner), "\n")
+cat("Cycles detected:", length(result$cycles), "\n")
+if (length(result$cycles) > 0) {
+  for (cyc in result$cycles) {
+    cat("  ", paste(cyc, collapse = " > "), "> ...\n")
+  }
+}
+
+# --- 2. Frequency of Condorcet paradox ---
+set.seed(42)
+simulate_condorcet_frequency <- function(n_voters_vec, n_alts_vec, n_sims = 1000) {
+  results <- expand.grid(n_voters = n_voters_vec, n_alts = n_alts_vec) %>%
+    as_tibble() %>%
+    mutate(cycle_freq = 0, no_winner_freq = 0)
+
+  for (idx in seq_len(nrow(results))) {
+    nv <- results$n_voters[idx]
+    na <- results$n_alts[idx]
+    n_cycles <- 0
+    n_no_winner <- 0
+
+    for (s in 1:n_sims) {
+      # Random preference profile: each voter has random ranking
+      prefs <- t(replicate(nv, sample(1:na)))
+      colnames(prefs) <- LETTERS[1:na]
+      res <- find_condorcet_winner(prefs)
+      if (length(res$cycles) > 0) n_cycles <- n_cycles + 1
+      if (is.null(res$winner)) n_no_winner <- n_no_winner + 1
+    }
+
+    results$cycle_freq[idx] <- n_cycles / n_sims
+    results$no_winner_freq[idx] <- n_no_winner / n_sims
+  }
+  results
+}
+
+freq_data <- simulate_condorcet_frequency(
+  n_voters_vec = c(3, 5, 11, 25, 51, 101),
+  n_alts_vec = c(3, 4, 5),
+  n_sims = 500
+)
+
+cat("\n=== Condorcet Cycle Frequency ===\n")
+freq_data %>%
+  mutate(across(c(cycle_freq, no_winner_freq), ~ round(., 3))) %>%
+  print(n = 20)
+
+# --- 3. Strategic voting under plurality ---
+simulate_strategic_election <- function(n_voters = 100, n_sims = 200) {
+  # Three candidates: A (left), B (centre), C (right)
+  # True preferences drawn from ideological positions
+  results_list <- vector("list", n_sims)
+
+  for (s in 1:n_sims) {
+    # Voter ideal points ~ N(0, 1)
+    voter_ideals <- rnorm(n_voters, 0, 1)
+    # Candidate positions
+    cand_pos <- c(A = -1, B = 0.1, C = 1.2)
+
+    # Utility = -|ideal - candidate_pos|
+    utilities <- sapply(cand_pos, function(cp) -abs(voter_ideals - cp))
+
+    # Sincere vote: vote for most-preferred candidate
+    sincere_votes <- apply(utilities, 1, which.max)
+
+    # Poll information: true vote shares
+    sincere_shares <- table(factor(sincere_votes, levels = 1:3)) / n_voters
+    names(sincere_shares) <- names(cand_pos)
+
+    # Strategic voting: if your top candidate is polling last, vote for
+    # your 2nd choice among the top-2 candidates
+    strategic_votes <- sincere_votes
+    top2 <- order(sincere_shares, decreasing = TRUE)[1:2]
+    last <- order(sincere_shares, decreasing = TRUE)[3]
+
+    for (i in 1:n_voters) {
+      if (sincere_votes[i] == last) {
+        # Switch to preferred of the top-2
+        strategic_votes[i] <- top2[which.max(utilities[i, top2])]
+      }
+    }
+
+    strategic_shares <- table(factor(strategic_votes, levels = 1:3)) / n_voters
+    names(strategic_shares) <- names(cand_pos)
+
+    sincere_winner <- names(cand_pos)[which.max(sincere_shares)]
+    strategic_winner <- names(cand_pos)[which.max(strategic_shares)]
+
+    # Welfare: average utility of winner
+    sincere_welfare <- mean(utilities[, which.max(sincere_shares)])
+    strategic_welfare <- mean(utilities[, which.max(strategic_shares)])
+
+    results_list[[s]] <- tibble(
+      sim = s,
+      sincere_winner = sincere_winner,
+      strategic_winner = strategic_winner,
+      winner_changed = sincere_winner != strategic_winner,
+      sincere_welfare = sincere_welfare,
+      strategic_welfare = strategic_welfare,
+      welfare_gain = strategic_welfare - sincere_welfare,
+      pct_switching = mean(sincere_votes != strategic_votes)
+    )
+  }
+
+  bind_rows(results_list)
+}
+
+set.seed(123)
+election_results <- simulate_strategic_election(n_voters = 100, n_sims = 500)
+
+cat("\n=== Strategic Voting Simulation Results ===\n")
+cat(sprintf("Elections where winner changed: %.1f%%\n",
+            100 * mean(election_results$winner_changed)))
+cat(sprintf("Average voters switching: %.1f%%\n",
+            100 * mean(election_results$pct_switching)))
+cat(sprintf("Average welfare gain from strategic voting: %.4f\n",
+            mean(election_results$welfare_gain)))
+
+cat("\nSincere winners:\n")
+print(table(election_results$sincere_winner))
+cat("\nStrategic winners:\n")
+print(table(election_results$strategic_winner))
+```
+
+## Static publication-ready figure
+
+The figure presents two panels. The left panel shows how the frequency of Condorcet cycles depends on the number of voters and alternatives. The right panel compares sincere and strategic election outcomes and their welfare consequences.
+
+```{r}
+#| label: fig-voting-static
+#| fig-cap: "Figure 1. Left: Probability of a Condorcet cycle as a function of the number of voters for 3, 4, and 5 alternatives (500 simulations per condition). Cycle frequency increases sharply with the number of alternatives and converges to a limit as voters increase. Right: Distribution of welfare gains from strategic voting across 500 simulated elections with 100 voters and 3 candidates under plurality rule."
+#| dev: [png, pdf]
+#| fig-width: 10
+#| fig-height: 5
+#| dpi: 300
+
+# Panel A: Condorcet cycle frequency
+p_condorcet <- ggplot(freq_data,
+       aes(x = n_voters, y = cycle_freq,
+           colour = factor(n_alts), group = factor(n_alts))) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2.5) +
+  scale_colour_manual(
+    values = okabe_ito[c(1, 5, 6)],
+    labels = c("3 alternatives", "4 alternatives", "5 alternatives")
+  ) +
+  scale_x_continuous(breaks = c(3, 5, 11, 25, 51, 101)) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
+  labs(
+    title = "A. Condorcet cycle frequency",
+    subtitle = "More alternatives produce more cycles",
+    x = "Number of voters",
+    y = "Probability of Condorcet cycle",
+    colour = NULL
+  ) +
+  theme_publication() +
+  theme(legend.position = "right")
+
+# Panel B: Strategic voting welfare
+p_welfare <- ggplot(election_results,
+       aes(x = welfare_gain,
+           text = paste0("Welfare gain: ", round(welfare_gain, 3),
+                         "\nWinner changed: ", winner_changed))) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 40, fill = okabe_ito[1], alpha = 0.7,
+                 colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_vline(xintercept = mean(election_results$welfare_gain),
+             colour = okabe_ito[5], linewidth = 1) +
+  annotate("text",
+           x = mean(election_results$welfare_gain) + 0.02,
+           y = Inf, vjust = 2, hjust = 0,
+           label = paste0("Mean = ", round(mean(election_results$welfare_gain), 3)),
+           colour = okabe_ito[5], size = 3.5, fontface = "bold") +
+  labs(
+    title = "B. Welfare effect of strategic voting",
+    subtitle = "Utility gain when last-place supporters switch",
+    x = "Welfare gain (strategic - sincere)",
+    y = "Density"
+  ) +
+  theme_publication()
+
+gridExtra::grid.arrange(p_condorcet, p_welfare, ncol = 2)
+```
+
+## Interactive figure
+
+Explore the Condorcet cycle frequencies interactively. Hover over data points to see exact probabilities for each voter-count and alternative-count combination.
+
+```{r}
+#| label: fig-voting-interactive
+
+p_int <- ggplot(freq_data,
+       aes(x = n_voters, y = cycle_freq,
+           colour = factor(n_alts), group = factor(n_alts),
+           text = paste0("Voters: ", n_voters,
+                         "\nAlternatives: ", n_alts,
+                         "\nCycle probability: ",
+                         round(cycle_freq, 3)))) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  scale_colour_manual(
+    values = okabe_ito[c(1, 5, 6)],
+    labels = c("3 alternatives", "4 alternatives", "5 alternatives")
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Condorcet cycle frequency by voters and alternatives",
+    x = "Number of voters",
+    y = "Probability of Condorcet cycle",
+    colour = NULL
+  ) +
+  theme_publication()
+
+ggplotly(p_int, tooltip = "text") %>%
+  config(displaylogo = FALSE) %>%
+  layout(legend = list(orientation = "h", y = -0.2))
+```
+
+## Interpretation
+
+The simulation results confirm and quantify the classical theoretical predictions. Condorcet cycles are not a rare pathology but a common occurrence, especially when more than three alternatives are in play. With five alternatives and a moderate number of voters, cycles appear in over 80% of randomly generated preference profiles. This is a striking empirical illustration of Arrow's theorem: the conditions for coherent majority-rule aggregation break down with high probability.
+
+The strategic voting simulation reveals a more nuanced picture. Under the plurality rule with three candidates, voters whose first-choice candidate polls in last place face a strong incentive to switch to their second choice --- the classic "lesser evil" or "wasted vote" logic. Our simulation shows that this strategic behaviour changes the election winner in a substantial fraction of elections. However, the welfare effect is ambiguous: in some elections, strategic voting actually improves social welfare (by concentrating votes on a broadly acceptable candidate rather than splitting them), while in others it reduces welfare by distorting the true preference signal.
+
+This ambiguity is precisely what the Gibbard-Satterthwaite theorem predicts at a structural level. The theorem tells us that no non-dictatorial rule can be immune to manipulation, but it does not tell us whether manipulation is harmful or beneficial. In practice, strategic voting under plurality often leads to a two-party equilibrium (Duverger's law), where minor-party supporters vote strategically for the "lesser evil" among the two major candidates. Whether this is desirable depends on one's normative framework.
+
+The computational approach makes these abstract impossibility results tangible. Rather than proving that cycles *can* exist, we measure *how often* they exist. Rather than stating that manipulation is *possible*, we simulate *how voters manipulate* and *what consequences* it has for social welfare. This bridge between formal theory and empirical analysis is a central theme in computational social choice.
+
+## Extensions & related tutorials
+
+The voting paradoxes explored here connect to mechanism design (can we design rules that mitigate strategic behaviour?), cooperative game theory (coalition formation in voting), and experimental work on how real humans vote strategically.
+
+- [Trolley problem as a game](../../ethics-and-game-theory/trolley-problem-as-game/) --- another ethical dilemma modelled using game-theoretic tools, connecting moral philosophy to strategic analysis
+- [Nash's existence proof](../../history-of-gt-mathematics/nash-equilibrium-original-proof/) --- the foundational fixed-point argument underlying the equilibrium concept that governs strategic voting
+- [Blockchain consensus as a game](../../cryptography-and-gt/blockchain-consensus-game/) --- mechanism design in a digital context, where similar impossibility results shape protocol design
+- [Diffusion cascades on networks](../../network-science/diffusion-cascades-networks/) --- how strategic behaviour propagates through social networks, relevant to opinion formation and voting blocs
+
+## References
+
+::: {#refs}
+:::
