@@ -20,3 +20,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 5.1 | Batch: foundations ×4 | dominant-strategies-IESDS, extensive-form-SPE, zero-sum-minimax, nash-bargaining |
 | 2026-05-08 | 5.2 | Batch: classical-games ×5 | PD-formal, battle-of-sexes, matching-pennies, stag-hunt, chicken-hawk-dove |
 | 2026-05-08 | 5.3 | Batch: new-section seeds ×4 | decision-theory/EU-VNM, cooperative-gt/shapley, mechanism-design/vickrey, behavioral-gt/ultimatum |
+| 2026-05-08 | 5.4 | Batch: auction + bayesian seeds ×2 | auction-theory/first-price-sealed-bid, bayesian-methods/bayesian-games-incomplete-information |
+| 2026-05-08 | 5.5 | Batch: 6 section seeds (behavioral-econ → history) | prospect-theory, spectrum-auction, IV-causal, MPC-crypto, public-goods-experiment, GT-timeline |
+| 2026-05-08 | 5.6 | Batch: 6 section seeds (info-theory → optimization) | entropy-info, matrix-games, MARL, network-formation, centrality, lemke-howson |
+| 2026-05-08 | 5.7 | Batch: 5 section seeds (R-pkg → ethics-apps) | R-package-dev, reproducible-workflow, hypothesis-testing, VAR-models, algorithmic-fairness |
