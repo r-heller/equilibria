@@ -8,3 +8,4 @@ One line per Claude Code turn. Append-only.
 | 2026-05-08 | 2 | Article template + frontmatter contract | canonical template, figure standards, charcount refinement |
 | 2026-05-08 | 3 | CI gates refined | all 8 workflows hardened: figure-check excludes template, citation-check robust DOI parsing, api-liveness opens issues |
 | 2026-05-08 | 4.1 | Article: nash-equilibrium-mixed | foundations — Mixed-strategy Nash equilibrium in 2×2 games |
+| 2026-05-08 | 4.2 | Article: iterated-prisoners-dilemma-axelrod | classical-games — Axelrod's IPD tournament replicated in R |
