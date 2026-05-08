@@ -1,0 +1,306 @@
+---
+title: "From Perceptron to deep learning — a historical R implementation"
+description: "Trace the evolution of neural networks from Rosenblatt's 1958 Perceptron through the Minsky-Papert critique to backpropagation and modern deep learning, implementing key milestones in R."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - ai-ml-foundations-and-applications
+  - neural-networks
+  - perceptron
+  - deep-learning
+  - historical
+keywords: ["perceptron", "neural networks", "deep learning", "backpropagation", "Rosenblatt", "Minsky", "Rumelhart", "XOR problem"]
+labels: ["ai-ml-history", "neural-networks"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_ai-ml-foundations-and-applications_perceptron-to-deep-learning"
+image: thumbnail.png
+image-alt: "Learning curves showing perceptron convergence on linearly separable data and failure on XOR"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/ai-ml-foundations-and-applications/perceptron-to-deep-learning-historical-r-implementation/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+The history of neural networks is a story of grand ambitions, devastating critiques, and eventual triumph — and it is deeply intertwined with game-theoretic concepts of learning, adaptation, and optimization. Frank @rosenblatt_1958 introduced the Perceptron as a model of learning inspired by biological neurons: a simple linear classifier that adjusts weights based on errors, provably converging to a solution if the data are linearly separable. The excitement was immense — the New York Times reported that the Navy had built a machine that could "think." Then came the devastating critique: @minsky_papert_1969 proved that a single-layer perceptron cannot learn the XOR function or any non-linearly-separable pattern, and their pessimistic framing effectively froze neural network research for over a decade (the first "AI winter"). The revival came with @rumelhart_hinton_williams_1986, who popularized backpropagation — an efficient algorithm for training multi-layer networks that could overcome the XOR limitation. This led ultimately to the deep learning revolution crystallized by @krizhevsky_2012's AlexNet, which won the ImageNet competition and launched the current era of AI. This tutorial implements each milestone in pure R: the single-layer perceptron, its failure on XOR, a two-layer network with backpropagation that solves XOR, and a comparison of learning dynamics — providing hands-on understanding of why depth matters and how gradient-based learning works.
+
+
+## Mathematical formulation
+
+**Perceptron** (Rosenblatt 1958): Given input $\mathbf{x} \in \mathbb{R}^d$ with bias term, weights $\mathbf{w} \in \mathbb{R}^{d+1}$, the perceptron computes:
+
+$$
+\hat{y} = \text{sign}(\mathbf{w}^\top \mathbf{x})
+$$
+
+The update rule for a misclassified example $(\mathbf{x}_i, y_i)$ is $\mathbf{w} \leftarrow \mathbf{w} + \eta \, y_i \, \mathbf{x}_i$, where $\eta$ is the learning rate. The **Perceptron Convergence Theorem** guarantees convergence in finite steps if a separating hyperplane exists.
+
+**XOR Problem** (Minsky & Papert 1969): The function $\text{XOR}(x_1, x_2) = x_1 \oplus x_2$ is not linearly separable. No single hyperplane in $\mathbb{R}^2$ can separate the positive examples $(0,1), (1,0)$ from the negative examples $(0,0), (1,1)$. Therefore no single-layer perceptron can learn it.
+
+**Multi-layer network with backpropagation** (Rumelhart, Hinton & Williams 1986): A two-layer network with hidden units and nonlinear activation $\sigma$ (sigmoid) computes:
+
+$$
+\mathbf{h} = \sigma(W_1 \mathbf{x} + \mathbf{b}_1), \quad \hat{y} = \sigma(\mathbf{w}_2^\top \mathbf{h} + b_2)
+$$
+
+Training minimizes binary cross-entropy via gradient descent, with gradients computed by the chain rule (backpropagation). This architecture can learn XOR and, with sufficient width and depth, can approximate any continuous function (Universal Approximation Theorem).
+
+
+## R implementation
+
+### The Perceptron
+
+```{r}
+#| label: perceptron
+
+# Perceptron learning algorithm
+perceptron_train <- function(X, y, eta = 0.1, max_iter = 100) {
+  n <- nrow(X)
+  d <- ncol(X)
+  w <- rep(0, d)
+  errors_per_epoch <- numeric(max_iter)
+
+  for (epoch in 1:max_iter) {
+    n_errors <- 0
+    for (i in 1:n) {
+      y_hat <- sign(sum(w * X[i, ]))
+      if (y_hat == 0) y_hat <- -1
+      if (y_hat != y[i]) {
+        w <- w + eta * y[i] * X[i, ]
+        n_errors <- n_errors + 1
+      }
+    }
+    errors_per_epoch[epoch] <- n_errors
+    if (n_errors == 0) {
+      errors_per_epoch[(epoch+1):max_iter] <- 0
+      break
+    }
+  }
+  list(weights = w, errors = errors_per_epoch, converged_epoch = epoch)
+}
+
+# --- Linearly separable data (AND gate) ---
+X_and <- cbind(1, matrix(c(0,0, 0,1, 1,0, 1,1), ncol = 2, byrow = TRUE))
+y_and <- c(-1, -1, -1, 1)  # AND: only (1,1) -> +1
+
+result_and <- perceptron_train(X_and, y_and)
+cat(sprintf("AND gate: converged in %d epochs\n", result_and$converged_epoch))
+cat("Weights:", round(result_and$weights, 3), "\n")
+
+# --- XOR data ---
+X_xor <- cbind(1, matrix(c(0,0, 0,1, 1,0, 1,1), ncol = 2, byrow = TRUE))
+y_xor <- c(-1, 1, 1, -1)  # XOR
+
+result_xor <- perceptron_train(X_xor, y_xor, max_iter = 100)
+cat(sprintf("\nXOR: errors after 100 epochs = %d (never converges)\n",
+            result_xor$errors[100]))
+```
+
+### Two-layer network with backpropagation
+
+```{r}
+#| label: backprop-xor
+
+sigmoid <- function(z) 1 / (1 + exp(-z))
+
+# Two-layer network for XOR
+mlp_train_xor <- function(eta = 1.0, n_hidden = 4, max_iter = 5000, seed = 42) {
+  set.seed(seed)
+
+  # XOR data (using 0/1 encoding for sigmoid output)
+  X <- matrix(c(0,0, 0,1, 1,0, 1,1), ncol = 2, byrow = TRUE)
+  y <- c(0, 1, 1, 0)
+
+  # Initialize weights
+  W1 <- matrix(rnorm(2 * n_hidden, sd = 1), nrow = 2, ncol = n_hidden)
+  b1 <- rep(0, n_hidden)
+  w2 <- rnorm(n_hidden, sd = 1)
+  b2 <- 0
+
+  loss_history <- numeric(max_iter)
+
+  for (iter in 1:max_iter) {
+    # Forward pass
+    z1 <- X %*% W1 + matrix(b1, nrow = 4, ncol = n_hidden, byrow = TRUE)
+    h <- sigmoid(z1)
+    z2 <- h %*% w2 + b2
+    y_hat <- sigmoid(z2)
+
+    # Binary cross-entropy loss
+    eps <- 1e-8
+    loss <- -mean(y * log(y_hat + eps) + (1 - y) * log(1 - y_hat + eps))
+    loss_history[iter] <- loss
+
+    # Backward pass
+    dz2 <- (y_hat - y) / 4  # gradient of loss w.r.t. z2
+    dw2 <- as.numeric(t(h) %*% dz2)
+    db2 <- sum(dz2)
+
+    dh <- outer(dz2, w2)
+    dz1 <- dh * h * (1 - h)  # sigmoid derivative
+    dW1 <- t(X) %*% dz1
+    db1 <- colSums(dz1)
+
+    # Update
+    W1 <- W1 - eta * dW1
+    b1 <- b1 - eta * db1
+    w2 <- w2 - eta * dw2
+    b2 <- b2 - eta * db2
+  }
+
+  # Final predictions
+  z1 <- X %*% W1 + matrix(b1, nrow = 4, ncol = n_hidden, byrow = TRUE)
+  h <- sigmoid(z1)
+  y_hat <- sigmoid(h %*% w2 + b2)
+
+  list(predictions = round(y_hat, 3), loss_history = loss_history,
+       W1 = W1, b1 = b1, w2 = w2, b2 = b2)
+}
+
+mlp_result <- mlp_train_xor()
+cat("XOR predictions after backprop training:\n")
+cat(sprintf("  (0,0) -> %.3f (target: 0)\n", mlp_result$predictions[1]))
+cat(sprintf("  (0,1) -> %.3f (target: 1)\n", mlp_result$predictions[2]))
+cat(sprintf("  (1,0) -> %.3f (target: 1)\n", mlp_result$predictions[3]))
+cat(sprintf("  (1,1) -> %.3f (target: 0)\n", mlp_result$predictions[4]))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-learning-curves
+#| fig-cap: "Figure 1. Learning curves for the Perceptron (AND gate — converges) and two-layer network (XOR — solved by backpropagation). Left: the Perceptron converges to zero errors on the linearly separable AND gate within a few epochs. Centre: the Perceptron fails on XOR, oscillating with persistent errors — confirming the Minsky-Papert impossibility result. Right: a two-layer network with 4 hidden units learns XOR via backpropagation, with loss decreasing smoothly to near zero. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 10
+#| fig-height: 4
+#| dpi: 300
+
+# Prepare data
+and_df <- tibble(epoch = 1:100, errors = result_and$errors, task = "Perceptron — AND")
+xor_perc_df <- tibble(epoch = 1:100, errors = result_xor$errors, task = "Perceptron — XOR")
+xor_mlp_df <- tibble(epoch = 1:5000, loss = mlp_result$loss_history, task = "MLP — XOR (backprop)")
+
+# Panel 1 & 2: Perceptron errors
+perc_df <- bind_rows(and_df, xor_perc_df)
+p1 <- ggplot(perc_df, aes(x = epoch, y = errors, color = task)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~task, scales = "free_y") +
+  scale_color_manual(values = c(okabe_ito[3], okabe_ito[6])) +
+  labs(x = "Epoch", y = "Classification errors") +
+  theme_publication() +
+  theme(legend.position = "none", strip.text = element_text(face = "bold"))
+
+# Panel 3: MLP loss
+p2 <- ggplot(xor_mlp_df, aes(x = epoch, y = loss)) +
+  geom_line(color = okabe_ito[5], linewidth = 0.8) +
+  labs(x = "Epoch", y = "Cross-entropy loss",
+       subtitle = "MLP — XOR (backprop)") +
+  theme_publication()
+
+# Combine using patchwork-style approach (side by side)
+gridExtra::grid.arrange(p1, p2, ncol = 2, widths = c(2, 1),
+                         top = grid::textGrob("Neural network learning: from Perceptron to backpropagation",
+                                              gp = grid::gpar(fontsize = 14, fontface = "bold")))
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-decision-boundary-interactive
+
+# Visualise the MLP decision boundary for XOR
+grid_pts <- expand.grid(
+  x1 = seq(-0.5, 1.5, length.out = 100),
+  x2 = seq(-0.5, 1.5, length.out = 100)
+)
+
+# Forward pass through trained network
+X_grid <- as.matrix(grid_pts)
+z1 <- X_grid %*% mlp_result$W1 + matrix(mlp_result$b1, nrow = nrow(X_grid),
+                                          ncol = length(mlp_result$b1), byrow = TRUE)
+h <- sigmoid(z1)
+y_grid <- sigmoid(h %*% mlp_result$w2 + mlp_result$b2)
+
+grid_pts$prediction <- as.numeric(y_grid)
+
+# XOR training points
+xor_points <- tibble(
+  x1 = c(0, 0, 1, 1), x2 = c(0, 1, 0, 1),
+  label = c("0", "1", "1", "0")
+)
+
+p_boundary <- ggplot() +
+  geom_tile(data = grid_pts, aes(x = x1, y = x2, fill = prediction),
+            alpha = 0.7) +
+  scale_fill_gradient2(low = okabe_ito[6], mid = "white", high = okabe_ito[3],
+                        midpoint = 0.5, name = "P(y=1)") +
+  geom_point(data = xor_points, aes(x = x1, y = x2, color = label),
+             size = 4, shape = 16) +
+  scale_color_manual(values = c("0" = okabe_ito[6], "1" = okabe_ito[3]),
+                      name = "True label") +
+  coord_fixed() +
+  labs(
+    title = "MLP decision boundary for XOR",
+    subtitle = "Two-layer network with 4 hidden units learns the non-linear boundary",
+    x = expression(x[1]), y = expression(x[2])
+  ) +
+  theme_publication()
+
+ggplotly(p_boundary) |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+This historical journey through neural network milestones illustrates a fundamental principle that connects machine learning to game theory: **the structure of the hypothesis space determines what can be learned**. The single-layer perceptron, despite having a beautiful convergence guarantee for linearly separable data, is fundamentally limited — as @minsky_papert_1969 proved, it cannot represent functions like XOR that require nonlinear decision boundaries. This is not a failure of the learning algorithm but of the model class. The addition of a hidden layer with nonlinear activations transforms the problem: the hidden units learn internal representations that make the data linearly separable in a higher-dimensional feature space, and backpropagation (@rumelhart_hinton_williams_1986) provides an efficient gradient-based method for optimizing the entire network end-to-end. The XOR example — trivial by modern standards — was historically pivotal because it demonstrated that depth matters: a two-layer network with just 4 hidden units solves what no single-layer network can. The learning curves tell this story visually: the perceptron's error on XOR never reaches zero (it oscillates), while the MLP's loss decreases smoothly. This lesson scaled up to the deep learning revolution: @krizhevsky_2012 showed that very deep convolutional networks with millions of parameters, trained on massive datasets using the same backpropagation principle, could achieve superhuman performance on image classification. The connection to game theory is not incidental — training a neural network is an optimization problem, adversarial training involves minimax games (GANs), and multi-agent reinforcement learning combines deep learning with strategic interaction.
+
+
+## Extensions & related tutorials
+
+- [Mixed-strategy Nash equilibrium in 2×2 games](../../foundations/nash-equilibrium-mixed/) — optimization and equilibrium concepts underlying learning.
+- [Reinforcement learning meets game theory](../rl-game-theory/) — when agents learn strategies through interaction.
+- [GANs as zero-sum games](../gans-zero-sum/) — generative adversarial networks as minimax optimization.
+- [Neural network game solvers](../nn-game-solvers/) — using deep learning to find Nash equilibria.
+- [Multi-agent RL in social dilemmas](../marl-social-dilemmas/) — combining deep learning with strategic interaction.
+
+
+## References
+
+::: {#refs}
+:::
