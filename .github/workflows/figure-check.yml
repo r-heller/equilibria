@@ -1,0 +1,36 @@
+name: Figure check
+on:
+  pull_request:
+    paths:
+      - 'tutorials/**/*.qmd'
+      - 'shiny/tutorials/**/*.qmd'
+
+jobs:
+  figures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for static + interactive figures in each article
+        run: |
+          exit_code=0
+          # Find article qmd files (not section index pages)
+          find tutorials -path "*/*/index.qmd" -not -path "tutorials/*/index.qmd" | while read f; do
+            has_static=$(grep -cE '(dev\s*=|save_pub_fig|fig\.format|\.pdf|\.png)' "$f" || echo 0)
+            has_interactive=$(grep -ciE '(plotly|htmlwidget|gganimate|shiny|app-embed)' "$f" || echo 0)
+
+            if [ "$has_static" -eq 0 ]; then
+              echo "::warning file=${f}::Missing static figure reference"
+            fi
+            if [ "$has_interactive" -eq 0 ]; then
+              echo "::warning file=${f}::Missing interactive figure reference"
+            fi
+          done
+
+          # Also check shiny tutorial pages
+          find shiny/tutorials -name "index.qmd" 2>/dev/null | while read f; do
+            has_interactive=$(grep -ciE '(plotly|htmlwidget|shiny|app-embed|iframe)' "$f" || echo 0)
+            if [ "$has_interactive" -eq 0 ]; then
+              echo "::warning file=${f}::Missing interactive element reference"
+            fi
+          done

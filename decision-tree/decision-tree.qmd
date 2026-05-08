@@ -1,0 +1,56 @@
+---
+title: "Decision Tree — Static Chart"
+description: "A static flowchart for choosing the right game-theoretic model or solution concept."
+toc: false
+page-layout: full
+---
+
+# Decision Tree — Static Chart
+
+This chart shows all decision paths at once. For a guided experience, use the [Decision Assistant](decision-assistant.qmd).
+
+::: {#decision-tree-chart}
+:::
+
+```{=html}
+<script>
+(async function() {
+  const container = document.getElementById('decision-tree-chart');
+  try {
+    const resp = await fetch('../artifacts/decision-tree.json');
+    const tree = await resp.json();
+
+    // Build a nested HTML representation
+    const nodeMap = {};
+    if (tree.nodes) tree.nodes.forEach(n => { nodeMap[n.id] = n; });
+    nodeMap[tree.id] = tree;
+
+    function renderTree(nodeId, depth) {
+      const node = nodeMap[nodeId];
+      if (!node) return '';
+      const indent = 'margin-left:' + (depth * 1.5) + 'rem;';
+
+      if (node.result) {
+        return '<div style="' + indent + 'padding:0.5rem;border-left:3px solid var(--bs-success);margin-bottom:0.5rem;">' +
+               '<strong>' + node.result + '</strong></div>';
+      }
+
+      let html = '<div style="' + indent + 'padding:0.5rem;border-left:3px solid var(--bs-primary);margin-bottom:0.5rem;">';
+      html += '<strong>' + node.question + '</strong>';
+      if (node.options) {
+        node.options.forEach(opt => {
+          html += '<div style="margin-left:1rem;margin-top:0.25rem;"><em>' + opt.label + '</em></div>';
+          html += renderTree(opt.next_id, depth + 2);
+        });
+      }
+      html += '</div>';
+      return html;
+    }
+
+    container.innerHTML = renderTree(tree.id, 0);
+  } catch(e) {
+    container.innerHTML = '<p>Decision tree data not yet available. Run <code>Rscript R/build_decision_tree.R</code> first.</p>';
+  }
+})();
+</script>
+```
