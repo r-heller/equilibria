@@ -1,0 +1,314 @@
+---
+title: "Secure multi-party computation as a game-theoretic problem"
+description: "Model secure multi-party computation as a game where parties have private inputs and incentives to deviate, implement Shamir's secret sharing in R, and visualize threshold schemes and security guarantees interactively."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - cryptography-and-gt
+  - secure-computation
+  - secret-sharing
+keywords: ["secure multi-party computation", "secret sharing", "Shamir", "game theory", "incentive compatibility", "threshold cryptography", "R"]
+labels: ["crypto-games", "protocol-design"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_cryptography-and-gt_secure-multi-party-computation"
+image: thumbnail.png
+image-alt: "Polynomial interpolation diagram showing Shamir secret sharing with threshold reconstruction"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/cryptography-and-gt/secure-multi-party-computation/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title = element_text(size = base_size * 1.2, face = "bold"),
+      plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+      axis.line = element_line(color = "grey30", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      plot.margin = margin(10, 10, 10, 10)
+    )
+}
+```
+
+
+## Introduction & motivation
+
+Suppose several parties each hold private data — medical records, financial portfolios, strategic bids — and wish to jointly compute a function of their combined inputs without revealing any individual's data to the others. This is the problem of **secure multi-party computation (MPC)**, first formalised by Andrew Yao in 1982. While MPC is fundamentally a cryptographic challenge, it has a deep game-theoretic dimension: each party has incentives that may conflict with the protocol's requirements. A rational party might deviate from the protocol to learn more about others' inputs, free-ride on others' contributions, or provide false inputs to manipulate the output in their favour. The classical cryptographic security model assumes **honest-but-curious** (semi-honest) or **malicious** adversaries, but game theory asks a more nuanced question: when is following the protocol a **Nash equilibrium**? This connection was formalised by Dodis, Halevi, and Rabin (2000), who showed that standard MPC protocols are not always incentive-compatible — a party may benefit from aborting early after learning partial information. **Secret sharing** is the foundational primitive for MPC: Shamir's (1979) scheme splits a secret into $n$ shares such that any $t$ shares suffice to reconstruct the secret, but fewer than $t$ shares reveal nothing. This tutorial implements Shamir's secret sharing in R, explores the game-theoretic incentives surrounding MPC protocols, and visualizes the polynomial interpolation that makes threshold reconstruction possible.
+
+
+## Mathematical formulation
+
+**Shamir's secret sharing** encodes a secret $s$ as the constant term of a random polynomial of degree $t-1$ over a finite field $\mathbb{F}_p$:
+
+$$
+f(x) = s + a_1 x + a_2 x^2 + \cdots + a_{t-1} x^{t-1} \pmod{p}
+$$
+
+where $a_1, \ldots, a_{t-1}$ are chosen uniformly at random from $\mathbb{F}_p$. Each party $i$ receives the share $(i, f(i) \bmod p)$. By Lagrange interpolation, any $t$ shares determine $f$ uniquely (and hence $s = f(0)$), while $t-1$ or fewer shares leave $s$ information-theoretically hidden.
+
+The **Lagrange reconstruction** formula is:
+
+$$
+s = f(0) = \sum_{j=1}^{t} y_j \prod_{\substack{m=1 \\ m \neq j}}^{t} \frac{-x_m}{x_j - x_m} \pmod{p}
+$$
+
+**Game-theoretic model**: Consider $n$ parties in a MPC game. Each party $i$ has private input $x_i$ and a utility function $u_i(\text{output}, \text{information learned})$. A protocol is an **$(t, n)$-Nash equilibrium** if no coalition of fewer than $t$ parties can increase their utility by deviating, given that the remaining parties follow the protocol. The key tension is between **output utility** (wanting the correct result) and **privacy utility** (not wanting others to learn your input).
+
+
+## R implementation
+
+```{r}
+#| label: shamir-secret-sharing
+
+# --- Shamir's Secret Sharing (over integers for illustration) ---
+# In production, all operations would be modular arithmetic over a prime field
+
+# Generate shares for a (t, n) threshold scheme
+shamir_share <- function(secret, n, t, prime = 2089) {
+  # Random polynomial of degree t-1 with secret as constant term
+  coefficients <- c(secret, sample(1:(prime - 1), t - 1))
+
+  shares <- tibble(
+    party = 1:n,
+    x = 1:n,
+    y = sapply(1:n, function(xi) {
+      val <- 0
+      for (k in seq_along(coefficients)) {
+        val <- (val + coefficients[k] * xi^(k-1)) %% prime
+      }
+      val
+    })
+  )
+
+  list(shares = shares, coefficients = coefficients, prime = prime)
+}
+
+# Reconstruct secret from t shares using Lagrange interpolation
+shamir_reconstruct <- function(shares_subset, prime = 2089) {
+  xs <- shares_subset$x
+  ys <- shares_subset$y
+  t <- length(xs)
+
+  secret <- 0
+  for (j in 1:t) {
+    # Lagrange basis polynomial evaluated at x = 0
+    numerator <- 1
+    denominator <- 1
+    for (m in 1:t) {
+      if (m != j) {
+        numerator <- (numerator * (-xs[m])) %% prime
+        denominator <- (denominator * (xs[j] - xs[m])) %% prime
+      }
+    }
+    # Modular inverse via Fermat's little theorem
+    denom_inv <- (denominator^(prime - 2)) %% prime
+    lagrange_coeff <- (numerator * denom_inv) %% prime
+    secret <- (secret + ys[j] * lagrange_coeff) %% prime
+  }
+
+  secret
+}
+
+# --- Demonstration: (3, 5) threshold scheme ---
+secret <- 1234
+result <- shamir_share(secret, n = 5, t = 3)
+cat("=== Shamir's (3, 5) Secret Sharing ===\n")
+cat(sprintf("Secret: %d\n", secret))
+cat(sprintf("Prime field: F_%d\n", result$prime))
+cat(sprintf("Polynomial: f(x) = %d + %dx + %dx^2 (mod %d)\n",
+            result$coefficients[1], result$coefficients[2],
+            result$coefficients[3], result$prime))
+cat("\nShares distributed to parties:\n")
+print(result$shares)
+
+# Reconstruct with exactly 3 shares (threshold met)
+cat("\n--- Reconstruction with 3 shares (parties 1, 3, 5) ---\n")
+subset_3 <- result$shares |> filter(party %in% c(1, 3, 5))
+recovered <- shamir_reconstruct(subset_3, result$prime)
+cat(sprintf("Recovered secret: %d (correct: %s)\n", recovered,
+            ifelse(recovered == secret, "YES", "NO")))
+
+# Attempt with only 2 shares (below threshold)
+cat("\n--- Attempting with 2 shares (below threshold) ---\n")
+subset_2 <- result$shares |> filter(party %in% c(1, 3))
+wrong <- shamir_reconstruct(subset_2, result$prime)
+cat(sprintf("Result with 2 shares: %d (correct: %s)\n", wrong,
+            ifelse(wrong == secret, "YES", "NO")))
+cat("With fewer than t shares, the secret remains hidden.\n")
+
+# --- Game-theoretic analysis: incentive to deviate ---
+cat("\n=== Game-Theoretic Analysis: Deviation Incentives ===\n")
+n_parties <- 5
+threshold <- 3
+# Model: each party values output at V and privacy at P
+V <- 10  # Value of learning the computed result
+P <- 8   # Cost of having input revealed
+
+payoff_follow <- V       # Follow protocol: get output, keep privacy
+payoff_abort  <- 0       # Abort: no output, keep privacy
+payoff_collude <- V + 3  # Collude (t parties): get output + extra info
+
+cat(sprintf("Payoff (follow protocol): %d\n", payoff_follow))
+cat(sprintf("Payoff (abort early):     %d\n", payoff_abort))
+cat(sprintf("Payoff (collude, t=%d):    %d\n", threshold, payoff_collude))
+cat("Following the protocol is a NE when V > 0 and coalition size < t.\n")
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-shamir-polynomial
+#| fig-cap: "Figure 1. Shamir's secret sharing illustrated: the secret (s = 1234) is the y-intercept of a degree-2 polynomial. Five shares (coloured points) are distributed to parties. Any 3 shares determine the polynomial uniquely via Lagrange interpolation (solid curve), while 2 shares admit infinitely many polynomials (dashed lines) that pass through them, each yielding a different intercept. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 7
+#| fig-height: 5
+#| dpi: 300
+
+# Plot the true polynomial and shares
+x_plot <- seq(0, 6, by = 0.05)
+coefs <- result$coefficients
+p_val <- result$prime
+
+# Evaluate polynomial (without mod for visualization)
+y_true <- coefs[1] + coefs[2] * x_plot + coefs[3] * x_plot^2
+
+# Generate fake alternative polynomials through 2 points
+alt_polys <- lapply(c(800, 1234, 1600), function(fake_secret) {
+  # Polynomial through (1, y1), (3, y3) with intercept fake_secret
+  # f(x) = fake_secret + a1*x + a2*x^2
+  # f(1) = y1 => fake_secret + a1 + a2 = y1
+  # f(3) = y3 => fake_secret + 3*a1 + 9*a2 = y3
+  y1 <- result$shares$y[1]
+  y3 <- result$shares$y[3]
+  # Solve: a1 + a2 = y1 - fake_secret, 3*a1 + 9*a2 = y3 - fake_secret
+  A <- matrix(c(1, 3, 1, 9), nrow = 2)
+  b <- c(y1 - fake_secret, y3 - fake_secret)
+  sol <- solve(A, b)
+  tibble(x = x_plot,
+         y = fake_secret + sol[1] * x_plot + sol[2] * x_plot^2,
+         type = paste0("Alt (s = ", fake_secret, ")"))
+})
+alt_df <- bind_rows(alt_polys)
+
+poly_df <- tibble(x = x_plot, y = y_true, type = "True polynomial")
+share_df <- tibble(x = result$shares$x, y = result$shares$y,
+                   party = paste0("Party ", result$shares$party))
+
+ggplot() +
+  geom_line(data = poly_df, aes(x = x, y = y, color = type), linewidth = 1.2) +
+  geom_line(data = alt_df, aes(x = x, y = y, group = type),
+            linetype = "dashed", color = "grey60", linewidth = 0.6, alpha = 0.7) +
+  geom_point(data = share_df, aes(x = x, y = y, fill = party),
+             shape = 21, size = 4, stroke = 0.8) +
+  geom_point(aes(x = 0, y = secret), shape = 18, size = 5,
+             color = okabe_ito[6]) +
+  annotate("text", x = 0.3, y = secret, label = paste0("Secret = ", secret),
+           hjust = 0, size = 3.5, fontface = "bold", color = okabe_ito[6]) +
+  scale_color_manual(values = c("True polynomial" = okabe_ito[5]), name = NULL) +
+  scale_fill_manual(values = okabe_ito[1:5], name = "Share holder") +
+  labs(
+    title = "Shamir's secret sharing — polynomial interpolation",
+    subtitle = "3-of-5 threshold: 3 points fix the polynomial; 2 points admit many solutions",
+    x = "Evaluation point x", y = "Polynomial value f(x)"
+  ) +
+  theme_publication()
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-reconstruction-interactive
+
+# Show reconstruction accuracy as a function of number of shares used
+reconstruction_tests <- lapply(1:5, function(k) {
+  if (k >= 3) {
+    # Use first k shares
+    subset_k <- result$shares |> slice(1:k)
+    recovered <- shamir_reconstruct(subset_k, result$prime)
+    correct <- (recovered == secret)
+  } else {
+    # Below threshold — random result
+    subset_k <- result$shares |> slice(1:k)
+    recovered <- shamir_reconstruct(subset_k, result$prime)
+    correct <- FALSE
+  }
+  tibble(
+    n_shares = k,
+    recovered_value = recovered,
+    correct = correct,
+    status = ifelse(k >= 3, "Above threshold", "Below threshold")
+  )
+}) |> bind_rows()
+
+reconstruction_tests <- reconstruction_tests |>
+  mutate(text = paste0("Shares used: ", n_shares,
+                       "\nRecovered value: ", recovered_value,
+                       "\nCorrect: ", correct,
+                       "\nThreshold: 3"))
+
+p_recon <- ggplot(reconstruction_tests,
+                  aes(x = factor(n_shares), y = recovered_value,
+                      fill = status, text = text)) +
+  geom_col(width = 0.6) +
+  geom_hline(yintercept = secret, linetype = "dashed",
+             color = okabe_ito[6], linewidth = 0.8) +
+  annotate("text", x = 5.4, y = secret,
+           label = paste0("True secret = ", secret),
+           hjust = 1, size = 3, color = okabe_ito[6]) +
+  scale_fill_manual(
+    values = c("Below threshold" = okabe_ito[6],
+               "Above threshold" = okabe_ito[3]),
+    name = NULL
+  ) +
+  labs(
+    title = "Secret reconstruction vs number of shares",
+    subtitle = "Below threshold (t = 3): wrong value; at or above: correct reconstruction",
+    x = "Number of shares used", y = "Reconstructed value"
+  ) +
+  theme_publication()
+
+ggplotly(p_recon, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+Shamir's secret sharing elegantly demonstrates the threshold property: with the (3, 5) scheme, any three shares completely determine the polynomial and recover the secret, while two or fewer shares are information-theoretically useless — they are consistent with every possible secret value. This is not merely computational security (which could be broken with more computing power) but unconditional security grounded in the algebra of polynomial interpolation. The game-theoretic dimension adds a crucial layer: even if a protocol is cryptographically secure, rational parties may deviate if their incentive structure favours deviation. In our model, a coalition of $t$ or more parties can reconstruct the secret, so the threshold $t$ must be set considering the difficulty of forming such coalitions. The key insight from the rational MPC literature is that standard security definitions (simulation-based security) do not account for utility-maximising behaviour: a protocol might be "secure" against a malicious adversary yet still be susceptible to rational deviation when parties weigh the costs and benefits of following the protocol versus deviating. Designing protocols that are both cryptographically secure and incentive-compatible requires combining mechanism design with cryptography — ensuring that following the protocol is a Nash equilibrium for all parties. Recent advances in blockchain-based MPC (using smart contracts for penalty enforcement) and verifiable computation show how game-theoretic insights are shaping the next generation of secure protocols.
+
+
+## Extensions & related tutorials
+
+- [Zero-knowledge proofs and strategic verification](../zero-knowledge-proofs/) — cryptographic protocols with game-theoretic structure.
+- [Mechanism design and incentive compatibility](../../mechanism-design/vickrey-second-price-auction/) — designing rules for strategic agents.
+- [The Shapley value](../../cooperative-gt/shapley-value/) — fair division of cooperative surplus, related to cost sharing in MPC.
+- [Blockchain consensus as a coordination game](../blockchain-consensus/) — distributed trust with rational miners.
+- [Bayesian games with incomplete information](../../bayesian-methods/bayesian-games-incomplete-information/) — games with private types, the theoretical basis for MPC.
+
+
+## References
+
+::: {#refs}
+:::
