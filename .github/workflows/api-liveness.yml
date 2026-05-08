@@ -4,6 +4,9 @@ on:
     - cron: '0 6 * * 1'  # Weekly on Monday at 06:00 UTC
   workflow_dispatch:
 
+permissions:
+  issues: write
+
 jobs:
   check-apis:
     runs-on: ubuntu-latest
@@ -19,8 +22,10 @@ jobs:
           packages: |
             any::yaml
             any::httr2
+            any::jsonlite
 
       - name: Check API endpoints from public-apis-and-datasets articles
+        id: check
         run: |
           Rscript -e '
           files <- list.files(
@@ -31,6 +36,7 @@ jobs:
 
           if (length(files) == 0) {
             message("No API articles found yet.")
+            writeLines("failures=", Sys.getenv("GITHUB_OUTPUT"))
             quit(status = 0)
           }
 
@@ -46,20 +52,45 @@ jobs:
             url <- fm$api_or_dataset$endpoint_or_url
             if (is.null(url) || nchar(url) == 0) next
 
+            name <- fm$api_or_dataset$name %||% basename(dirname(f))
+
             resp <- tryCatch(
-              httr2::request(url) |> httr2::req_method("HEAD") |> httr2::req_timeout(15) |> httr2::req_perform(),
+              httr2::request(url) |>
+                httr2::req_method("HEAD") |>
+                httr2::req_timeout(15) |>
+                httr2::req_error(is_error = function(resp) FALSE) |>
+                httr2::req_perform(),
               error = function(e) NULL
             )
-            if (is.null(resp) || httr2::resp_status(resp) >= 400) {
-              failures <- c(failures, paste0(fm$api_or_dataset$name %||% f, ": ", url))
+            status <- if (!is.null(resp)) httr2::resp_status(resp) else 999
+            if (is.null(resp) || status >= 400) {
+              failures <- c(failures, paste0(name, " (", url, ") — HTTP ", status))
+              message("FAIL: ", name, " — ", url, " (HTTP ", status, ")")
+            } else {
+              message("OK:   ", name, " — ", url)
             }
           }
 
+          # Write failures to GITHUB_OUTPUT for issue creation
           if (length(failures) > 0) {
-            cat("DOWN APIs:\n", paste(failures, collapse="\n"), "\n")
-            # Non-blocking — just warn
-            message("::warning::", length(failures), " API(s) unreachable")
+            out <- paste(failures, collapse = "\\n")
+            writeLines(paste0("failures=", out), Sys.getenv("GITHUB_OUTPUT"))
           } else {
-            cat("All APIs reachable.\n")
+            writeLines("failures=", Sys.getenv("GITHUB_OUTPUT"))
+            message("All APIs reachable.")
           }
           '
+
+      - name: Open issue for unreachable APIs
+        if: steps.check.outputs.failures != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "API liveness: $(date +%Y-%m-%d) — endpoints down" \
+            --label "data-source-down" \
+            --body "The weekly API liveness check found unreachable endpoints:
+
+          ${{ steps.check.outputs.failures }}
+
+          Please verify manually and update PLAN.md → ## Inaccessible APIs if confirmed down."

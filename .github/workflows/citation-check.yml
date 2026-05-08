@@ -3,7 +3,6 @@ on:
   pull_request:
     paths:
       - 'references.bib'
-      - 'tutorials/**/*.qmd'
 
 jobs:
   citations:
@@ -19,35 +18,51 @@ jobs:
         with:
           packages: |
             any::httr2
-            any::bibtex
 
-      - name: Verify all DOIs and arXiv IDs resolve
+      - name: Verify all DOIs resolve
         run: |
           Rscript -e '
-          bib <- bibtex::read.bib("references.bib")
+          # Parse .bib file manually for DOI fields
+          lines <- readLines("references.bib", warn = FALSE)
+          doi_lines <- grep("^\\s*doi\\s*=", lines, ignore.case = TRUE, value = TRUE)
+
+          if (length(doi_lines) == 0) {
+            message("No DOI entries found in references.bib — nothing to check.")
+            quit(status = 0)
+          }
+
+          # Extract DOIs
+          dois <- gsub(".*=\\s*\\{?([^},]+)\\}?.*", "\\1", doi_lines)
+          dois <- trimws(dois)
+          dois <- dois[nchar(dois) > 0]
+
+          message("Checking ", length(dois), " DOI(s)...")
           failures <- character(0)
-          for (key in names(bib)) {
-            entry <- bib[[key]]
-            doi <- entry$doi
-            if (!is.null(doi) && nchar(doi) > 0) {
-              url <- paste0("https://doi.org/", doi)
-              resp <- tryCatch(
-                httr2::request(url) |>
-                  httr2::req_method("HEAD") |>
-                  httr2::req_timeout(15) |>
-                  httr2::req_perform(),
-                error = function(e) NULL
-              )
-              if (is.null(resp) || httr2::resp_status(resp) >= 400) {
-                failures <- c(failures, paste0(key, ": DOI ", doi, " unresolvable"))
-              }
+
+          for (doi in dois) {
+            url <- paste0("https://doi.org/", doi)
+            resp <- tryCatch(
+              httr2::request(url) |>
+                httr2::req_method("HEAD") |>
+                httr2::req_timeout(15) |>
+                httr2::req_error(is_error = function(resp) FALSE) |>
+                httr2::req_perform(),
+              error = function(e) NULL
+            )
+            status <- if (!is.null(resp)) httr2::resp_status(resp) else 999
+            if (is.null(resp) || status >= 400) {
+              failures <- c(failures, paste0("  DOI: ", doi, " (HTTP ", status, ")"))
+              message("  FAIL: ", doi, " (HTTP ", status, ")")
+            } else {
+              message("  OK:   ", doi)
             }
           }
+
           if (length(failures) > 0) {
-            cat("FAILED citations:\n")
-            cat(paste(failures, collapse = "\n"), "\n")
-            stop("Citation check failed for ", length(failures), " entry/entries.")
+            message("\nFAILED — unresolvable DOIs:")
+            message(paste(failures, collapse = "\n"))
+            stop("Citation check failed for ", length(failures), " DOI(s).")
           } else {
-            cat("All citations verified.\n")
+            message("\nAll ", length(dois), " DOI(s) verified.")
           }
           '

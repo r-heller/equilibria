@@ -9,28 +9,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check for TODO_IMPRESSUM
+      - name: Hard-fail on TODO_IMPRESSUM (blocks production deploy)
         run: |
-          if grep -r "TODO_IMPRESSUM" impressum.qmd 2>/dev/null; then
-            echo "::error::impressum.qmd still contains TODO_IMPRESSUM placeholder"
+          if grep -q "TODO_IMPRESSUM" impressum.qmd 2>/dev/null; then
+            echo "::error file=impressum.qmd::impressum.qmd still contains TODO_IMPRESSUM placeholder — must be replaced before production deploy"
             exit 1
           fi
           echo "impressum.qmd OK"
 
-      - name: Check for TODO_DATENSCHUTZ
+      - name: Hard-fail on TODO_DATENSCHUTZ (blocks production deploy)
         run: |
-          if grep -r "TODO_DATENSCHUTZ" datenschutz.qmd 2>/dev/null; then
-            echo "::error::datenschutz.qmd still contains TODO_DATENSCHUTZ placeholder"
+          if grep -q "TODO_DATENSCHUTZ" datenschutz.qmd 2>/dev/null; then
+            echo "::error file=datenschutz.qmd::datenschutz.qmd still contains TODO_DATENSCHUTZ placeholder — must be replaced before production deploy"
             exit 1
           fi
           echo "datenschutz.qmd OK"
 
-      - name: Warn on TODO_VGWORT placeholders
+      - name: Warn on TODO_VGWORT placeholders (non-blocking)
         run: |
-          count=$(grep -r "TODO_VGWORT_" tutorials/ shiny/ 2>/dev/null | wc -l || echo 0)
+          count=$(grep -r "TODO_VGWORT_" tutorials/ shiny/ --include="*.qmd" \
+            | grep -v "/_template/" \
+            | wc -l || echo 0)
           if [ "$count" -gt 0 ]; then
-            echo "::warning::$count article(s) still have TODO_VGWORT placeholders"
-            grep -r "TODO_VGWORT_" tutorials/ shiny/ 2>/dev/null || true
+            echo "::warning::$count article(s) still have TODO_VGWORT placeholders — register at tom.vgwort.de"
+            grep -r "TODO_VGWORT_" tutorials/ shiny/ --include="*.qmd" \
+              | grep -v "/_template/" || true
           else
             echo "All VG Wort pixels populated"
           fi
