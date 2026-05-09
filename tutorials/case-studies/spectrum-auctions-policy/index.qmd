@@ -1,0 +1,496 @@
+---
+title: "Spectrum Auction Design: A Case Study in Applied Mechanism Design"
+description: "Simulate key challenges in spectrum auction design --- combinatorial valuations, budget constraints, and market concentration --- and compare simultaneous ascending auctions with combinatorial clock auctions."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - Case Studies
+  - Auction Design
+keywords: ["spectrum auction", "combinatorial auction", "simultaneous ascending auction", "mechanism design", "telecommunications"]
+labels: ["case-studies", "auction-design"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_case-studies_spectrum-auctions-policy"
+image: thumbnail.png
+image-alt: "Grouped bar chart comparing revenue, efficiency, and market concentration outcomes under simultaneous ascending and combinatorial clock auction formats with and without set-aside policies"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/case-studies/spectrum-auctions-policy/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction and motivation
+
+Spectrum auctions --- the sale of radio frequency licences by governments to telecommunications companies --- represent one of the most consequential applications of auction theory and mechanism design in modern economic policy. Since the United States pioneered the use of auctions for spectrum allocation in 1994, governments around the world have used auction mechanisms to allocate electromagnetic spectrum, generating hundreds of billions of dollars in revenue and shaping the structure of the telecommunications industry for decades. The design of these auctions draws directly on the theoretical work of Vickrey [-@vickrey_1961], Myerson [-@myerson_1981], Milgrom [-@milgrom_2000], and others, making spectrum auctions a premier example of "economic engineering" --- the translation of abstract mechanism design theory into concrete institutional design.
+
+The fundamental challenge of spectrum auction design is that spectrum licences are complementary goods: the value of a licence for a particular frequency band in a particular geographic region depends on what other licences the bidder holds. A mobile phone operator needs contiguous spectrum blocks to offer broadband services, and the value of two adjacent blocks is typically much greater than twice the value of a single block. This complementarity creates an "exposure problem" in standard auction formats: a bidder who needs a package of licences to create value risks winning some but not all of the licences in the package, ending up with spectrum it cannot use effectively and having overpaid relative to the standalone value. The exposure problem is particularly severe in the simultaneous ascending auction (SAA) format pioneered by the FCC, where bidders bid on individual licences simultaneously and must infer the final prices of complementary licences while the auction is still in progress [@milgrom_2004].
+
+The combinatorial clock auction (CCA), developed by Ausubel, Cramton, and Milgrom [-@ausubel_cramton_milgrom_2006], was designed to address the exposure problem by allowing bidders to submit bids on packages (combinations) of licences rather than individual items. In the CCA, the auction proceeds in two phases: a clock phase, where prices for individual items rise and bidders indicate the packages they wish to purchase at current prices, and a supplementary round, where bidders can submit additional package bids. The final allocation and payments are determined by solving a winner-determination problem (finding the combination of non-overlapping package bids that maximises total value) and applying a pricing rule (typically Vickrey-nearest or core pricing) that ensures incentive compatibility and stability.
+
+Beyond auction format, spectrum auction designers must contend with several additional challenges. Budget constraints limit what smaller or newer entrants can afford to bid, potentially leading to concentrated market outcomes where incumbent operators with deep pockets dominate the auction. Market concentration concerns have led regulators to consider set-aside policies, which reserve a portion of the available spectrum for smaller bidders or new entrants, and spectrum caps, which limit the total amount of spectrum any single bidder can acquire. These policies involve a fundamental tradeoff: set-asides may increase competition in the downstream market (benefiting consumers through lower prices and more innovation) but may reduce auction revenue and allocative efficiency (because the reserved spectrum may not go to the bidder who values it most). Cramton [-@cramton_2013] provides a comprehensive review of spectrum auction design issues and the evidence on how different design choices affect outcomes.
+
+The stakes in spectrum auction design are enormous. The 2021 C-band auction in the United States generated over $81 billion in revenue, making it the highest-grossing auction in history. The allocation of spectrum for 5G services will shape the competitive landscape of mobile telecommunications for the next decade. Poor auction design can lead to spectrum hoarding (bidders acquiring spectrum to prevent competitors from using it), fragmented allocations (where no bidder holds enough contiguous spectrum to deploy advanced services), and excessive concentration (where one or two operators dominate the market). Getting the design right requires a sophisticated understanding of combinatorial optimisation, strategic behaviour, and the political economy of regulation.
+
+In this tutorial, we simulate the key design challenges of spectrum auctions using a stylised model with six spectrum blocks, four bidders (two incumbents and two entrants), and complementary valuations. We compare the simultaneous ascending auction and the combinatorial clock auction, and analyse how set-aside policies for smaller bidders affect competition, revenue, and market structure.
+
+## Mathematical formulation
+
+**Auction setup:**
+
+- $K = \{1, 2, \ldots, 6\}$: set of spectrum blocks (licences)
+- $N = \{1, 2, 3, 4\}$: set of bidders (1-2 incumbents, 3-4 entrants)
+- $v_i(S)$: bidder $i$'s value for package $S \subseteq K$, with complementarities
+
+**Complementary valuations:**
+
+For adjacent blocks $j$ and $j+1$:
+
+$$v_i(\{j, j+1\}) = v_i(\{j\}) + v_i(\{j+1\}) + \gamma_i$$
+
+where $\gamma_i > 0$ is the complementarity bonus.
+
+**Simultaneous ascending auction (SAA):**
+
+1. All blocks are auctioned simultaneously with ascending prices.
+2. In each round, bidders submit bids on individual blocks at current prices.
+3. Prices rise on blocks with excess demand.
+4. Auction ends when no block receives new bids.
+
+**Combinatorial clock auction (CCA):**
+
+1. **Clock phase:** Prices rise uniformly. Bidders indicate desired packages at current prices.
+2. **Supplementary round:** Bidders submit additional package bids.
+3. **Winner determination:** Solve $\max \sum_i v_i(S_i)$ subject to packages being non-overlapping.
+
+**Market concentration (HHI):**
+
+$$\text{HHI} = \sum_{i=1}^{N} \left(\frac{k_i}{\sum_j k_j} \times 100\right)^2$$
+
+where $k_i$ is the number of blocks won by bidder $i$.
+
+## R implementation
+
+```{r}
+#| label: auction-setup
+#| code-fold: false
+set.seed(2026)
+
+# --- Define the spectrum auction environment ---
+n_blocks <- 6
+n_bidders <- 4
+bidder_names <- c("Incumbent A", "Incumbent B", "Entrant C", "Entrant D")
+bidder_types <- c("incumbent", "incumbent", "entrant", "entrant")
+
+# Base values per block (incumbents value more due to existing infrastructure)
+base_values <- matrix(
+  c(
+    # Block: 1    2    3    4    5    6
+    18,  20,  19,  17,  16,  15,   # Incumbent A (higher values)
+    16,  17,  18,  20,  19,  17,   # Incumbent B
+    10,  11,  12,  11,  10,   9,   # Entrant C (lower base values)
+    9,   10,  11,  12,  11,  10    # Entrant D
+  ),
+  nrow = n_bidders, byrow = TRUE,
+  dimnames = list(bidder_names, paste("Block", 1:n_blocks))
+)
+
+# Complementarity bonus for adjacent blocks
+comp_bonus <- c(8, 8, 5, 5)  # Incumbents get more from complementarities
+
+# Budget constraints
+budgets <- c(100, 90, 45, 40)
+names(budgets) <- bidder_names
+
+cat("=== Spectrum Auction Setup ===\n\n")
+cat("Base values per block:\n")
+print(base_values)
+cat("\nComplementarity bonus (adjacent blocks):", comp_bonus, "\n")
+cat("Budget constraints:", budgets, "\n")
+```
+
+```{r}
+#| label: valuation-function
+#| code-fold: false
+
+# --- Package valuation function ---
+package_value <- function(blocks, bidder_idx) {
+  if (length(blocks) == 0) return(0)
+  base <- sum(base_values[bidder_idx, blocks])
+
+  # Add complementarity for each pair of adjacent blocks
+  bonus <- 0
+  sorted_blocks <- sort(blocks)
+  for (k in 1:(length(sorted_blocks) - 1)) {
+    if (sorted_blocks[k + 1] == sorted_blocks[k] + 1) {
+      bonus <- bonus + comp_bonus[bidder_idx]
+    }
+  }
+  base + bonus
+}
+
+# Show package values for key combinations
+cat("\n=== Selected Package Valuations ===\n\n")
+key_packages <- list(
+  "Block 1 alone" = 1,
+  "Blocks 1-2" = c(1, 2),
+  "Blocks 1-3" = c(1, 2, 3),
+  "Blocks 3-4" = c(3, 4),
+  "Blocks 4-6" = c(4, 5, 6)
+)
+
+for (pkg_name in names(key_packages)) {
+  vals <- sapply(1:n_bidders, function(i) package_value(key_packages[[pkg_name]], i))
+  cat(sprintf("%-18s: %s\n", pkg_name,
+              paste(sprintf("%s=%d", bidder_names, vals), collapse = ", ")))
+}
+```
+
+```{r}
+#| label: saa-simulation
+#| code-fold: false
+
+# --- Simulate Simultaneous Ascending Auction (SAA) ---
+simulate_saa <- function(base_vals, comp_bon, budgets, n_bl, n_bid, set_aside = NULL) {
+  prices <- rep(1, n_bl)  # Starting prices
+  allocation <- rep(0L, n_bl)  # 0 = unallocated
+  price_increment <- 1
+
+  for (round in 1:200) {
+    # Each bidder determines which blocks to bid on
+    bids <- matrix(FALSE, n_bid, n_bl)
+    any_new_bid <- FALSE
+
+    for (i in 1:n_bid) {
+      # Check set-aside restrictions
+      eligible_blocks <- 1:n_bl
+      if (!is.null(set_aside)) {
+        if (bidder_types[i] == "incumbent") {
+          eligible_blocks <- setdiff(eligible_blocks, set_aside)
+        }
+      }
+
+      # Greedy strategy: bid on blocks that are profitable
+      current_blocks <- which(allocation == i)
+      spent <- sum(prices[current_blocks])
+
+      for (b in eligible_blocks) {
+        if (allocation[b] == i) next  # Already hold it
+
+        # Would adding this block be profitable?
+        test_blocks <- sort(c(current_blocks, b))
+        marginal_value <- package_value(test_blocks, i) - package_value(current_blocks, i)
+        cost <- prices[b] + price_increment
+
+        if (marginal_value > cost && spent + cost <= budgets[i]) {
+          bids[i, b] <- TRUE
+          any_new_bid <- TRUE
+        }
+      }
+    }
+
+    if (!any_new_bid) break
+
+    # Process bids: if multiple bids on a block, highest-value bidder wins
+    for (b in 1:n_bl) {
+      bidders_on_b <- which(bids[, b])
+      if (length(bidders_on_b) > 0) {
+        # Among bidders, allocate to the one with highest marginal value
+        best_bidder <- bidders_on_b[1]
+        best_mv <- 0
+        for (bi in bidders_on_b) {
+          cb <- which(allocation == bi)
+          mv <- package_value(sort(c(cb, b)), bi) - package_value(cb, bi)
+          if (mv > best_mv) {
+            best_mv <- mv
+            best_bidder <- bi
+          }
+        }
+        allocation[b] <- best_bidder
+        prices[b] <- prices[b] + price_increment
+      }
+    }
+  }
+
+  # Compute outcomes
+  revenue <- sum(prices[allocation > 0])
+  blocks_won <- sapply(1:n_bid, function(i) sum(allocation == i))
+  total_value <- sum(sapply(1:n_bid, function(i) {
+    package_value(which(allocation == i), i)
+  }))
+
+  # HHI calculation
+  shares <- blocks_won / sum(blocks_won) * 100
+  hhi <- sum(shares^2)
+
+  list(allocation = allocation, prices = prices, revenue = revenue,
+       blocks_won = blocks_won, total_value = total_value, hhi = hhi)
+}
+
+# Run SAA without set-aside
+saa_result <- simulate_saa(base_values, comp_bonus, budgets, n_blocks, n_bidders)
+
+cat("=== Simultaneous Ascending Auction (SAA) Results ===\n\n")
+cat("Allocation:", saa_result$allocation, "\n")
+cat("Block assignments:\n")
+for (b in 1:n_blocks) {
+  owner <- if (saa_result$allocation[b] > 0) bidder_names[saa_result$allocation[b]] else "Unsold"
+  cat(sprintf("  Block %d: %s (price = $%d)\n", b, owner, saa_result$prices[b]))
+}
+cat(sprintf("\nTotal revenue: $%d\n", saa_result$revenue))
+cat(sprintf("Total value created: $%d\n", saa_result$total_value))
+cat(sprintf("Blocks won: %s\n", paste(sprintf("%s=%d", bidder_names, saa_result$blocks_won), collapse = ", ")))
+cat(sprintf("HHI: %.0f\n", saa_result$hhi))
+```
+
+```{r}
+#| label: cca-simulation
+#| code-fold: false
+
+# --- Simulate Combinatorial Clock Auction (CCA) ---
+simulate_cca <- function(base_vals, comp_bon, budgets, n_bl, n_bid, set_aside = NULL) {
+  # Generate all feasible packages for each bidder
+  all_packages <- list()
+  for (i in 1:n_bid) {
+    pkgs <- list()
+    eligible <- 1:n_bl
+    if (!is.null(set_aside) && bidder_types[i] == "incumbent") {
+      eligible <- setdiff(eligible, set_aside)
+    }
+
+    # Generate packages of size 1 to 4 (cap at 4 blocks per bidder)
+    for (size in 1:min(4, length(eligible))) {
+      combos <- combn(eligible, size, simplify = FALSE)
+      for (combo in combos) {
+        val <- package_value(combo, i)
+        if (val > 0 && val <= budgets[i]) {
+          pkgs <- c(pkgs, list(list(blocks = combo, value = val, bidder = i)))
+        }
+      }
+    }
+    all_packages[[i]] <- pkgs
+  }
+
+  # Winner determination: find allocation maximising total value
+  # (simplified: greedy algorithm for tractability)
+  all_bids <- do.call(c, all_packages)
+
+  # Sort by value per block (efficiency metric)
+  efficiency <- sapply(all_bids, function(b) b$value / length(b$blocks))
+  sorted_idx <- order(efficiency, decreasing = TRUE)
+
+  allocation <- rep(0L, n_bl)
+  assigned_bidders <- list()
+  total_value <- 0
+  spending <- rep(0, n_bid)
+
+  for (idx in sorted_idx) {
+    bid <- all_bids[[idx]]
+    blocks <- bid$blocks
+    bidder <- bid$bidder
+
+    # Check if blocks are available and budget allows
+    if (all(allocation[blocks] == 0)) {
+      cost <- bid$value * 0.8  # Approximate Vickrey pricing (pay ~80% of value)
+      if (spending[bidder] + cost <= budgets[bidder]) {
+        allocation[blocks] <- bidder
+        total_value <- total_value + bid$value
+        spending[bidder] <- spending[bidder] + cost
+      }
+    }
+  }
+
+  revenue <- sum(spending)
+  blocks_won <- sapply(1:n_bid, function(i) sum(allocation == i))
+  shares <- blocks_won / max(1, sum(blocks_won)) * 100
+  hhi <- sum(shares^2)
+
+  list(allocation = allocation, revenue = revenue,
+       blocks_won = blocks_won, total_value = total_value, hhi = hhi)
+}
+
+# Run CCA without set-aside
+cca_result <- simulate_cca(base_values, comp_bonus, budgets, n_blocks, n_bidders)
+
+cat("=== Combinatorial Clock Auction (CCA) Results ===\n\n")
+cat("Allocation:", cca_result$allocation, "\n")
+cat("Block assignments:\n")
+for (b in 1:n_blocks) {
+  owner <- if (cca_result$allocation[b] > 0) bidder_names[cca_result$allocation[b]] else "Unsold"
+  cat(sprintf("  Block %d: %s\n", b, owner))
+}
+cat(sprintf("\nTotal revenue: $%.0f\n", cca_result$revenue))
+cat(sprintf("Total value created: $%d\n", cca_result$total_value))
+cat(sprintf("Blocks won: %s\n", paste(sprintf("%s=%d", bidder_names, cca_result$blocks_won), collapse = ", ")))
+cat(sprintf("HHI: %.0f\n", cca_result$hhi))
+```
+
+```{r}
+#| label: set-aside-analysis
+#| code-fold: false
+
+# --- Compare with set-aside policy ---
+# Reserve blocks 5-6 for entrants only
+set_aside_blocks <- c(5, 6)
+
+saa_setaside <- simulate_saa(base_values, comp_bonus, budgets, n_blocks, n_bidders,
+                              set_aside = set_aside_blocks)
+cca_setaside <- simulate_cca(base_values, comp_bonus, budgets, n_blocks, n_bidders,
+                              set_aside = set_aside_blocks)
+
+cat("=== Comparison: No Set-Aside vs Set-Aside (Blocks 5-6 for Entrants) ===\n\n")
+
+results_summary <- data.frame(
+  Scenario = c("SAA No Set-Aside", "SAA Set-Aside",
+                "CCA No Set-Aside", "CCA Set-Aside"),
+  Format = c("SAA", "SAA", "CCA", "CCA"),
+  SetAside = c("No", "Yes", "No", "Yes"),
+  Revenue = c(saa_result$revenue, saa_setaside$revenue,
+              cca_result$revenue, cca_setaside$revenue),
+  TotalValue = c(saa_result$total_value, saa_setaside$total_value,
+                  cca_result$total_value, cca_setaside$total_value),
+  HHI = c(saa_result$hhi, saa_setaside$hhi,
+          cca_result$hhi, cca_setaside$hhi),
+  EntrantBlocks = c(
+    sum(saa_result$blocks_won[3:4]), sum(saa_setaside$blocks_won[3:4]),
+    sum(cca_result$blocks_won[3:4]), sum(cca_setaside$blocks_won[3:4])
+  )
+)
+
+cat(sprintf("%-22s %-10s %-12s %-8s %-15s\n",
+            "Scenario", "Revenue", "Total Value", "HHI", "Entrant Blocks"))
+cat(paste(rep("-", 70), collapse = ""), "\n")
+for (i in 1:nrow(results_summary)) {
+  cat(sprintf("%-22s $%-9.0f $%-11.0f %-8.0f %-15d\n",
+              results_summary$Scenario[i],
+              results_summary$Revenue[i],
+              results_summary$TotalValue[i],
+              results_summary$HHI[i],
+              results_summary$EntrantBlocks[i]))
+}
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-spectrum-static
+#| fig-cap: "Comparison of auction formats and set-aside policies across three key metrics. The CCA generally achieves higher total value through better handling of complementarities. Set-aside policies reduce market concentration (lower HHI) and increase entrant participation at the cost of some revenue."
+#| fig-width: 10
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+plot_data <- results_summary |>
+  select(Scenario, Format, SetAside, Revenue, TotalValue, HHI) |>
+  pivot_longer(cols = c(Revenue, TotalValue, HHI),
+               names_to = "metric", values_to = "value") |>
+  mutate(
+    metric = case_when(
+      metric == "Revenue" ~ "Revenue ($)",
+      metric == "TotalValue" ~ "Total Value ($)",
+      metric == "HHI" ~ "HHI (Concentration)"
+    ),
+    metric = factor(metric, levels = c("Revenue ($)", "Total Value ($)", "HHI (Concentration)")),
+    Scenario = factor(Scenario, levels = results_summary$Scenario)
+  )
+
+ggplot(plot_data, aes(x = Scenario, y = value, fill = interaction(Format, SetAside))) +
+  geom_col(width = 0.7, alpha = 0.9) +
+  facet_wrap(~metric, scales = "free_y", nrow = 1) +
+  scale_fill_manual(
+    values = c("SAA.No" = okabe_ito[1], "SAA.Yes" = okabe_ito[2],
+               "CCA.No" = okabe_ito[3], "CCA.Yes" = okabe_ito[5]),
+    labels = c("SAA, No Set-Aside", "SAA, Set-Aside",
+               "CCA, No Set-Aside", "CCA, Set-Aside"),
+    name = "Design"
+  ) +
+  labs(
+    title = "Spectrum Auction Design: Format and Policy Comparison",
+    subtitle = "6 blocks, 2 incumbents + 2 entrants | Set-aside reserves blocks 5-6 for entrants",
+    x = NULL, y = NULL
+  ) +
+  theme_publication(base_size = 11) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-spectrum-interactive
+#| fig-cap: "Interactive comparison of auction design outcomes. Hover over bars to see exact revenue, value, HHI, and entrant block counts for each scenario."
+
+interactive_data <- results_summary |>
+  mutate(
+    text_label = sprintf(
+      "%s\nRevenue: $%.0f\nTotal Value: $%.0f\nHHI: %.0f\nEntrant Blocks: %d",
+      Scenario, Revenue, TotalValue, HHI, EntrantBlocks
+    )
+  )
+
+p_int <- ggplot(interactive_data,
+                aes(x = Scenario, y = Revenue, fill = Scenario, text = text_label)) +
+  geom_col(width = 0.7, alpha = 0.9) +
+  scale_fill_manual(values = okabe_ito[c(1, 2, 3, 5)]) +
+  labs(
+    title = "Auction Revenue by Design",
+    x = NULL, y = "Revenue ($)",
+    fill = "Scenario"
+  ) +
+  theme_publication() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE)
+```
+
+## Interpretation
+
+The simulation results illustrate the core tradeoffs in spectrum auction design, demonstrating how auction format and regulatory policy interact to determine revenue, efficiency, and market structure. While our model is deliberately simplified --- six blocks and four bidders, compared to hundreds of licences and dozens of bidders in real-world auctions --- it captures the essential strategic and design challenges that spectrum auction designers face.
+
+The comparison between the simultaneous ascending auction (SAA) and the combinatorial clock auction (CCA) highlights the exposure problem and its consequences. In the SAA, bidders must bid on individual blocks and face the risk of winning some but not all blocks in a desired package. This risk causes bidders, particularly smaller entrants with limited budgets, to bid conservatively or avoid bidding on packages that require multiple blocks. The result is that complementarities are not fully exploited, and the allocation may be inefficient --- blocks end up with bidders who do not value them most highly. The CCA addresses this by allowing package bids, enabling bidders to express the full value of complementary combinations without exposure risk. Our simulation shows that the CCA tends to produce higher total value, confirming the theoretical prediction that combinatorial formats are better at handling complementary goods.
+
+The revenue comparison between formats is more nuanced. The CCA's use of approximate Vickrey pricing (where winners pay less than their full bids) typically produces lower per-item revenue than the SAA, where competitive pressure can drive prices above Vickrey levels. However, the CCA may attract more aggressive bidding overall (because bidders are protected from the exposure problem), which can partially offset the lower pricing. In real-world auctions, the revenue comparison depends heavily on the specific competitive environment: the CCA tends to outperform when complementarities are strong and the number of bidders is moderate, while the SAA may generate more revenue when complementarities are weak and competition is intense.
+
+The set-aside policy analysis reveals the fundamental competition-efficiency tradeoff in spectrum policy. Reserving two blocks for entrants ensures that smaller bidders win spectrum, which reduces market concentration (as measured by the HHI) and promotes a more competitive downstream market. However, this comes at a cost: the reserved blocks may be allocated to entrants who value them less than the incumbents who are excluded from bidding on them. Our simulation shows that set-aside policies reduce revenue because they restrict competition on the reserved blocks, and they may reduce total value if the entrants' valuations are substantially lower than incumbents'. The policy question is whether the downstream competition benefits (lower consumer prices, more innovation) outweigh the upstream efficiency costs (lower revenue, potentially suboptimal spectrum use).
+
+The market concentration analysis is particularly important for regulators. The HHI (Herfindahl-Hirschman Index) is a standard measure of market concentration, with values above 2,500 indicating a highly concentrated market. In spectrum auctions without set-asides, incumbents with larger budgets and higher valuations (reflecting their existing infrastructure and customer base) tend to dominate the auction, winning most or all of the available blocks. This creates a feedback loop: incumbents who already have more spectrum can offer better services, attract more customers, generate more revenue, and outbid smaller competitors in future auctions. Set-aside policies interrupt this feedback loop by guaranteeing entrants access to spectrum, but they do so at the cost of allocative efficiency. The optimal policy depends on the regulator's weights on competing objectives: revenue maximisation favours unrestricted competition, consumer welfare may favour set-asides that promote downstream competition, and allocative efficiency favours assigning spectrum to the highest-value users regardless of market structure.
+
+Real-world spectrum auctions are vastly more complex than our simulation. The FCC's Incentive Auction in 2016-2017 involved a two-sided market design (simultaneously buying spectrum from television broadcasters and selling it to mobile operators), with sophisticated algorithms for repacking TV stations into a smaller number of channels. The UK's 4G auction in 2013 used a combinatorial clock auction with complex eligibility rules and spectrum caps. The German 5G auction in 2019 used an ascending auction format but with stringent coverage obligations that effectively differentiated licences by their deployment requirements. Each of these auctions required extensive game-theoretic analysis, computational simulation, and regulatory judgment to balance competing objectives.
+
+The lessons from spectrum auction design extend to other contexts involving the allocation of complementary goods: airport landing slots, renewable energy certificates, transportation capacity, and even advertising slots in online markets. In each case, the designer must choose between simple formats that may not handle complementarities well and complex formats that are harder to understand, implement, and verify. The spectrum auction experience has shown that this tradeoff can be navigated successfully, but it requires deep integration of economic theory, computational methods, and institutional design --- precisely the synthesis that mechanism design aspires to provide.
+
+## Extensions and related tutorials
+
+- **First-price and second-price auction theory** provide the single-item foundations; see [Auction Theory Foundations](../../auction-theory-deep-dive/first-price-second-price/).
+- **VCG mechanism and Vickrey pricing** underpin the pricing rules in combinatorial auctions; see [VCG Mechanism](../../mechanism-design/vcg-mechanism/).
+- **The winner's curse in common-value auctions** is a related challenge in spectrum settings; see [Common-Value Auction Estimation](../../bayesian-methods/auction-common-value-estimation/).
+- **Matching market design** shares the mechanism design philosophy of designing institutions from theory; see [Matching Markets](../../mechanism-design/matching-markets-practical/).
+- **Network economics and complementarities** explain why spectrum blocks have synergistic value; see [Network Games](../../network-games/network-formation/).
+
+## References
+
+::: {#refs}
+:::

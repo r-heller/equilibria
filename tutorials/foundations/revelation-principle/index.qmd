@@ -1,0 +1,280 @@
+---
+title: "The revelation principle — why truth-telling mechanisms suffice"
+description: "Prove and implement the revelation principle in R, showing that any outcome achievable by any mechanism can be replicated by a direct mechanism where truthful reporting is optimal, with applications to auctions and public goods provision."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - foundations
+  - revelation-principle
+  - mechanism-design
+  - incentive-compatibility
+keywords: ["revelation principle", "incentive compatibility", "direct mechanism", "Myerson", "Gibbard", "mechanism design"]
+labels: ["mechanism-design", "equilibrium-concepts"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_foundations_revelation-principle"
+image: thumbnail.png
+image-alt: "Diagram showing how any mechanism can be converted to an equivalent direct truthful mechanism via the revelation principle"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/foundations/revelation-principle/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+The **revelation principle** is one of the most powerful and surprising results in mechanism design. It states that for any mechanism (however complex — with multiple rounds, encrypted messages, randomisation, side payments) that implements a particular social choice function in equilibrium, there exists an equivalent **direct mechanism** where each agent simply reports their type truthfully, and truth-telling is an equilibrium strategy. The implication is profound: when searching for optimal mechanisms, the designer can restrict attention to direct, incentive-compatible mechanisms without loss of generality. This enormously simplifies the mechanism design problem — instead of searching over the infinite space of all possible game forms, the designer need only consider mechanisms where agents report their types and verify that truthful reporting is incentive-compatible.
+
+The result was established independently by Allan Gibbard (1973) for dominant-strategy mechanisms and by Roger Myerson (1979) for Bayesian mechanisms. The proof is constructive and elegant: given any mechanism $M$ with equilibrium strategies $s^*(\cdot)$, construct a direct mechanism $M'$ that takes type reports as input, applies the equilibrium strategy mapping $s^*(\cdot)$ internally, and feeds the result into the original mechanism. Since players in $M$ were optimising by playing $s^*$, and $M'$ does exactly this when agents report truthfully, truth-telling is an equilibrium of $M'$. The outcomes are identical.
+
+The revelation principle has been called the "most useful result in mechanism design" because it converts an impossibly hard search problem into a tractable one. Consider auction design: without the revelation principle, the auctioneer would need to consider every conceivable auction format — English, Dutch, sealed-bid, combinatorial, multi-round, with or without reserve prices, with or without communication between bidders. With the revelation principle, the auctioneer only needs to find the optimal allocation and payment rules as functions of reported types, subject to incentive-compatibility (truthful reporting is optimal) and individual rationality (participation is voluntary). This is precisely what Myerson (1981) did to characterise the revenue-maximising auction.
+
+However, the revelation principle has important limitations. It says nothing about uniqueness — many different mechanisms may implement the same outcome. It does not address computational complexity — the direct mechanism may require agents to communicate exponentially large type spaces. It assumes commitment power by the mechanism designer. And in practice, indirect mechanisms (like English auctions) may be preferred for transparency, simplicity, and robustness reasons, even though a direct mechanism could achieve the same outcome. This tutorial implements the revelation principle constructively, demonstrates it for auctions and public goods, and explores the gap between theoretical elegance and practical mechanism design.
+
+
+## Mathematical formulation
+
+**Environment**: $n$ agents, each with type $\theta_i \in \Theta_i$, drawn from prior $F_i$. Social outcome space $X$, transfers $t_i \in \mathbb{R}$.
+
+**General mechanism**: $M = (S_1, \ldots, S_n, g)$ where $S_i$ is agent $i$'s message space and $g: S_1 \times \cdots \times S_n \to X \times \mathbb{R}^n$ maps messages to outcomes and payments.
+
+**Direct mechanism**: $M^d = (\Theta_1, \ldots, \Theta_n, g^d)$ where each agent's message space is their type space.
+
+**Incentive compatibility (IC)**: A direct mechanism is IC if truth-telling is a Bayesian Nash equilibrium:
+
+$$E_{\theta_{-i}}[u_i(g^d(\theta_i, \theta_{-i}), \theta_i)] \geq E_{\theta_{-i}}[u_i(g^d(\theta'_i, \theta_{-i}), \theta_i)] \quad \forall \theta_i, \theta'_i$$
+
+**Revelation principle**: If mechanism $M$ implements $g$ via equilibrium strategies $s^* = (s^*_1, \ldots, s^*_n)$, then the direct mechanism $g^d(\theta) = g(s^*_1(\theta_1), \ldots, s^*_n(\theta_n))$ is incentive-compatible, and yields the same outcomes.
+
+**Individual rationality (IR)**: $E_{\theta_{-i}}[u_i(g^d(\theta_i, \theta_{-i}), \theta_i)] \geq 0 \quad \forall \theta_i$.
+
+
+## R implementation
+
+```{r}
+#| label: revelation-principle
+
+set.seed(42)
+
+cat("=== The Revelation Principle ===\n\n")
+
+# === Example 1: First-Price Auction → Direct Mechanism ===
+# In FPA with n=2 bidders, values ~ U[0,1], BNE bid = v/2
+# Revelation principle: construct direct mechanism that replicates FPA outcome
+
+n_sims <- 10000
+n_bidders <- 2
+
+# --- Original FPA ---
+fpa_bid <- function(v) v / 2  # BNE strategy
+values <- matrix(runif(n_bidders * n_sims), nrow = n_sims)
+bids <- fpa_bid(values)
+winners_fpa <- apply(bids, 1, which.max)
+payments_fpa <- bids[cbind(1:n_sims, winners_fpa)]
+revenue_fpa <- mean(payments_fpa)
+
+# --- Direct mechanism (revelation principle construction) ---
+# Agents report types (values) truthfully
+# Mechanism applies s*(v) = v/2 internally, then runs FPA rules
+direct_bids <- fpa_bid(values)  # mechanism applies BNE internally
+winners_direct <- apply(direct_bids, 1, which.max)
+payments_direct <- direct_bids[cbind(1:n_sims, winners_direct)]
+revenue_direct <- mean(payments_direct)
+
+cat("--- Example 1: FPA → Direct Mechanism ---\n")
+cat(sprintf("  FPA revenue (BNE play):     %.4f\n", revenue_fpa))
+cat(sprintf("  Direct mechanism revenue:   %.4f\n", revenue_direct))
+cat(sprintf("  Theoretical (n=2):          %.4f\n", 1/3))
+cat("  Outcomes identical: ", all(winners_fpa == winners_direct), "\n")
+
+# --- Verify IC of the direct mechanism ---
+# If bidder 1 has value v1, should they report v1 truthfully?
+cat("\n--- IC Verification ---\n")
+v1_true <- 0.6
+# Expected payoff from reporting v1 truthfully vs misreporting v1'
+misreports <- seq(0, 1, 0.05)
+eu_misreport <- sapply(misreports, function(v1_report) {
+  # Mechanism applies s*(v1_report) = v1_report/2
+  # Wins if v1_report/2 > v2/2, i.e., v1_report > v2
+  # Payment if win: v1_report/2
+  # EU = P(win) * (v1_true - v1_report/2)
+  # P(win) = P(v2 < v1_report) = v1_report (for U[0,1])
+  min(v1_report, 1) * (v1_true - v1_report / 2)
+})
+
+best_report <- misreports[which.max(eu_misreport)]
+cat(sprintf("  True value: v1 = %.2f\n", v1_true))
+cat(sprintf("  Best report: %.2f (should equal true value)\n", best_report))
+cat(sprintf("  EU(truthful): %.4f, EU(best deviate): %.4f\n",
+            eu_misreport[misreports == v1_true],
+            max(eu_misreport)))
+
+# === Example 2: Public Goods Provision (Groves mechanism) ===
+cat("\n--- Example 2: Public Goods (Groves/Clarke Mechanism) ---\n")
+# Binary public good: build or not build
+# Cost C, n agents with values v_i ~ U[0, C/n * 2]
+# Efficient: build if sum(v_i) >= C
+C <- 10
+n_agents <- 5
+n_sims_pg <- 5000
+
+values_pg <- matrix(runif(n_agents * n_sims_pg, 0, 2 * C / n_agents),
+                     nrow = n_sims_pg)
+
+# Direct mechanism: report values, build if sum >= C
+# Groves payment: t_i = sum_{j≠i} v_j * build - h_i(v_{-i})
+# Clarke pivot: h_i = sum_{j≠i} v_j * build_without_i (where build_without_i
+#   is whether public good would be built without i)
+builds <- rowSums(values_pg) >= C
+pivotal <- sapply(1:n_sims_pg, function(s) {
+  sapply(1:n_agents, function(i) {
+    sum(values_pg[s, -i]) < C & sum(values_pg[s, ]) >= C
+  })
+}) |> t()
+
+clarke_payments <- pivotal * (C - apply(values_pg, 1, function(v) {
+  sapply(1:n_agents, function(i) sum(v[-i]))
+}))
+
+cat(sprintf("  Build probability: %.3f (efficient threshold: sum(v) >= %d)\n",
+            mean(builds), C))
+cat(sprintf("  Fraction of pivotal decisions: %.3f\n", mean(pivotal)))
+cat(sprintf("  Mean Clarke payment (per agent): %.4f\n",
+            mean(abs(clarke_payments))))
+cat("  IC: Truthful reporting is dominant strategy (by construction)\n")
+
+# === Compare mechanism complexity ===
+cat("\n--- Mechanism Complexity Comparison ---\n")
+cat("  English auction:      Multi-round, dynamic, complex rules\n")
+cat("  First-price sealed:   One-shot, requires equilibrium computation\n")
+cat("  Vickrey (direct IC):  One-shot, truthful, simple rules\n")
+cat("  All three implement the SAME allocation (to highest value)\n")
+cat("  Revelation principle: search only over direct IC mechanisms\n")
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-revelation-ic
+#| fig-cap: "Figure 1. Incentive compatibility verification for the direct mechanism derived from a first-price auction. For a bidder with true value v=0.6, expected utility is maximised by reporting truthfully — any misreport (over- or under-stating value) yields lower expected payoff. This confirms the revelation principle: the direct mechanism constructed from the FPA's equilibrium strategies is incentive-compatible. Different curves show how the IC property holds across different true values. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+misreport_seq <- seq(0, 1, 0.01)
+ic_data <- lapply(c(0.3, 0.5, 0.7, 0.9), function(v_true) {
+  eu <- sapply(misreport_seq, function(r) {
+    min(r, 1) * (v_true - r / 2)
+  })
+  tibble(report = misreport_seq, eu = eu,
+         v_true = paste0("v = ", v_true))
+}) |> bind_rows()
+
+# Mark truthful reports
+truthful_points <- ic_data |>
+  group_by(v_true) |>
+  filter(abs(report - as.numeric(gsub("v = ", "", v_true))) < 0.005) |>
+  slice(1)
+
+ggplot(ic_data, aes(x = report, y = eu, color = v_true)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = truthful_points, shape = 18, size = 4) +
+  scale_color_manual(values = okabe_ito[c(1, 3, 5, 6)], name = "True value") +
+  labs(title = "Incentive compatibility: truthful reporting maximises expected utility",
+       subtitle = "Direct mechanism from FPA; diamonds mark truthful reports (always optimal)",
+       x = "Reported value", y = "Expected utility") +
+  theme_publication()
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-revelation-interactive
+
+# Show how mechanism design space collapses under revelation principle
+# Compare revenue across different "mechanisms" (all equivalent by RP)
+n_values <- seq(2, 10)
+mechanism_data <- tibble(
+  n = rep(n_values, 4),
+  revenue = c(
+    (n_values - 1) / (n_values + 1),  # Second-price (Vickrey)
+    (n_values - 1) / (n_values + 1),  # First-price
+    (n_values - 1) / (n_values + 1),  # English
+    (n_values - 1) / (n_values + 1)   # All-pay
+  ),
+  mechanism = rep(c("Vickrey (direct IC)", "First-price",
+                     "English", "All-pay"), each = length(n_values)),
+  text = paste0("n = ", rep(n_values, 4), " bidders\n",
+                "Mechanism: ", rep(c("Vickrey", "First-price",
+                                      "English", "All-pay"), each = length(n_values)),
+                "\nExpected revenue: ", round(rep((n_values - 1) / (n_values + 1), 4), 4),
+                "\nRevenue equivalence: all equal!")
+)
+
+p_rev <- ggplot(mechanism_data, aes(x = n, y = revenue, color = mechanism,
+                                     text = text)) +
+  geom_line(linewidth = 0.9, alpha = 0.8) +
+  geom_point(size = 2) +
+  scale_color_manual(values = okabe_ito[c(5, 6, 3, 1)], name = "Auction format") +
+  labs(title = "Revenue equivalence: four mechanisms, identical outcomes",
+       subtitle = "Revelation principle implies searching over direct IC mechanisms suffices",
+       x = "Number of bidders", y = "Expected revenue (V=1)") +
+  theme_publication()
+
+ggplotly(p_rev, tooltip = "text") |>
+  config(displaylogo = FALSE, modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The revelation principle transforms mechanism design from an impossibly vast search problem into a tractable optimisation. Without it, a mechanism designer would need to consider every conceivable game form: multi-round auctions, scoring rules, combinatorial allocation procedures, voting schemes with amendments, negotiation protocols with deadlines — an infinite-dimensional design space. The revelation principle collapses this to a much simpler question: what allocation and payment rules, as functions of agents' types, satisfy incentive compatibility and individual rationality? This is still a constrained optimisation problem, but one that can often be solved analytically or computationally.
+
+The first-price auction example demonstrates the constructive proof concretely. The FPA is an indirect mechanism — agents don't report their values; they choose bids strategically, and the equilibrium strategy $b(v) = v/2$ (for $n=2$, uniform values) involves substantial bid shading. The revelation principle says: take this equilibrium strategy, hardwire it into a direct mechanism, and you get an incentive-compatible mechanism. The resulting direct mechanism is: agents report values truthfully, the mechanism allocates to the highest reported value, and charges the winner half their reported value. This is incentive-compatible — the IC verification shows that for any true value, truthful reporting maximises expected utility. But notice: this direct mechanism is neither the Vickrey auction (which charges the second-highest bid) nor the FPA itself. It's a different mechanism that produces the same expected outcomes as the FPA in equilibrium.
+
+The public goods example illustrates the principle in a non-auction setting. The Clarke-Groves mechanism is a direct, dominant-strategy IC mechanism for public goods provision. Each agent reports their value for the public good, the mechanism builds it if and only if the sum of values exceeds the cost, and pivotal agents pay a tax equal to the externality they impose. Truthful reporting is a dominant strategy — not just a Bayesian Nash equilibrium — because each agent's payment depends only on others' reports, and their report only affects the allocation decision. This is a stronger form of incentive compatibility, and the revelation principle holds a fortiori.
+
+The revenue equivalence result for auctions is perhaps the most celebrated consequence: despite their enormous differences in format, complexity, and strategic properties, the four standard auction formats (English, Dutch, first-price sealed, Vickrey) all produce identical expected revenue when bidders have independent private values drawn from the same distribution. This follows from the revelation principle plus the observation that all four mechanisms implement the same allocation (highest value wins) and satisfy the same boundary condition (a bidder with the lowest possible value pays zero). The practical lesson is that the choice among auction formats should be driven by considerations outside the basic model — robustness to collusion, information revelation, cognitive simplicity, susceptibility to shill bidding — rather than by expected revenue, which is identical across all standard formats.
+
+
+## Extensions & related tutorials
+
+- [Vickrey second-price auction](../../mechanism-design/vickrey-second-price-auction/) — the canonical direct IC mechanism.
+- [VCG mechanism](../../mechanism-design/vcg-mechanism/) — the general IC mechanism for efficient allocation.
+- [Mechanism design introduction](../../mechanism-design/mechanism-design-intro/) — overview of the mechanism design framework.
+- [Revenue equivalence theorem](../../auction-theory-deep-dive/revenue-equivalence/) — consequence of the revelation principle for auctions.
+- [Bayesian games and incomplete information](../../bayesian-methods/bayesian-games-incomplete-information/) — the information framework underlying mechanism design.
+
+
+## References
+
+::: {#refs}
+:::

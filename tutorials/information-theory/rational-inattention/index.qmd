@@ -1,0 +1,337 @@
+---
+title: "Rational inattention: information costs and strategic behaviour"
+description: "Model agents who face Shannon mutual information costs for acquiring information about the state, showing how limited attention leads to sticky behaviour, stochastic choice, and deviations from full-information equilibrium."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - information-theory
+  - rational inattention
+  - bounded rationality
+keywords: ["rational inattention", "Shannon entropy", "mutual information", "information cost", "Sims", "R"]
+labels: ["information theory", "behavioral"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_INFORMATION-THEORY_RATIONAL-INATTENTION"
+image: thumbnail.png
+image-alt: "Heatmap of optimal action probabilities across states under rational inattention with varying information cost parameter"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/information-theory/rational-inattention/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+A cornerstone of classical economic theory is the assumption that decision-makers have access to all relevant information and can process it costlessly. In reality, attention is a scarce cognitive resource. People cannot simultaneously monitor every stock price, read every news article, or evaluate every product on the shelf. They must choose what to pay attention to, and this choice is itself a decision with costs and benefits. The **rational inattention** framework, pioneered by Christopher Sims [-@sims_2003; -@sims_1998], provides a rigorous model of this phenomenon by introducing an explicit cost for information processing, measured in bits using Shannon's information theory [@shannon_1948].
+
+The central idea is as follows: an agent must choose an action that depends on an unknown state of the world. Before choosing, the agent can acquire a signal about the state, but the signal is costly. The cost is proportional to the **mutual information** between the state and the signal --- the number of bits of uncertainty about the state that the signal resolves. A signal that perfectly reveals the state is expensive; a noisy signal that only partially narrows down the state is cheaper; and ignoring the state entirely (choosing the same action regardless) is free. The agent optimally balances the benefit of better-informed decisions against the cost of acquiring information.
+
+This framework generates several striking predictions. First, rational inattention produces **stochastic choice**: even in deterministic environments, the optimal strategy involves choosing different actions with different probabilities conditional on the state. This is not because the agent randomises deliberately, but because partial information processing results in noisy internal signals that lead to different actions in different realisations. Second, rational inattention generates **sticky behaviour**: when the cost of information is high relative to the benefit of discriminating between states, the agent optimally ignores some state variation and chooses the same action across multiple states. This provides a micro-foundation for the price stickiness and infrequent portfolio adjustment observed in macroeconomic data. Third, the model generates **multinomial logit choice probabilities** as a special case, providing an information-theoretic foundation for one of the most widely used models in discrete choice econometrics [@matejka_mckay_2015].
+
+The rational inattention approach has had transformative impact across economics. In macroeconomics, it provides micro-foundations for the sluggish adjustment of prices, wages, and expectations that are essential for understanding monetary policy transmission. In finance, it explains why investors hold under-diversified portfolios (processing all the information needed for optimal diversification is too costly), why market prices respond slowly to public announcements (traders take time to process information), and why there is a "home bias" in international portfolios (information about foreign assets is more costly to acquire). In industrial organisation, it explains why consumers make suboptimal product choices (they do not fully research all alternatives) and why firms can charge prices above marginal cost even in apparently competitive markets (consumers are not perfectly informed about all prices).
+
+The connection between rational inattention and game theory is deep and multifaceted. In strategic settings, rational inattention creates a new dimension of interaction: players must decide not only what to do but what to pay attention to. A firm choosing a price must decide how much information to acquire about competitors' prices and demand conditions. A voter deciding how to vote must choose how much effort to invest in learning about candidates' platforms. The resulting equilibria differ from standard Nash equilibria in important ways: even when the full-information game has a unique pure-strategy equilibrium, the rational inattention version may have mixed-strategy-like behaviour, because players optimally choose to remain partially ignorant.
+
+In this tutorial, we implement the rational inattention framework for a single-agent decision problem with three states and multiple actions. We solve for the optimal information acquisition strategy, demonstrate how the information cost parameter $\lambda$ controls the trade-off between accuracy and cognitive economy, show how rational inattention generates the characteristic patterns of stochastic choice and sticky behaviour, and compare the rational inattention solution with the full-information optimum.
+
+## Mathematical formulation
+
+Consider an agent who must choose action $a \in \mathcal{A}$ when the state is $\omega \in \Omega$. The agent earns utility $u(a, \omega)$ and faces a prior $p(\omega)$ over states. The agent chooses an **information strategy**: a joint distribution $\pi(a, \omega)$ over actions and states, consistent with the prior: $\sum_a \pi(a, \omega) = p(\omega)$ for all $\omega$.
+
+The agent's problem is:
+
+$$
+\max_{\pi(a,\omega)} \sum_{a \in \mathcal{A}} \sum_{\omega \in \Omega} \pi(a, \omega) \, u(a, \omega) - \lambda \cdot I(A; \Omega)
+$$
+
+where $\lambda > 0$ is the unit cost of information (in utils per bit) and $I(A; \Omega)$ is the **Shannon mutual information**:
+
+$$
+I(A; \Omega) = \sum_{a, \omega} \pi(a, \omega) \log_2 \frac{\pi(a, \omega)}{p(a) \, p(\omega)}
+$$
+
+with $p(a) = \sum_\omega \pi(a, \omega)$ being the marginal distribution over actions.
+
+The optimal solution satisfies the **logit** structure:
+
+$$
+\pi(a \mid \omega) = \frac{p(a) \, \exp\!\bigl(u(a, \omega) / \lambda\bigr)}{\sum_{a'} p(a') \, \exp\!\bigl(u(a', \omega) / \lambda\bigr)}
+$$
+
+where the unconditional action probabilities $p(a)$ are determined by the fixed-point condition $p(a) = \sum_\omega p(\omega) \, \pi(a \mid \omega)$.
+
+As $\lambda \to 0$ (free information), $\pi(a \mid \omega) \to \mathbf{1}[a = a^*(\omega)]$ (full-information optimum). As $\lambda \to \infty$ (prohibitively expensive information), $\pi(a \mid \omega) \to p(a)$ for all $\omega$ (no discrimination, prior-optimal action).
+
+## R implementation
+
+We solve the rational inattention problem via iterative Blahut-Arimoto-type fixed-point iteration, which alternates between updating conditional action probabilities and unconditional action marginals.
+
+```{r}
+#| label: rational-inattention-implementation
+
+set.seed(2024)
+
+# --- Define the decision problem ---
+# 3 states, 3 actions
+# Payoff matrix: u(action, state)
+# State 1: "low demand", State 2: "medium demand", State 3: "high demand"
+# Action 1: "low price", Action 2: "medium price", Action 3: "high price"
+U <- matrix(c(
+  8,  3,  1,    # Action 1 (low price): best in state 1
+  4,  9,  4,    # Action 2 (med price): best in state 2
+  1,  5, 10     # Action 3 (high price): best in state 3
+), nrow = 3, byrow = TRUE)
+
+rownames(U) <- c("Low price", "Med price", "High price")
+colnames(U) <- c("Low demand", "Med demand", "High demand")
+
+prior <- c(0.3, 0.4, 0.3)  # Prior over states
+n_actions <- nrow(U)
+n_states <- ncol(U)
+
+cat("=== Decision problem ===\n")
+cat("Payoff matrix u(action, state):\n")
+print(U)
+cat(sprintf("\nPrior: (%.1f, %.1f, %.1f)\n", prior[1], prior[2], prior[3]))
+
+# --- Solve rational inattention via Blahut-Arimoto iteration ---
+solve_ri <- function(U, prior, lambda, max_iter = 5000, tol = 1e-10) {
+  n_a <- nrow(U)
+  n_s <- ncol(U)
+
+  # Initialise: uniform action marginals
+  p_a <- rep(1 / n_a, n_a)
+
+  for (iter in 1:max_iter) {
+    # Update conditional probabilities pi(a|omega)
+    # pi(a|omega) proportional to p(a) * exp(u(a,omega)/lambda)
+    log_pi <- matrix(0, n_a, n_s)
+    for (s in 1:n_s) {
+      log_vals <- log(p_a + 1e-300) + U[, s] / lambda
+      log_vals <- log_vals - max(log_vals)  # Numerical stability
+      pi_as <- exp(log_vals)
+      pi_as <- pi_as / sum(pi_as)
+      log_pi[, s] <- pi_as
+    }
+    pi_cond <- log_pi  # pi(a|omega)
+
+    # Update action marginals: p(a) = sum_omega prior(omega) * pi(a|omega)
+    p_a_new <- as.numeric(pi_cond %*% prior)
+
+    if (max(abs(p_a_new - p_a)) < tol) {
+      p_a <- p_a_new
+      break
+    }
+    p_a <- p_a_new
+  }
+
+  # Joint distribution pi(a, omega)
+  joint <- pi_cond * matrix(prior, n_a, n_s, byrow = TRUE)
+
+  # Compute mutual information
+  mi <- 0
+  for (a in 1:n_a) {
+    for (s in 1:n_s) {
+      if (joint[a, s] > 1e-300) {
+        mi <- mi + joint[a, s] * log2(joint[a, s] / (p_a[a] * prior[s] + 1e-300))
+      }
+    }
+  }
+
+  # Expected utility
+  eu <- sum(joint * U)
+
+  list(pi_cond = pi_cond, p_a = p_a, joint = joint,
+       mutual_info = mi, expected_utility = eu, net_utility = eu - lambda * mi)
+}
+
+# --- Solve for different information costs ---
+lambdas <- c(0.1, 0.5, 1, 2, 5, 10, 50)
+
+cat("\n=== Rational inattention solutions ===\n")
+results_list <- list()
+
+for (lam in lambdas) {
+  sol <- solve_ri(U, prior, lam)
+  results_list[[as.character(lam)]] <- sol
+
+  cat(sprintf("\nlambda = %.1f (info cost):\n", lam))
+  cat(sprintf("  Mutual information: %.3f bits\n", sol$mutual_info))
+  cat(sprintf("  Expected utility:   %.3f\n", sol$expected_utility))
+  cat(sprintf("  Net utility:        %.3f\n", sol$net_utility))
+  cat("  Conditional probs pi(a|omega):\n")
+  for (a in 1:n_actions) {
+    cat(sprintf("    %s: [%.3f, %.3f, %.3f]\n",
+                rownames(U)[a], sol$pi_cond[a, 1], sol$pi_cond[a, 2], sol$pi_cond[a, 3]))
+  }
+}
+
+# --- Full information benchmark ---
+fi_actions <- apply(U, 2, which.max)
+fi_utility <- sum(prior * sapply(1:n_states, function(s) U[fi_actions[s], s]))
+cat(sprintf("\n=== Full information benchmark ===\n"))
+cat(sprintf("Optimal actions: %s\n",
+            paste(rownames(U)[fi_actions], collapse = ", ")))
+cat(sprintf("Expected utility: %.3f\n", fi_utility))
+cat(sprintf("Mutual information: %.3f bits (= H(prior) = entropy)\n",
+            -sum(prior * log2(prior))))
+
+# --- No information benchmark ---
+no_info_action <- which.max(U %*% prior)
+no_info_utility <- sum(prior * U[no_info_action, ])
+cat(sprintf("\n=== No information benchmark ===\n"))
+cat(sprintf("Optimal action: %s\n", rownames(U)[no_info_action]))
+cat(sprintf("Expected utility: %.3f\n", no_info_utility))
+```
+
+## Static publication-ready figure
+
+The figure shows how the conditional action probabilities change as the information cost parameter varies, visualising the transition from full discrimination (low $\lambda$) to complete stickiness (high $\lambda$).
+
+```{r}
+#| label: fig-rational-inattention-static
+#| fig-cap: "Figure 1. Optimal conditional action probabilities under rational inattention for varying information cost (lambda). At low lambda, the agent nearly perfectly matches action to state. At high lambda, the agent ignores the state and plays a fixed mixed strategy. The intermediate region shows the gradual loss of discriminability."
+#| dev: [png, pdf]
+#| fig-width: 10
+#| fig-height: 5
+#| dpi: 300
+
+# Compute solutions for a finer grid of lambdas
+lambda_grid <- c(seq(0.05, 1, by = 0.05), seq(1.2, 5, by = 0.2),
+                  seq(6, 20, by = 1), seq(25, 50, by = 5))
+
+ri_data <- do.call(rbind, lapply(lambda_grid, function(lam) {
+  sol <- solve_ri(U, prior, lam)
+  data.frame(
+    lambda = lam,
+    state = rep(colnames(U), each = n_actions),
+    action = rep(rownames(U), n_states),
+    prob = as.vector(sol$pi_cond)
+  )
+}))
+
+# Focus on the "matching" probabilities (correct action for each state)
+matching <- ri_data %>%
+  filter(
+    (state == "Low demand" & action == "Low price") |
+    (state == "Med demand" & action == "Med price") |
+    (state == "High demand" & action == "High price")
+  ) %>%
+  mutate(pair = paste(action, "in", state))
+
+p_static <- ggplot(matching, aes(x = lambda, y = prob, colour = pair)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 1, linetype = "dotted", colour = "grey60") +
+  geom_hline(yintercept = 1/3, linetype = "dotted", colour = "grey60") +
+  annotate("text", x = 45, y = 1.03, label = "Full information", size = 2.8, colour = "grey50") +
+  annotate("text", x = 45, y = 0.37, label = "No information (1/3)", size = 2.8, colour = "grey50") +
+  scale_colour_manual(values = okabe_ito[c(1, 5, 3)],
+                      name = "Action-state match") +
+  scale_x_log10(breaks = c(0.1, 0.5, 1, 2, 5, 10, 50)) +
+  scale_y_continuous(limits = c(0, 1.1), breaks = seq(0, 1, 0.2)) +
+  labs(
+    title = "Rational inattention: from perfect discrimination to stickiness",
+    subtitle = "Probability of choosing the correct action declines as information cost increases",
+    x = expression(paste("Information cost (", lambda, ", log scale)")),
+    y = "P(correct action | state)"
+  ) +
+  theme_publication()
+
+p_static
+```
+
+## Interactive figure
+
+The interactive figure shows the full conditional action probability matrix as a heatmap for a user-selected information cost, with hover tooltips providing exact probabilities.
+
+```{r}
+#| label: fig-rational-inattention-interactive
+
+# Build summary data: mutual info and expected utility vs. lambda
+summary_data <- do.call(rbind, lapply(lambda_grid, function(lam) {
+  sol <- solve_ri(U, prior, lam)
+  data.frame(
+    lambda = lam,
+    mutual_info = sol$mutual_info,
+    expected_utility = sol$expected_utility,
+    net_utility = sol$net_utility
+  )
+}))
+
+summary_long <- summary_data %>%
+  pivot_longer(cols = c(mutual_info, expected_utility, net_utility),
+               names_to = "measure", values_to = "value") %>%
+  mutate(
+    measure_label = case_when(
+      measure == "mutual_info" ~ "Mutual information (bits)",
+      measure == "expected_utility" ~ "Expected utility (gross)",
+      measure == "net_utility" ~ "Net utility (after info cost)"
+    ),
+    text = sprintf("lambda = %.2f\n%s: %.3f", lambda, measure_label, value)
+  )
+
+p_int <- ggplot(summary_long, aes(x = lambda, y = value, colour = measure_label, text = text)) +
+  geom_line(linewidth = 0.9) +
+  scale_colour_manual(values = okabe_ito[c(5, 1, 3)], name = "Measure") +
+  scale_x_log10(breaks = c(0.1, 0.5, 1, 2, 5, 10, 50)) +
+  labs(
+    title = "Information acquisition trade-off under rational inattention",
+    x = expression(paste("Information cost (", lambda, ", log scale)")),
+    y = "Value"
+  ) +
+  theme_publication()
+
+ggplotly(p_int, tooltip = "text") %>%
+  config(displaylogo = FALSE)
+```
+
+## Interpretation
+
+The rational inattention solutions reveal a rich and intuitive structure in how information costs shape decision-making. At very low information costs ($\lambda = 0.1$), the agent acquires nearly complete information about the state and almost perfectly matches their action to the state: choosing low price in low demand, medium price in medium demand, and high price in high demand. The conditional action probabilities are close to the degenerate full-information solution, and the mutual information between action and state is close to the entropy of the prior (about 1.57 bits for our three-state uniform-like prior). The expected utility is close to the full-information optimum, with only a small deduction for information cost.
+
+As the information cost increases, a gradual and systematic degradation of decision quality occurs. At moderate costs ($\lambda = 1-2$), the agent still discriminates between states, but imperfectly. The conditional action probabilities move away from the corners (0 and 1) toward the interior, generating genuine stochastic choice: in any given state, the agent sometimes chooses the "wrong" action, not because of error or irrationality, but because acquiring the information needed to always choose correctly is not worth the cost. This is the rational inattention explanation for the pervasive stochastic choice observed in experimental data --- what appears to be random or irrational behaviour is actually an optimal response to information processing costs.
+
+At very high information costs ($\lambda = 10-50$), the agent largely ignores the state and plays a nearly fixed strategy. The conditional action probabilities become almost equal across states, converging to the unconditional marginal distribution $p(a)$. The mutual information drops to near zero, indicating that the agent's action reveals almost nothing about the state. The agent simply chooses the action that is best on average (given the prior), which is the medium price action in our setup. This is the "stickiness" prediction: when information is very costly, agents barely respond to changes in the environment, a prediction that has found support in studies of price-setting behaviour by firms, portfolio rebalancing by investors, and expectation formation by consumers and professionals.
+
+The trade-off between mutual information (information acquired) and expected utility (decision quality) traces out a characteristic concave frontier. The net utility (expected utility minus information cost) first increases as the agent acquires cheap, high-value information, but then decreases as the marginal cost of additional information exceeds its marginal benefit. The optimal interior point depends on $\lambda$: lower costs shift the optimum toward more information, while higher costs shift it toward less. This trade-off is the information-theoretic analogue of the exploration-exploitation dilemma in reinforcement learning, and it provides a unifying framework for understanding attention allocation across diverse economic settings.
+
+The comparison with the full-information Nash equilibrium is particularly instructive for game-theoretic applications. In a game where all players face rational inattention constraints, the equilibrium involves players who are less responsive to the state and to each other's actions than in the full-information case. This can generate phenomena such as strategic complementarity in information acquisition (if other players are acquiring information, it becomes more valuable for you to do so as well), information cascades (when information is costly, it may be rational to imitate others rather than acquire your own information), and multiplicity of equilibria (different levels of aggregate information acquisition can be self-sustaining). These phenomena have been studied in the context of global games, beauty contests, and macroeconomic coordination problems.
+
+Several limitations should be noted. The Shannon mutual information cost function implies that all bits of information are equally costly, regardless of which dimension of the state they reveal. In practice, some dimensions may be easier to observe than others. Recent extensions of the rational inattention framework have explored more general cost functions, including the "neighbourhood" cost function and the "posterior-based" cost function, which can capture these asymmetries. Additionally, the Blahut-Arimoto algorithm we use is guaranteed to converge but can be slow for large state and action spaces. More efficient algorithms based on convex optimisation and alternating projections have been developed for practical applications. Finally, testing rational inattention predictions empirically is challenging because the information cost parameter $\lambda$ is not directly observable and must be inferred from choice data, introducing identification concerns.
+
+## Extensions & related tutorials
+
+- [Entropy and strategic information](../../information-theory/entropy-and-strategic-information/) --- foundational treatment of information-theoretic concepts in game theory
+- [Value of information in games](../../information-theory/value-of-information-games/) --- how the value of information depends on the strategic context
+- [Entropy and correlated equilibrium](../../information-theory/entropy-correlated-equilibrium/) --- connections between information theory and equilibrium concepts
+- [Beauty contest and guessing games](../../experimental-economics/beauty-contest-guessing/) --- experimental evidence on bounded rationality that rational inattention can explain
+- [Cheap talk and communication](../../information-theory/cheap-talk-communication/) --- strategic communication when information transmission is free but unverifiable
+
+## References
+
+::: {#refs}
+:::
