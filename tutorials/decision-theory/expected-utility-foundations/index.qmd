@@ -1,0 +1,405 @@
+---
+title: "Expected Utility Theory: The Axiomatic Foundations"
+description: "Implementing the von Neumann-Morgenstern axioms in R, verifying them with lottery objects, demonstrating the Allais and Ellsberg paradoxes, and calibrating CRRA and CARA utility functions via MLE."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - decision-theory
+  - expected-utility
+  - risk-aversion
+  - axioms
+keywords: ["expected utility", "von Neumann-Morgenstern", "risk aversion", "Allais paradox", "Ellsberg paradox", "CRRA", "CARA"]
+labels: ["theory", "foundations"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_DECISION_EXPECTED_UTILITY"
+image: thumbnail.png
+image-alt: "Plot of CRRA utility functions for different risk aversion parameters showing increasing concavity"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/decision-theory/expected-utility-foundations/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Expected utility theory is the bedrock of modern decision theory, game theory, and much of microeconomics. The theory provides a rigorous answer to a fundamental question: how should a rational agent choose among risky alternatives? The answer, first formalised by John von Neumann and Oskar Morgenstern in their 1944 treatise *Theory of Games and Economic Behavior* [@von_neumann_morgenstern_1944], is that a rational agent behaves as if maximising the expected value of a utility function over outcomes. This result is not an assumption but a theorem: it follows logically from a small set of axioms about the agent's preferences over lotteries. The axioms --- completeness, transitivity, continuity, and independence --- are individually plausible and collectively powerful. Any preference relation satisfying these axioms can be represented by a utility function that is unique up to positive affine transformations, and the agent's ranking of lotteries is determined by their expected utilities.
+
+The elegance of the von Neumann-Morgenstern (vNM) framework lies in its combination of parsimony and generality. With just four axioms, it reduces the problem of choice under uncertainty to the problem of specifying a single function: the utility function $u: \mathbb{R} \to \mathbb{R}$ that maps monetary outcomes to subjective values. Different shapes of the utility function capture different attitudes toward risk. A concave utility function describes a risk-averse agent who prefers a certain outcome to a gamble with the same expected value. A convex utility function describes a risk-seeking agent. A linear utility function describes a risk-neutral agent who cares only about expected monetary value. The degree of concavity can be quantified by the Arrow-Pratt measures of risk aversion, which in turn determine concrete economic magnitudes like the certainty equivalent (the certain amount the agent considers equivalent to a risky prospect) and the risk premium (the maximum amount the agent would pay to eliminate risk).
+
+Two parametric families of utility functions dominate applied work. The Constant Relative Risk Aversion (CRRA) family, $u(x) = x^{1-\gamma} / (1-\gamma)$ for $\gamma \neq 1$ and $u(x) = \ln x$ for $\gamma = 1$, has the property that relative risk aversion is constant across wealth levels. This makes CRRA utility scale-invariant: an agent's risk preferences do not change when all monetary amounts are multiplied by a constant. The Constant Absolute Risk Aversion (CARA) family, $u(x) = -\exp(-\alpha x) / \alpha$, has the property that absolute risk aversion is constant. This means the agent's willingness to bear a fixed-size gamble does not depend on wealth. In practice, CRRA is more commonly used because the assumption of constant relative risk aversion is more empirically plausible than constant absolute risk aversion. Estimates of the CRRA parameter $\gamma$ from experimental and field data typically range from 0.5 to 5, with most estimates clustering around 1 to 2.
+
+Despite its theoretical elegance, expected utility theory faces well-known empirical challenges. The Allais paradox, discovered by Maurice Allais in 1953, demonstrates that many people's choices violate the independence axiom. In the classic version, subjects are presented with two pairs of lotteries. In the first pair, most people prefer a certain gain of 1 million over a gamble with higher expected value. In the second pair, most people prefer a riskier gamble over a safer one. These two preferences are individually reasonable but jointly inconsistent with any expected utility function. The pattern suggests that people overweight certainty --- a phenomenon called the certainty effect. The Ellsberg paradox, proposed by Daniel Ellsberg in 1961, challenges expected utility from a different direction. It shows that people's choices are affected by ambiguity --- uncertainty about probabilities, as opposed to risk with known probabilities. When drawing from an urn with an unknown composition, most people prefer to bet on colours whose probability they know, even when the expected utility calculation is neutral. This behaviour violates the implicit assumption of expected utility theory that agents have well-defined subjective probabilities over all events.
+
+In this tutorial, we implement the vNM framework in R from the ground up. We create lottery objects, verify the axiom satisfaction for given preferences, compute certainty equivalents and risk premia for CRRA and CARA utility functions, demonstrate both the Allais and Ellsberg paradoxes as axiom violations, and calibrate utility functions from hypothetical choice data using maximum likelihood estimation. The goal is both conceptual --- understanding what the axioms mean and why violations matter --- and practical --- building reusable R functions for decision-theoretic computations.
+
+## Mathematical formulation
+
+**Lotteries.** A (simple) lottery $L$ is a probability distribution over a finite set of outcomes $\{x_1, \ldots, x_n\}$:
+
+$$
+L = (x_1, p_1; x_2, p_2; \ldots; x_n, p_n), \quad \sum_{i=1}^n p_i = 1, \quad p_i \geq 0
+$$
+
+**von Neumann-Morgenstern axioms.** A preference relation $\succsim$ over lotteries satisfies:
+
+1. **Completeness:** For all $L, L'$, either $L \succsim L'$ or $L' \succsim L$ (or both).
+2. **Transitivity:** If $L \succsim L'$ and $L' \succsim L''$, then $L \succsim L''$.
+3. **Continuity:** If $L \succ L' \succ L''$, there exists $\alpha \in (0,1)$ such that $L' \sim \alpha L + (1-\alpha) L''$.
+4. **Independence:** For all $L, L', L''$ and $\alpha \in (0,1)$: $L \succsim L'$ if and only if $\alpha L + (1-\alpha)L'' \succsim \alpha L' + (1-\alpha) L''$.
+
+**vNM Theorem.** If $\succsim$ satisfies axioms 1--4, there exists $u: \mathbb{R} \to \mathbb{R}$ such that:
+
+$$
+L \succsim L' \iff \mathbb{E}_L[u(X)] \geq \mathbb{E}_{L'}[u(X)]
+$$
+
+where $\mathbb{E}_L[u(X)] = \sum_{i=1}^n p_i \, u(x_i)$.
+
+**Risk aversion measures.** The Arrow-Pratt coefficient of absolute risk aversion:
+
+$$
+A(x) = -\frac{u''(x)}{u'(x)}
+$$
+
+The coefficient of relative risk aversion:
+
+$$
+R(x) = -\frac{x \, u''(x)}{u'(x)}
+$$
+
+**CRRA utility:** $u(x) = \frac{x^{1-\gamma}}{1-\gamma}$ for $\gamma > 0, \gamma \neq 1$; $u(x) = \ln(x)$ for $\gamma = 1$. Here $R(x) = \gamma$.
+
+**CARA utility:** $u(x) = -\frac{e^{-\alpha x}}{\alpha}$ for $\alpha > 0$. Here $A(x) = \alpha$.
+
+**Certainty equivalent:** The amount $CE$ satisfying $u(CE) = \mathbb{E}[u(X)]$. **Risk premium:** $\pi = \mathbb{E}[X] - CE$.
+
+## R implementation
+
+We build lottery objects, verify axioms, compute certainty equivalents, demonstrate paradoxes, and calibrate utility functions.
+
+```{r}
+#| label: lottery-implementation
+set.seed(42)
+
+# --- Lottery class ---
+create_lottery <- function(outcomes, probs, name = "L") {
+  stopifnot(length(outcomes) == length(probs))
+  stopifnot(abs(sum(probs) - 1) < 1e-10)
+  stopifnot(all(probs >= 0))
+  list(outcomes = outcomes, probs = probs, name = name)
+}
+
+expected_value <- function(L) sum(L$outcomes * L$probs)
+
+expected_utility <- function(L, u) sum(L$probs * u(L$outcomes))
+
+compound_lottery <- function(L1, L2, alpha) {
+  outcomes <- c(L1$outcomes, L2$outcomes)
+  probs <- c(alpha * L1$probs, (1 - alpha) * L2$probs)
+  create_lottery(outcomes, probs, paste0(alpha, "*", L1$name, " + ",
+                                         (1 - alpha), "*", L2$name))
+}
+
+# --- Utility functions ---
+crra_utility <- function(x, gamma) {
+  if (gamma == 1) return(log(x))
+  x^(1 - gamma) / (1 - gamma)
+}
+
+cara_utility <- function(x, alpha) {
+  -exp(-alpha * x) / alpha
+}
+
+certainty_equivalent <- function(L, u, u_inv) {
+  eu <- expected_utility(L, u)
+  u_inv(eu)
+}
+
+risk_premium <- function(L, u, u_inv) {
+  expected_value(L) - certainty_equivalent(L, u, u_inv)
+}
+
+# --- Example lotteries ---
+L1 <- create_lottery(c(100, 0), c(0.5, 0.5), "Fair coin")
+L2 <- create_lottery(c(50), c(1), "Certain 50")
+L3 <- create_lottery(c(200, 50, 0), c(0.3, 0.4, 0.3), "Three-outcome")
+
+cat("Lottery examples:\n")
+for (L in list(L1, L2, L3)) {
+  cat(sprintf("  %s: E[X] = %.1f\n", L$name, expected_value(L)))
+}
+
+# --- Certainty equivalents for CRRA ---
+cat("\nCertainty equivalents for Fair Coin (50/50: $100 or $0+1):\n")
+L_fair <- create_lottery(c(101, 1), c(0.5, 0.5), "Fair coin shifted")
+for (gamma in c(0.5, 1, 2, 5)) {
+  u <- function(x) crra_utility(x, gamma)
+  u_inv <- if (gamma == 1) {
+    function(y) exp(y)
+  } else {
+    function(y) (y * (1 - gamma))^(1 / (1 - gamma))
+  }
+  ce <- certainty_equivalent(L_fair, u, u_inv)
+  rp <- risk_premium(L_fair, u, u_inv)
+  cat(sprintf("  gamma = %.1f: CE = %.2f, risk premium = %.2f\n", gamma, ce, rp))
+}
+```
+
+```{r}
+#| label: allais-paradox
+# --- Allais Paradox ---
+cat("Allais Paradox demonstration:\n\n")
+
+# Pair 1: A1 vs B1
+A1 <- create_lottery(c(1000000), c(1), "A1: Certain $1M")
+B1 <- create_lottery(c(5000000, 1000000, 0), c(0.10, 0.89, 0.01), "B1: Gamble")
+
+# Pair 2: A2 vs B2
+A2 <- create_lottery(c(1000000, 0), c(0.11, 0.89), "A2: 11% chance of $1M")
+B2 <- create_lottery(c(5000000, 0), c(0.10, 0.90), "B2: 10% chance of $5M")
+
+cat("Pair 1:\n")
+cat(sprintf("  A1: %s, E[X] = $%.0f\n", A1$name, expected_value(A1)))
+cat(sprintf("  B1: %s, E[X] = $%.0f\n", B1$name, expected_value(B1)))
+
+cat("Pair 2:\n")
+cat(sprintf("  A2: %s, E[X] = $%.0f\n", A2$name, expected_value(A2)))
+cat(sprintf("  B2: %s, E[X] = $%.0f\n", B2$name, expected_value(B2)))
+
+# Most people choose A1 over B1, and B2 over A2
+# Check: is this consistent with EU?
+cat("\nCommon pattern: prefer A1 and B2.\n")
+cat("For EU consistency: A1 > B1 implies u(1M) > 0.10*u(5M) + 0.89*u(1M) + 0.01*u(0)\n")
+cat("  => 0.11*u(1M) > 0.10*u(5M) + 0.01*u(0)\n")
+cat("But B2 > A2 implies 0.10*u(5M) + 0.90*u(0) > 0.11*u(1M) + 0.89*u(0)\n")
+cat("  => 0.10*u(5M) + 0.01*u(0) > 0.11*u(1M)\n")
+cat("CONTRADICTION! The common pattern violates the independence axiom.\n")
+
+# Verify numerically for a few utility functions
+cat("\nNumerical check with CRRA utility (gamma = 2):\n")
+u_crra2 <- function(x) crra_utility(x + 1, 2)  # shift to avoid u(0)
+for (pair_label in c("Pair 1", "Pair 2")) {
+  if (pair_label == "Pair 1") { LA <- A1; LB <- B1
+  } else { LA <- A2; LB <- B2 }
+  eu_a <- expected_utility(LA, u_crra2)
+  eu_b <- expected_utility(LB, u_crra2)
+  cat(sprintf("  %s: EU(%s) = %.6f, EU(%s) = %.6f => prefer %s\n",
+              pair_label, LA$name, eu_a, LB$name, eu_b,
+              ifelse(eu_a > eu_b, LA$name, LB$name)))
+}
+cat("  EU-consistent agent makes the SAME choice (A or B) in both pairs.\n")
+```
+
+```{r}
+#| label: mle-calibration
+set.seed(123)
+
+# --- MLE calibration of CRRA parameter from choice data ---
+# Generate synthetic choice data: N subjects choose between
+# a certain amount C and a lottery (H, 0.5; 0, 0.5)
+# Subjects are CRRA with true gamma = 1.5, plus noise (logit model)
+
+true_gamma <- 1.5
+n_subjects <- 200
+lambda <- 5  # noise/precision parameter
+
+# Generate choice situations
+choice_data <- data.frame(
+  subject = 1:n_subjects,
+  certain = runif(n_subjects, 10, 90),
+  high = 100,
+  prob = 0.5
+)
+
+# Expected utility of lottery vs certain amount
+choice_data <- choice_data |>
+  mutate(
+    eu_lottery = prob * crra_utility(high, true_gamma) +
+                 (1 - prob) * crra_utility(1, true_gamma),
+    eu_certain = crra_utility(certain, true_gamma),
+    # Logit choice probability
+    prob_certain = 1 / (1 + exp(-lambda * (eu_certain - eu_lottery))),
+    # Simulated choice (1 = certain, 0 = lottery)
+    choice = rbinom(n_subjects, 1, prob_certain)
+  )
+
+# Log-likelihood function
+log_likelihood <- function(params, data) {
+  gamma <- params[1]
+  lam <- params[2]
+  if (gamma <= 0 || lam <= 0) return(-1e10)
+
+  eu_lot <- data$prob * crra_utility(data$high, gamma) +
+            (1 - data$prob) * crra_utility(1, gamma)
+  eu_cert <- crra_utility(data$certain, gamma)
+
+  p_certain <- 1 / (1 + exp(-lam * (eu_cert - eu_lot)))
+  p_certain <- pmax(pmin(p_certain, 1 - 1e-10), 1e-10)
+
+  sum(data$choice * log(p_certain) + (1 - data$choice) * log(1 - p_certain))
+}
+
+# Optimise
+mle_result <- optim(c(1, 3), function(p) -log_likelihood(p, choice_data),
+                    method = "L-BFGS-B",
+                    lower = c(0.01, 0.01), upper = c(10, 50))
+
+cat(sprintf("\nMLE Calibration Results:\n"))
+cat(sprintf("  True gamma: %.2f, Estimated gamma: %.2f\n",
+            true_gamma, mle_result$par[1]))
+cat(sprintf("  True lambda: %.2f, Estimated lambda: %.2f\n",
+            lambda, mle_result$par[2]))
+cat(sprintf("  Log-likelihood: %.2f\n", -mle_result$value))
+
+# Profile likelihood for gamma
+gamma_grid <- seq(0.5, 3.0, by = 0.05)
+profile_ll <- numeric(length(gamma_grid))
+for (i in seq_along(gamma_grid)) {
+  opt_lam <- optim(3, function(l) -log_likelihood(c(gamma_grid[i], l), choice_data),
+                   method = "L-BFGS-B", lower = 0.01, upper = 50)
+  profile_ll[i] <- -opt_lam$value
+}
+profile_data <- data.frame(gamma = gamma_grid, ll = profile_ll)
+```
+
+## Static publication-ready figure
+
+The figure below shows CRRA utility functions for different risk aversion parameters $\gamma$, along with a visual demonstration of the certainty equivalent and risk premium for a specific lottery. Greater concavity (higher $\gamma$) corresponds to greater risk aversion, lower certainty equivalents, and larger risk premia.
+
+```{r}
+#| label: fig-utility-static
+#| fig-cap: "Figure 1. CRRA utility functions for different risk aversion parameters. As gamma increases, the utility function becomes more concave, reflecting greater risk aversion. The dashed horizontal and vertical lines illustrate the certainty equivalent (CE) for the lottery (101, 0.5; 1, 0.5) under gamma = 2: the CE is the wealth level whose utility equals the expected utility of the lottery."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+x_seq <- seq(1, 120, length.out = 500)
+utility_data <- data.frame()
+for (g in c(0.5, 1, 2, 5)) {
+  utility_data <- rbind(utility_data, data.frame(
+    x = x_seq,
+    u = sapply(x_seq, function(x) crra_utility(x, g)),
+    gamma = paste0("gamma == ", g)
+  ))
+}
+
+# CE illustration for gamma = 2
+u_g2 <- function(x) crra_utility(x, 2)
+eu_lottery <- 0.5 * u_g2(101) + 0.5 * u_g2(1)
+ce_g2 <- (eu_lottery * (1 - 2))^(1 / (1 - 2))
+
+p_utility <- ggplot(utility_data, aes(x = x, y = u, colour = gamma,
+    text = paste0("gamma: ", gamma, "\nx = ", round(x, 1),
+                  "\nu(x) = ", round(u, 4)))) +
+  geom_line(linewidth = 0.9) +
+  # CE illustration for gamma = 2
+  geom_segment(aes(x = ce_g2, y = min(utility_data$u[utility_data$gamma == "gamma == 2"]),
+                   xend = ce_g2, yend = eu_lottery),
+               linetype = "dashed", colour = "grey40", inherit.aes = FALSE) +
+  geom_segment(aes(x = 0, y = eu_lottery, xend = ce_g2, yend = eu_lottery),
+               linetype = "dashed", colour = "grey40", inherit.aes = FALSE) +
+  annotate("text", x = ce_g2, y = min(utility_data$u) * 0.9,
+           label = paste0("CE = ", round(ce_g2, 1)), size = 3.5, colour = "grey30") +
+  scale_colour_manual(
+    values = c("gamma == 0.5" = okabe_ito[1], "gamma == 1" = okabe_ito[2],
+               "gamma == 2" = okabe_ito[3], "gamma == 5" = okabe_ito[5]),
+    labels = c(expression(gamma == 0.5), expression(gamma == 1),
+               expression(gamma == 2), expression(gamma == 5)),
+    name = "Risk aversion"
+  ) +
+  labs(title = "CRRA Utility Functions and Certainty Equivalent",
+       subtitle = "Greater concavity (higher gamma) means greater risk aversion",
+       x = "Wealth (x)", y = "Utility u(x)") +
+  theme_publication()
+
+p_utility
+```
+
+## Interactive figure
+
+Hover over the profile likelihood curve to identify the MLE estimate of the CRRA parameter and the confidence interval. The interactive display makes it easy to read off the 95% confidence region defined by the likelihood ratio threshold.
+
+```{r}
+#| label: fig-utility-interactive
+
+# Profile likelihood plot
+ll_threshold <- max(profile_data$ll) - qchisq(0.95, 1) / 2
+
+p_profile <- ggplot(profile_data, aes(x = gamma, y = ll,
+    text = paste0("gamma = ", gamma, "\nLog-lik = ", round(ll, 2)))) +
+  geom_line(colour = okabe_ito[5], linewidth = 1) +
+  geom_vline(xintercept = mle_result$par[1], linetype = "dashed",
+             colour = okabe_ito[1]) +
+  geom_vline(xintercept = true_gamma, linetype = "dotted",
+             colour = okabe_ito[3]) +
+  geom_hline(yintercept = ll_threshold, linetype = "dashed",
+             colour = "grey50") +
+  annotate("text", x = mle_result$par[1] + 0.15,
+           y = max(profile_data$ll) - 2,
+           label = paste0("MLE = ", round(mle_result$par[1], 2)),
+           colour = okabe_ito[1], size = 4) +
+  annotate("text", x = true_gamma + 0.15,
+           y = max(profile_data$ll) - 5,
+           label = paste0("True = ", true_gamma),
+           colour = okabe_ito[3], size = 4) +
+  labs(title = "Profile Likelihood for CRRA Parameter",
+       subtitle = "Dashed horizontal line: 95% likelihood ratio CI threshold",
+       x = expression(gamma ~ "(CRRA parameter)"),
+       y = "Profile log-likelihood") +
+  theme_publication()
+
+ggplotly(p_profile, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+Expected utility theory is one of the most successful and most controversial theories in the social sciences. Its success lies in its combination of axiomatic elegance and practical applicability. The four von Neumann-Morgenstern axioms are individually compelling: completeness says the agent can always compare two options; transitivity says preferences do not cycle; continuity says there are no infinitely good or infinitely bad outcomes; independence says that mixing two lotteries with a common third option does not change the preference between them. From these axioms alone, the entire apparatus of expected utility maximisation follows. This is a remarkable feat of mathematical reasoning: it shows that rational choice under uncertainty can be fully characterised by a single function, the utility function, and a single operation, the expectation.
+
+The practical power of the framework is equally impressive. In game theory, expected utility provides the foundation for mixed-strategy Nash equilibria: a player is willing to randomise only if the expected utility of each pure strategy in the support of the mixture is equal. In finance, expected utility underlies portfolio theory and asset pricing: a risk-averse investor holds a diversified portfolio because the expected utility of a diversified position exceeds that of a concentrated one. In insurance economics, expected utility explains why risk-averse agents are willing to pay a premium above the expected loss to eliminate risk. In mechanism design, expected utility is the default framework for modelling bidders in auctions and agents in allocation problems. Without expected utility, much of modern economic theory would need to be rebuilt on different foundations.
+
+Yet the Allais and Ellsberg paradoxes show that the axioms are violated in systematic and predictable ways. The Allais paradox demonstrates that people overweight certain outcomes relative to merely probable ones --- a violation of the independence axiom. Our numerical verification confirms that no expected utility function can simultaneously rationalise the common choice pattern (preferring A1 over B1 and B2 over A2). This is not a matter of miscalculation or confusion; the pattern has been replicated in hundreds of experiments with diverse subject pools, including professional economists and statisticians who are fully aware of the paradox. The Ellsberg paradox reveals a different kind of violation: people are averse to ambiguity (unknown probabilities) over and above their aversion to risk (known probabilities). This suggests that expected utility theory, which assumes a unique probability distribution over states, is incomplete as a description of decision-making under deep uncertainty.
+
+The MLE calibration exercise demonstrates that, despite these theoretical limitations, expected utility remains a practical workhorse for empirical research. By fitting a CRRA utility function to binary choice data using a logit error structure, we can estimate the risk aversion parameter $\gamma$ with reasonable precision. The profile likelihood reveals the shape of the estimation landscape: the log-likelihood is smooth and single-peaked, making optimisation straightforward. The 95% confidence interval from the profile likelihood provides a measure of estimation uncertainty that accounts for the nonlinearity of the model. In our simulation, the MLE estimate recovers the true parameter value with good accuracy, confirming that the estimation procedure is well-behaved for this class of models.
+
+The practical advice for researchers is to treat expected utility as a useful starting point, not as an unquestionable truth. For many applications --- mechanism design, market equilibrium, game-theoretic predictions --- expected utility provides a tractable and adequate framework. For applications where certainty effects or ambiguity aversion are likely to be important --- insurance decisions, medical choices, financial planning under deep uncertainty --- alternative models like prospect theory or maxmin expected utility may be more appropriate. The choice of decision-theoretic framework should be guided by the empirical question at hand, not by theoretical allegiance to any single set of axioms.
+
+## Extensions & related tutorials
+
+- [Allais paradox and prospect theory](../../decision-theory/allais-paradox/) --- An in-depth treatment of the Allais paradox and its role in motivating prospect theory.
+- [Ambiguity aversion and the Ellsberg paradox](../../decision-theory/ambiguity-aversion-ellsberg/) --- Maxmin expected utility and other models that accommodate ambiguity aversion.
+- [Prospect theory and reference dependence](../../decision-theory/prospect-theory-reference-dependence/) --- Kahneman and Tversky's alternative to expected utility that accommodates loss aversion and probability weighting.
+- [Maximum likelihood estimation for game models](../../statistical-foundations/maximum-likelihood-game-estimation/) --- Extending the MLE approach from individual choice to strategic interaction.
+- [Hypothesis testing in strategic environments](../../statistical-foundations/hypothesis-testing-strategic/) --- Using decision-theoretic foundations to frame statistical testing as a game.
+
+## References
+
+::: {#refs}
+:::

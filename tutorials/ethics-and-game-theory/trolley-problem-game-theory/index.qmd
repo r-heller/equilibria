@@ -1,0 +1,356 @@
+---
+title: "The Trolley Problem Through a Game-Theoretic Lens"
+description: "Formalising moral dilemmas as strategic interactions — modelling utilitarian and deontological ethics as payoff specifications, implementing a moral machine framework, and revealing the strategic structure of ethical choice."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - Ethics & Game Theory
+  - Moral Philosophy
+  - Decision Theory
+keywords: ["trolley problem", "moral dilemma", "utilitarianism", "deontological ethics", "moral machine"]
+labels: ["ethics", "decision-theory"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_ETHICS_TROLLEY_PROBLEM"
+image: thumbnail.png
+image-alt: "Heatmap of optimal moral decisions under utilitarian vs deontological payoff structures"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/ethics-and-game-theory/trolley-problem-game-theory/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+The trolley problem, first articulated by the philosopher Philippa Foot in 1967 and later elaborated by Judith Jarvis Thomson in 1985, is perhaps the most famous thought experiment in moral philosophy [@foot_1967; @thomson_1985]. In its canonical form, a runaway trolley is heading toward five people tied to the tracks. You stand next to a lever that can divert the trolley to a side track, where it will kill one person instead. Should you pull the lever? Most people say yes — saving five lives at the cost of one seems like a straightforward moral calculation. But Thomson's variant, the "footbridge" case, complicates matters: instead of a lever, you can stop the trolley by pushing a large man off a bridge into its path. Now most people say no, even though the arithmetic of lives saved and lost is identical.
+
+This divergence between the "lever" and "footbridge" cases has generated an enormous philosophical literature on the moral significance of intention, causation, and the distinction between doing and allowing. But there is a dimension of the trolley problem that philosophers have largely neglected: its strategic structure. The standard trolley problem is presented as a decision problem — a single agent choosing among options with known consequences. In reality, moral dilemmas involve multiple agents whose choices interact. The people on the tracks might have chosen to be there (or to avoid being there). The person on the footbridge might resist being pushed. Bystanders might intervene. Even the decision-maker's choice is influenced by the anticipated reactions of others and by social norms that are themselves the product of strategic interaction.
+
+Game theory provides a rigorous framework for analysing these strategic dimensions of moral choice. By modelling moral dilemmas as games — strategic interactions with multiple players, each with their own preferences and action sets — we can formalise and compare different ethical frameworks as different specifications of the payoff structure. A **utilitarian** ethic aggregates welfare across all affected parties, treating the decision-maker's goal as maximising total utility. A **deontological** ethic imposes constraints on actions regardless of consequences — certain actions (like using a person as a means to an end) are prohibited even if they lead to better aggregate outcomes. A **virtue ethics** perspective evaluates actions based on the character traits they express, which in game-theoretic terms corresponds to a preference over one's own strategy profile rather than over outcomes.
+
+The connection between game theory and ethics runs deep in intellectual history. The theory of games was originally motivated, in part, by questions about rational behaviour and social coordination — questions that are inherently ethical. Von Neumann and Morgenstern's foundational work explicitly discussed games in the context of economic and social organisation [@von_neumann_morgenstern_1944]. More recently, the "moral machine" project (Awad et al., 2018) collected millions of decisions on trolley-like scenarios from people around the world, revealing systematic cross-cultural variation in moral intuitions. These empirical findings naturally invite game-theoretic analysis: if different cultures have different moral "payoffs," how do these differences affect the strategic equilibria of social interactions?
+
+In this tutorial, we formalise the trolley problem and its variants as games and implement a computational framework for analysing moral decisions under different ethical theories. We generate a set of trolley-like scenarios that vary in the number of potential victims, the type of action required (divert vs push), and the relationship of the decision-maker to the affected parties. For each scenario, we compute the optimal decision under utilitarian, deontological, and compromise payoff structures. We then analyse how these decisions vary across scenarios, identifying the "moral fault lines" — parameter ranges where different ethical frameworks prescribe different actions. This game-theoretic approach to ethics does not tell us which ethical theory is correct; rather, it makes the structure of moral disagreement precise and quantifiable, and it reveals the strategic aspects of ethical choice that are invisible in the standard decision-theoretic framing.
+
+## Mathematical formulation
+
+### Trolley dilemma as a game
+
+Define a moral dilemma game $\Gamma = (N, (S_i)_{i \in N}, (u_i)_{i \in N})$ with:
+
+- **Players** $N = \{D, V_1, \ldots, V_k, B\}$: a decision-maker $D$, potential victims $V_1, \ldots, V_k$, and a bystander $B$ (who may be used as a means).
+- **Decision-maker's actions** $S_D = \{\text{act}, \text{refrain}\}$.
+- **Potential victims' actions** $S_{V_i} = \{\text{stay}, \text{flee}\}$ (if they can anticipate the trolley).
+
+### Payoff specifications
+
+Let $n_{\text{saved}}$ be the number of lives saved by acting and $n_{\text{lost}}$ the number lost.
+
+**Utilitarian payoffs** for the decision-maker:
+$$
+u_D^{\text{util}}(\text{act}) = n_{\text{saved}} - n_{\text{lost}}, \quad u_D^{\text{util}}(\text{refrain}) = 0
+$$
+
+The decision rule is: act if and only if $n_{\text{saved}} > n_{\text{lost}}$.
+
+**Deontological payoffs** with an "instrumentalisation penalty" $\pi > 0$:
+$$
+u_D^{\text{deont}}(\text{act}) = n_{\text{saved}} - n_{\text{lost}} - \pi \cdot \mathbb{1}[\text{act uses person as means}]
+$$
+
+The parameter $\pi$ captures the moral weight placed on not using people as instruments. When $\pi > n_{\text{saved}} - n_{\text{lost}}$, the deontological agent refrains even when acting would save more lives.
+
+**Compromise (weighted) payoffs** with mixing parameter $\alpha \in [0, 1]$:
+$$
+u_D^{\alpha} = \alpha \cdot u_D^{\text{util}} + (1 - \alpha) \cdot u_D^{\text{deont}}
+$$
+
+### Scenario parameters
+
+Each scenario is characterised by:
+
+- $n_{\text{track}}$: number of people on the main track (saved by acting)
+- $n_{\text{side}}$: number of people on the side track (lost by acting)
+- $\text{instrumental} \in \{0, 1\}$: whether acting uses a person as a means
+- $\text{relationship} \in \{0, 0.5, 1\}$: closeness of victims to decision-maker (modifies payoffs)
+
+### Strategic response
+
+If victims can anticipate the decision, a victim on the side track has utility:
+$$
+u_{V}(\text{stay}) = -\mathbb{1}[\text{D acts}], \quad u_{V}(\text{flee}) = -c_{\text{flee}}
+$$
+
+where $c_{\text{flee}}$ is the cost of fleeing. A Nash equilibrium requires mutual consistency between the decision-maker's action and the victims' positioning.
+
+## R implementation
+
+```{r}
+#| label: implementation
+set.seed(2026)
+
+# --- Generate moral dilemma scenarios ---
+scenarios <- expand.grid(
+  n_track = 1:8,           # people on main track (saved by acting)
+  n_side = 1:3,            # people on side track (lost by acting)
+  instrumental = c(0, 1),  # does acting use a person as means?
+  stringsAsFactors = FALSE
+)
+scenarios$id <- seq_len(nrow(scenarios))
+
+cat("Total scenarios:", nrow(scenarios), "\n\n")
+
+# --- Compute decisions under different ethical frameworks ---
+pi_deont <- 3.0  # instrumentalisation penalty
+
+compute_decisions <- function(scenarios, pi_penalty, alpha_values) {
+  results <- list()
+
+  for (i in seq_len(nrow(scenarios))) {
+    sc <- scenarios[i, ]
+    net_lives <- sc$n_track - sc$n_side
+
+    # Utilitarian
+    u_util_act <- net_lives
+    u_util_refrain <- 0
+    decision_util <- ifelse(u_util_act > u_util_refrain, "act", "refrain")
+
+    # Deontological
+    u_deont_act <- net_lives - pi_penalty * sc$instrumental
+    u_deont_refrain <- 0
+    decision_deont <- ifelse(u_deont_act > u_deont_refrain, "act", "refrain")
+
+    for (alpha in alpha_values) {
+      u_mixed_act <- alpha * u_util_act + (1 - alpha) * u_deont_act
+      u_mixed_refrain <- 0
+      decision_mixed <- ifelse(u_mixed_act > u_mixed_refrain, "act", "refrain")
+
+      results[[length(results) + 1]] <- data.frame(
+        id = sc$id,
+        n_track = sc$n_track,
+        n_side = sc$n_side,
+        instrumental = sc$instrumental,
+        net_lives = net_lives,
+        alpha = alpha,
+        decision_util = decision_util,
+        decision_deont = decision_deont,
+        decision_mixed = decision_mixed,
+        u_util_act = u_util_act,
+        u_deont_act = u_deont_act,
+        u_mixed_act = u_mixed_act,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  do.call(rbind, results)
+}
+
+alpha_grid <- seq(0, 1, by = 0.05)
+results <- compute_decisions(scenarios, pi_deont, alpha_grid)
+
+# --- Summary statistics ---
+cat("=== Utilitarian decisions ===\n")
+cat("Act:", sum(results$decision_util[results$alpha == 1] == "act"),
+    "/ Refrain:", sum(results$decision_util[results$alpha == 1] == "refrain"), "\n")
+
+cat("\n=== Deontological decisions ===\n")
+cat("Act:", sum(results$decision_deont[results$alpha == 0] == "act"),
+    "/ Refrain:", sum(results$decision_deont[results$alpha == 0] == "refrain"), "\n")
+
+# --- Disagreement analysis ---
+disagree <- results |>
+  filter(alpha == 0.5) |>
+  mutate(frameworks_agree = decision_util == decision_deont)
+
+cat("\n=== Agreement between frameworks ===\n")
+cat("Agree:", sum(disagree$frameworks_agree),
+    "/ Disagree:", sum(!disagree$frameworks_agree), "\n")
+
+# Identify disagreement scenarios
+conflict_scenarios <- disagree |>
+  filter(!frameworks_agree) |>
+  select(n_track, n_side, instrumental, decision_util, decision_deont)
+
+cat("\nConflict scenarios (utilitarian says act, deontological says refrain):\n")
+print(conflict_scenarios)
+
+# --- Strategic analysis: victim anticipation ---
+cat("\n=== Strategic victim response ===\n")
+c_flee <- 0.3  # cost of fleeing
+
+# In equilibrium: victim flees iff D would act given victim stays
+# D acts (utilitarian) iff n_track > n_side
+# If victim on side track flees, n_side decreases by 1
+
+strategic_results <- scenarios |>
+  filter(n_side >= 1) |>
+  mutate(
+    d_acts_if_stay = (n_track - n_side) > 0,
+    victim_flees = d_acts_if_stay & (1 > c_flee),  # flee if D acts and cost is bearable
+    n_side_eq = ifelse(victim_flees, pmax(n_side - 1, 0), n_side),
+    d_acts_eq = (n_track - n_side_eq) > 0
+  )
+
+cat("Scenarios where strategic anticipation changes outcome:",
+    sum(strategic_results$d_acts_if_stay != strategic_results$d_acts_eq), "\n")
+
+# --- Moral machine: random scenario evaluation ---
+n_moral_machine <- 1000
+set.seed(42)
+mm_scenarios <- data.frame(
+  n_track = sample(1:10, n_moral_machine, replace = TRUE),
+  n_side = sample(1:5, n_moral_machine, replace = TRUE),
+  instrumental = rbinom(n_moral_machine, 1, 0.3),
+  relationship = sample(c(0, 0.5, 1), n_moral_machine, replace = TRUE)
+)
+
+mm_scenarios$util_decision <- ifelse(mm_scenarios$n_track > mm_scenarios$n_side, "act", "refrain")
+mm_scenarios$deont_decision <- ifelse(
+  (mm_scenarios$n_track - mm_scenarios$n_side - pi_deont * mm_scenarios$instrumental) > 0,
+  "act", "refrain"
+)
+
+# With relationship penalty
+rel_weight <- 2.0
+mm_scenarios$personal_decision <- ifelse(
+  (mm_scenarios$n_track - mm_scenarios$n_side -
+     pi_deont * mm_scenarios$instrumental -
+     rel_weight * mm_scenarios$relationship * mm_scenarios$n_side) > 0,
+  "act", "refrain"
+)
+
+cat("\n=== Moral Machine Results (", n_moral_machine, "scenarios) ===\n")
+cat("Utilitarian 'act' rate:", round(mean(mm_scenarios$util_decision == "act"), 3), "\n")
+cat("Deontological 'act' rate:", round(mean(mm_scenarios$deont_decision == "act"), 3), "\n")
+cat("Personal (relationship-weighted) 'act' rate:",
+    round(mean(mm_scenarios$personal_decision == "act"), 3), "\n")
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-trolley-heatmap
+#| fig-cap: "Decision heatmap across ethical frameworks. Each cell shows whether the decision-maker acts (diverts/pushes) or refrains. Left panel: utilitarian (act whenever net lives saved > 0). Right panel: deontological with instrumentalisation penalty (refrain when acting uses a person as means, even if it saves more lives). Grey cells indicate scenarios where both frameworks agree on inaction."
+#| dev: [png, pdf]
+#| dpi: 300
+#| fig-width: 10
+#| fig-height: 5
+
+heatmap_data <- scenarios |>
+  mutate(
+    util_decision = ifelse(n_track > n_side, "Act", "Refrain"),
+    deont_decision = ifelse((n_track - n_side - pi_deont * instrumental) > 0,
+                            "Act", "Refrain"),
+    instrumental_label = ifelse(instrumental == 1, "Instrumental", "Non-instrumental")
+  )
+
+heat_long <- heatmap_data |>
+  pivot_longer(cols = c(util_decision, deont_decision),
+               names_to = "framework", values_to = "decision") |>
+  mutate(framework = ifelse(framework == "util_decision",
+                            "Utilitarian", "Deontological"))
+
+ggplot(heat_long, aes(x = factor(n_track), y = factor(n_side),
+                       fill = decision)) +
+  geom_tile(colour = "white", linewidth = 0.5) +
+  facet_grid(instrumental_label ~ framework) +
+  scale_fill_manual(values = c("Act" = okabe_ito[3], "Refrain" = okabe_ito[6])) +
+  labs(title = "Moral Decisions Under Different Ethical Frameworks",
+       subtitle = paste0("Instrumentalisation penalty \u03c0 = ", pi_deont,
+                         " | Green = Act, Orange-red = Refrain"),
+       x = "People on Main Track (saved by acting)",
+       y = "People on Side Track (lost by acting)",
+       fill = "Decision") +
+  theme_publication(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-trolley-interactive
+#| fig-cap: "Interactive visualisation of how the moral decision changes as the mixing parameter alpha varies from purely deontological (alpha = 0) to purely utilitarian (alpha = 1). Hover to see the exact payoff under the mixed framework."
+
+# Focus on conflict scenarios for the interactive plot
+conflict_detail <- results |>
+  filter(instrumental == 1, n_side == 1) |>
+  mutate(
+    decision_colour = ifelse(decision_mixed == "act", "Act", "Refrain"),
+    label = paste0(
+      "n_track: ", n_track,
+      "\nn_side: ", n_side,
+      "\nalpha: ", alpha,
+      "\nMixed utility: ", round(u_mixed_act, 2),
+      "\nDecision: ", decision_mixed
+    )
+  )
+
+p_int <- ggplot(conflict_detail,
+                aes(x = alpha, y = u_mixed_act,
+                    colour = factor(n_track), text = label)) +
+  geom_line(linewidth = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  scale_colour_manual(values = rep(okabe_ito, length.out = 8)) +
+  labs(title = "Mixed Ethical Framework: Transition from Deontological to Utilitarian",
+       subtitle = "Instrumental scenarios with 1 person on side track",
+       x = expression(paste("Mixing parameter ", alpha,
+                            " (0 = deontological, 1 = utilitarian)")),
+       y = "Utility of Acting",
+       colour = "People on\nmain track") +
+  theme_publication()
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+Our game-theoretic formalisation of the trolley problem yields several insights that extend beyond the standard philosophical discussion. By treating ethical frameworks as alternative payoff specifications within the same strategic structure, we make the sources of moral disagreement precise and quantifiable, and we reveal aspects of moral choice that are invisible in the traditional decision-theoretic framing.
+
+The most striking finding is the precise identification of "moral fault lines" — the parameter regions where utilitarian and deontological frameworks prescribe different actions. These conflict zones are not random; they have a clear structure. Disagreement arises precisely when the action involves instrumentalisation and the net lives saved are positive but smaller than the instrumentalisation penalty. In our parameterisation with a penalty of 3.0, this means disagreement occurs when acting would save 1, 2, or 3 net lives through instrumental means (e.g., pushing someone off a bridge). For larger numbers of lives at stake, even the deontological framework endorses acting — the lives saved outweigh the deontological penalty. For equal or fewer lives saved than lost, even the utilitarian framework endorses refraining. The disagreement zone is thus bounded and well-defined, which suggests that the philosophical debate over the trolley problem is really a debate about a specific, bounded parameter region rather than a fundamental clash of worldviews.
+
+The mixing parameter alpha provides a continuous interpolation between ethical frameworks that has no analogue in traditional moral philosophy. Philosophers typically present utilitarianism and deontology as incompatible alternatives — one must choose one or the other. Our formalisation shows that this is a false dichotomy. A decision-maker with alpha equal to 0.7, for instance, weighs utilitarian considerations more heavily but still places some weight on deontological constraints. This mixed framework captures what many people actually do: they are broadly consequentialist but feel the pull of deontological intuitions in specific cases (particularly when instrumentalisation is involved). The interactive figure shows exactly how the critical threshold of alpha — the point where the decision switches from "refrain" to "act" — depends on the number of lives at stake. With many lives at stake, even a strongly deontological agent (low alpha) will act; with few lives at stake, even a moderately consequentialist agent may refrain.
+
+The strategic analysis — allowing victims to anticipate the decision-maker's choice and respond — adds a dimension that is entirely absent from the standard trolley problem. When a potential victim on the side track knows that the decision-maker will divert the trolley, the victim has an incentive to flee. If fleeing is cheap (low cost), the victim will leave, potentially changing the calculus for the decision-maker. This creates a strategic interaction where the decision-maker's choice and the victims' positioning are mutually dependent. In game-theoretic terms, we must look for a Nash equilibrium of this interaction, not just an optimal decision in isolation. This insight applies broadly: in real-world moral dilemmas, affected parties often can and do respond strategically to the anticipated decisions of others. A corporate whistleblower anticipates the company's response; a bystander at an accident scene considers whether others will help.
+
+The "moral machine" experiment framework generates a rich dataset of decisions across varying scenarios, enabling statistical analysis of how different features — number of lives, instrumentalisation, personal relationship — affect decisions under each ethical framework. The finding that the "act" rate differs substantially across frameworks for the same set of scenarios quantifies the practical importance of the choice of ethical theory. In the context of autonomous vehicles and other AI systems that must make life-and-death decisions, this quantification is directly relevant: the behaviour of the system depends critically on which ethical framework is encoded in its decision algorithm, and there is genuine disagreement about which framework is appropriate.
+
+Our framework deliberately abstracts away many features that matter in real moral reasoning: uncertainty about consequences, the decision-maker's emotional state, the role of moral intuitions that resist formalisation, and the influence of cultural and religious traditions. Game theory cannot (and should not) resolve fundamental ethical disagreements. But it can make those disagreements precise, identify exactly where and why they arise, and quantify the stakes involved. This clarity is valuable not because it settles the philosophical questions, but because it enables more productive dialogue about them — a dialogue where the costs and benefits of different moral stances are laid out transparently for all to see.
+
+## Extensions & related tutorials
+
+- **Evolutionary ethics**: Model the evolution of moral norms in a population using evolutionary game theory — which ethical "strategies" survive in the long run when agents interact repeatedly [@maynard_smith_1982; @axelrod_1984]?
+- **Moral uncertainty and mixed strategies**: When a decision-maker is uncertain about which ethical framework is correct, mixed strategies in game theory provide a natural model for randomising across moral theories.
+- **Voting and social choice as moral aggregation**: Connect the multi-stakeholder moral game to social choice theory, where different fairness criteria correspond to different voting rules for aggregating moral preferences [@gibbard_1973].
+- **Repeated moral dilemmas and reputation**: Analyse how moral decisions change when the decision-maker faces a sequence of trolley-like problems and builds a reputation — connecting to repeated games and the folk theorem [@axelrod_1984].
+- **Experimental philosophy and behavioural game theory**: Design laboratory experiments that test whether people's moral choices align with the strategic predictions of game-theoretic models, bridging experimental philosophy and behavioural economics.
+
+## References
+
+::: {#refs}
+:::

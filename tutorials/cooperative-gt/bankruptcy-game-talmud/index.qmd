@@ -1,0 +1,306 @@
+---
+title: "The bankruptcy game and the Talmudic rule"
+description: "Implement the contested garment principle and the Talmudic bankruptcy rule in R, show their connection to the nucleolus of cooperative games, and compare with proportional and constrained equal awards division methods."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - cooperative-gt
+  - bankruptcy-game
+  - talmud
+  - fair-division
+keywords: ["bankruptcy game", "Talmud", "contested garment", "nucleolus", "claims problem", "Aumann Maschler"]
+labels: ["cooperative-gt", "fair-division"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_cooperative-gt_bankruptcy-game-talmud"
+image: thumbnail.png
+image-alt: "Comparison of Talmudic, proportional, and constrained equal awards solutions to bankruptcy problems"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/cooperative-gt/bankruptcy-game-talmud/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+The Babylonian Talmud, compiled around 500 CE, contains a series of puzzling rulings on how to divide an estate among creditors when the estate is insufficient to cover all claims. In the tractate Ketubot, three cases are considered: an estate of 100, 200, or 300 is divided among three wives with marriage contracts (claims) of 100, 200, and 300. The rulings — (33⅓, 33⅓, 33⅓), (50, 75, 75), and (50, 100, 150) — puzzled scholars for two millennia because they follow no single obvious principle. Proportional division would give different numbers; equal division would also differ. In a remarkable 1985 paper, Robert Aumann and Michael Maschler showed that these ancient rulings are perfectly consistent with a sophisticated game-theoretic solution concept: the **nucleolus** of the associated cooperative game.
+
+The key insight comes from the **contested garment principle**, a rule stated elsewhere in the Talmud for two-person claims problems: if two people claim a garment and one claims half while the other claims the whole, the first receives 1/4 and the second receives 3/4. The logic is that the portion not contested by either party goes to the claimant, and the contested portion is split equally. Aumann and Maschler showed that applying this bilateral principle consistently to every pair of claimants in a multi-person problem yields exactly the Talmudic rulings — and that this solution coincides with the nucleolus of the associated bankruptcy game.
+
+The bankruptcy problem has deep connections to modern economic theory. It arises naturally in corporate bankruptcy (how to divide a firm's assets among creditors with different seniority), in international debt restructuring, in tax allocation, in resource sharing when supply falls short of demand, and in any situation where a common pool must be divided among agents with heterogeneous entitlements. The mathematical framework — a **claims problem** $(E; c_1, \ldots, c_n)$ where $E$ is the estate and $c_i$ are claims with $\sum c_i > E$ — is simple enough to admit clean theoretical results yet rich enough to illuminate deep questions about fairness, consistency, and the axiomatic foundations of division rules.
+
+Several division rules have been proposed and axiomatically characterised. The **proportional rule** divides in proportion to claims. The **constrained equal awards** (CEA) rule equalises awards subject to no one receiving more than their claim. The **constrained equal losses** (CEL) rule equalises losses. The **Talmud rule** (which Aumann and Maschler showed equals the nucleolus) uses CEA for small estates and CEL for large estates, with a switch point at half the total claims. Each rule satisfies different fairness axioms, and the choice among them reflects different conceptions of distributive justice. This tutorial implements all major bankruptcy rules, verifies the Aumann-Maschler result for the Talmudic cases, constructs the associated cooperative game and computes its nucleolus, and compares the rules across a range of estate sizes.
+
+
+## Mathematical formulation
+
+**Claims problem**: $(E; c_1, \ldots, c_n)$ where $E \geq 0$ is the estate, $c_i \geq 0$ are claims, $\sum c_i \geq E$.
+
+**Proportional rule**: $\text{PROP}_i = c_i \cdot E / \sum c_j$.
+
+**Constrained Equal Awards (CEA)**: $\text{CEA}_i = \min(c_i, \alpha)$ where $\alpha$ solves $\sum \min(c_i, \alpha) = E$.
+
+**Constrained Equal Losses (CEL)**: $\text{CEL}_i = \max(0, c_i - \beta)$ where $\beta$ solves $\sum \max(0, c_i - \beta) = E$.
+
+**Contested garment principle** (2 claimants): Each concedes to the other what they don't claim. The contested portion is split equally:
+$$x_i = \frac{1}{2}\left[E - \max(0, E - c_i) + \max(0, E - c_j)\right] \cdot \mathbf{1}_{c_i \leq c_j}$$
+
+**Talmud rule**: Uses CEA on half-claims if $E \leq \sum c_i / 2$; uses CEL on half-claims plus half-claims if $E > \sum c_i / 2$.
+
+**Bankruptcy cooperative game**: $v(S) = \max(0, E - \sum_{j \notin S} c_j)$ — coalition $S$ gets whatever is left after paying all outsiders' claims.
+
+
+## R implementation
+
+```{r}
+#| label: bankruptcy-rules
+
+set.seed(42)
+
+# === Bankruptcy division rules ===
+
+proportional_rule <- function(E, claims) {
+  claims * E / sum(claims)
+}
+
+cea_rule <- function(E, claims, tol = 1e-10) {
+  # Constrained equal awards
+  n <- length(claims)
+  sorted_c <- sort(claims)
+  remaining <- E
+  alpha <- E / n
+  awards <- rep(0, n)
+
+  for (i in seq_along(sorted_c)) {
+    if (alpha <= sorted_c[i]) break
+    remaining <- remaining - sorted_c[i]
+    alpha <- remaining / (n - i)
+  }
+
+  sapply(claims, function(c) min(c, alpha))
+}
+
+cel_rule <- function(E, claims) {
+  # Constrained equal losses
+  total_loss <- sum(claims) - E
+  n <- length(claims)
+  sorted_c <- sort(claims)
+  beta <- total_loss / n
+
+  # Find the right beta
+  for (i in seq_along(sorted_c)) {
+    if (beta <= sorted_c[i]) break
+    total_loss <- total_loss - sorted_c[i]
+    beta <- total_loss / (n - i)
+  }
+
+  sapply(claims, function(c) max(0, c - beta))
+}
+
+contested_garment <- function(E, c1, c2) {
+  # Two-person contested garment principle
+  concede_to_1 <- max(0, E - c2)
+  concede_to_2 <- max(0, E - c1)
+  contested <- E - concede_to_1 - concede_to_2
+  x1 <- concede_to_1 + contested / 2
+  x2 <- concede_to_2 + contested / 2
+  c(x1, x2)
+}
+
+talmud_rule <- function(E, claims) {
+  half_claims <- claims / 2
+  total_half <- sum(half_claims)
+
+  if (E <= total_half) {
+    cea_rule(E, half_claims)
+  } else {
+    half_claims + cel_rule(E - total_half, half_claims)
+  }
+}
+
+cat("=== Bankruptcy Game and the Talmudic Rule ===\n\n")
+
+# --- Verify the three Talmudic cases ---
+claims <- c(100, 200, 300)
+cat("Claims: c = (100, 200, 300)\n\n")
+cat("--- The Three Talmudic Cases ---\n")
+cat(sprintf("%-8s %-18s %-18s %-18s %-18s\n",
+            "Estate", "Talmud", "Proportional", "CEA", "CEL"))
+for (E in c(100, 200, 300)) {
+  t_sol <- talmud_rule(E, claims)
+  p_sol <- proportional_rule(E, claims)
+  cea_sol <- cea_rule(E, claims)
+  cel_sol <- cel_rule(E, claims)
+  cat(sprintf("E=%-5d (%.1f,%.1f,%.1f) (%.1f,%.1f,%.1f) (%.1f,%.1f,%.1f) (%.1f,%.1f,%.1f)\n",
+              E, t_sol[1], t_sol[2], t_sol[3],
+              p_sol[1], p_sol[2], p_sol[3],
+              cea_sol[1], cea_sol[2], cea_sol[3],
+              cel_sol[1], cel_sol[2], cel_sol[3]))
+}
+
+# --- Verify contested garment consistency ---
+cat("\n--- Contested Garment Consistency (E=200) ---\n")
+E <- 200
+t_sol <- talmud_rule(E, claims)
+for (i in 1:2) {
+  for (j in (i+1):3) {
+    E_pair <- t_sol[i] + t_sol[j]
+    cg <- contested_garment(E_pair, claims[i], claims[j])
+    cat(sprintf("  Players %d,%d: share (%.1f,%.1f), Talmud=(%.1f,%.1f), CG=(%.1f,%.1f) %s\n",
+                i, j, t_sol[i], t_sol[j], t_sol[i], t_sol[j],
+                cg[1], cg[2],
+                ifelse(max(abs(c(t_sol[i], t_sol[j]) - cg)) < 0.01, "✓", "✗")))
+  }
+}
+
+# --- Bankruptcy cooperative game ---
+cat("\n--- Cooperative Game (E=200, claims=(100,200,300)) ---\n")
+E <- 200
+claims <- c(100, 200, 300)
+n <- 3
+
+# v(S) = max(0, E - sum of claims of players NOT in S)
+coalitions <- list(
+  list(S = 1, name = "{1}"),
+  list(S = 2, name = "{2}"),
+  list(S = 3, name = "{3}"),
+  list(S = c(1,2), name = "{1,2}"),
+  list(S = c(1,3), name = "{1,3}"),
+  list(S = c(2,3), name = "{2,3}"),
+  list(S = c(1,2,3), name = "{1,2,3}")
+)
+
+for (coal in coalitions) {
+  outside <- setdiff(1:n, coal$S)
+  v <- max(0, E - sum(claims[outside]))
+  cat(sprintf("  v(%s) = max(0, %d - %d) = %d\n",
+              coal$name, E, sum(claims[outside]), v))
+}
+
+cat(sprintf("\n  Talmud/Nucleolus solution: (%.1f, %.1f, %.1f)\n",
+            t_sol[1], t_sol[2], t_sol[3]))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-bankruptcy-rules
+#| fig-cap: "Figure 1. Division of an estate among three creditors with claims (100, 200, 300) under four different rules, as the estate size varies from 0 to 600. The Talmud rule (solid lines) transitions from equal awards behaviour for small estates to proportional-like behaviour for large estates, with a distinctive pattern in between. The three diamonds mark the exact Talmudic rulings from the Babylonian Talmud (E=100, 200, 300). Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 10
+#| fig-height: 5
+#| dpi: 300
+
+claims <- c(100, 200, 300)
+E_seq <- seq(0, 600, by = 2)
+
+rule_data <- lapply(E_seq, function(E) {
+  tibble(
+    E = E,
+    player = rep(c("c=100", "c=200", "c=300"), 4),
+    award = c(talmud_rule(E, claims),
+              proportional_rule(E, claims),
+              cea_rule(E, claims),
+              cel_rule(E, claims)),
+    rule = rep(c("Talmud", "Proportional", "CEA", "CEL"), each = 3)
+  )
+}) |> bind_rows()
+
+# Talmudic cases for annotation
+talmud_points <- tibble(
+  E = rep(c(100, 200, 300), each = 3),
+  player = rep(c("c=100", "c=200", "c=300"), 3),
+  award = c(talmud_rule(100, claims), talmud_rule(200, claims), talmud_rule(300, claims)),
+  rule = "Talmud"
+)
+
+ggplot(rule_data |> filter(rule == "Talmud"),
+       aes(x = E, y = award, color = player)) +
+  geom_line(linewidth = 1) +
+  geom_line(data = rule_data |> filter(rule == "Proportional"),
+            linetype = "dashed", linewidth = 0.6, alpha = 0.6) +
+  geom_point(data = talmud_points, shape = 18, size = 4) +
+  scale_color_manual(values = okabe_ito[c(1, 5, 6)], name = "Claimant") +
+  labs(title = "Bankruptcy division: Talmud rule vs proportional (dashed)",
+       subtitle = "Diamonds mark the three historical Talmudic rulings; claims = (100, 200, 300)",
+       x = "Estate size (E)", y = "Award") +
+  theme_publication()
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-bankruptcy-interactive
+
+# All four rules, faceted
+rule_data_int <- rule_data |>
+  mutate(
+    text = paste0("E = ", E, "\n", player, "\nRule: ", rule,
+                  "\nAward: ", round(award, 1))
+  )
+
+p_int <- ggplot(rule_data_int, aes(x = E, y = award, color = player, text = text)) +
+  geom_line(linewidth = 0.7) +
+  facet_wrap(~rule, ncol = 2) +
+  scale_color_manual(values = okabe_ito[c(1, 5, 6)], name = "Claimant") +
+  labs(title = "Four bankruptcy rules compared",
+       subtitle = "Claims = (100, 200, 300); estate varies 0-600",
+       x = "Estate size", y = "Award") +
+  theme_publication()
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE, modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The Aumann-Maschler analysis of the Talmudic bankruptcy problem is one of the most beautiful results connecting ancient wisdom to modern game theory. The three Talmudic rulings — (33⅓, 33⅓, 33⅓) for E=100; (50, 75, 75) for E=200; and (50, 100, 150) for E=300 — which had puzzled scholars for centuries, turn out to follow a single consistent principle: the contested garment rule applied bilaterally to every pair of claimants. This means the Talmudic sages, two millennia before cooperative game theory was formalised, were implicitly computing the nucleolus of a cooperative game — the allocation that minimises the maximum "complaint" of any coalition.
+
+The figure reveals the distinctive shape of the Talmud rule: for small estates (E ≤ 100, half the smallest claim), all three claimants receive equal shares — the losses are equalised up to the constraint that no one loses more than their claim. For intermediate estates, the rule transitions through the contested garment principle, producing the characteristic concave-then-convex shape. For large estates (E ≥ 300), the rule becomes proportional to claims. This two-phase structure — equal division of losses for small estates, equal division of gains for large estates — reflects a deep principle: when the estate is small, the claims are all "about the same" relative to the estate (everyone is claiming more than exists), so equal treatment is appropriate. When the estate is large, the differences in claims become salient, and proportionality is the right principle.
+
+The comparison with other rules is instructive. The proportional rule, which is the legal default in most modern bankruptcy systems, divides strictly by claim size and does not exhibit the equal-treatment property for small estates. The CEA rule equalises awards and is most generous to small claimants — it corresponds to an egalitarian ethic. The CEL rule equalises losses and is most generous to large claimants — it corresponds to a libertarian ethic. The Talmud rule sits between CEA and CEL, combining elements of both: it treats small and large estates differently, which can be axiomatically characterised by the principle of "self-duality" — the solution to dividing the estate $E$ among claims $(c_1, \ldots, c_n)$ is the "mirror image" of dividing the loss $\sum c_i - E$.
+
+The cooperative game formulation reveals why the nucleolus is the right solution concept. The characteristic function $v(S) = \max(0, E - \sum_{j \notin S} c_j)$ captures each coalition's guaranteed fallback: what the coalition can secure even if all outsiders claim their full amounts. The nucleolus minimises the maximum excess — the maximum "unhappiness" of any coalition — making it a maximin fairness criterion. That this sophisticated optimisation concept coincides with the intuitive contested garment principle is a profound connection that bridges ancient ethical reasoning and modern axiomatic theory. The practical relevance extends to corporate bankruptcy, international debt restructuring, shared resource allocation, and any situation where competing claims exceed available resources.
+
+
+## Extensions & related tutorials
+
+- [Core and stability in cooperative games](../core-stability/) — the core of the bankruptcy game.
+- [Voting power indices](../voting-power-indices/) — another application of cooperative game theory.
+- [Fair division and cake cutting](../../ethics-and-game-theory/fair-division-cake-cutting/) — continuous fair division problems.
+- [Coalition formation in hedonic games](../coalition-formation-hedonic/) — when coalitions form endogenously.
+- [Rubinstein alternating offers](../rubinstein-alternating-offers/) — non-cooperative bargaining over a surplus.
+
+
+## References
+
+::: {#refs}
+:::
