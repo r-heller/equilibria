@@ -43,3 +43,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-09 | 5.24 | Batch 6: 6 articles (group A) | ggplot2-annotations, structural-estimation, MLE-game-estimation, docker-environments, S4-classes, openai-gym-RL |
 | 2026-05-09 | 5.25 | Batch 6: 6 articles (group B) | gradient-descent-NE, SHAP-values, fair-division, matching-pennies-exp, combinatorial-auctions, AI-alignment |
 | 2026-05-09 | 5.26 | Batch 6: 6 articles (group C) | replicator-mutator, coalition-formation, information-design, hyperbolic-discounting, ambiguity-Ellsberg, OPEC-cartel |
+| 2026-05-09 | 5.27 | Batch 7: behavioral-gt + cooperative-gt + foundations ×3 | QRE, bankruptcy-talmud, common-knowledge-paradoxes |
+| 2026-05-09 | 5.28 | Batch 7: 6 articles (group A) | synthetic-control, MPC-crypto, VCM, Zermelo-chess, max-entropy-CE, Markov-dynamics |
+| 2026-05-09 | 5.29 | Batch 7: 6 articles (group B) | community-detection, mechanism-design-ML, fairness-game, trolley-problem, World-Bank, Rcpp-solvers |
+| 2026-05-09 | 5.30 | Batch 7: 6 articles (group C) | preregistration, replicator-sim, hypothesis-testing, Shiny-apps, EU-foundations, El-Farol |
