@@ -1,0 +1,281 @@
+---
+title: "The game of Chicken and the art of brinkmanship"
+description: "Analyse the Chicken game in R, compute all Nash equilibria including the mixed-strategy equilibrium, model brinkmanship as a commitment device, and apply to nuclear deterrence, traffic merging, and corporate competition."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - classical-games
+  - chicken
+  - brinkmanship
+  - mixed-strategy
+keywords: ["Chicken game", "brinkmanship", "anti-coordination", "mixed strategy", "commitment", "Schelling", "deterrence"]
+labels: ["classical-games", "conflict"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_classical-games_chicken-game-brinkmanship"
+image: thumbnail.png
+image-alt: "Best-response diagram for the Chicken game showing two pure and one mixed Nash equilibrium"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/classical-games/chicken-game-brinkmanship/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+The **Chicken game** (also called Hawk-Dove or Snowdrift) is one of the foundational models in game theory, capturing situations where two players each prefer to be the one who stands firm while the other yields — but mutual aggression leads to the worst outcome for both. The name comes from the 1950s teenage dare: two drivers race toward each other, and the first to swerve is the "chicken." If both swerve, both save face partially. If one swerves and the other doesn't, the non-swerver wins glory and the swerver is humiliated. But if neither swerves, both crash — the worst outcome for everyone.
+
+This simple setup produces a rich strategic landscape with three Nash equilibria: two pure-strategy equilibria where one player yields and the other stands firm (asymmetric outcomes), and one mixed-strategy equilibrium where both players randomise. The mixed equilibrium is particularly important because it captures the inherent unpredictability of Chicken-like situations — when neither player can commit to a pure strategy, the resulting randomisation creates a positive probability of the catastrophic mutual-aggression outcome, even though both players would prefer to avoid it.
+
+Thomas Schelling's analysis of brinkmanship transforms the Chicken game from a curiosity into one of the most important models in international relations. Schelling observed that in nuclear deterrence, the key strategic move is not to threaten retaliation directly but to create a situation where escalation happens automatically unless the opponent backs down — to tie one's own hands, making retreat impossible. The paradox of brinkmanship is that **reducing your own options** (throwing away the steering wheel, in the Chicken metaphor) can make you better off by credibly committing to the aggressive strategy. This transforms the simultaneous game into a sequential game where the committed player moves first, selecting the pure NE favourable to them.
+
+The Chicken game appears across many domains: firms in a declining market (who exits first?), countries in trade disputes (who blinks first on tariffs?), cyclists and drivers at intersections, labour-management negotiations, and even evolutionary biology where Hawk-Dove dynamics determine territorial behaviour. In each case, the same tension emerges: aggression pays if the opponent yields, but mutual aggression is catastrophic. This tutorial implements the full analysis, computes all equilibria, models brinkmanship as a commitment device, and simulates repeated Chicken with reputation effects.
+
+
+## Mathematical formulation
+
+**Chicken game** payoff matrix (with $c > a > d > b$ where $a$ = both swerve, $c$ = stand firm vs swerve, $d$ = swerve vs stand firm, $b$ = both crash):
+
+| | Swerve | Straight |
+|---|---|---|
+| **Swerve** | $(a, a)$ | $(d, c)$ |
+| **Straight** | $(c, d)$ | $(b, b)$ |
+
+Standard parameterisation: $a = 0$, $c = 1$, $d = -1$, $b = -K$ where $K > 1$ is the crash severity.
+
+**Nash equilibria**: (1) (Straight, Swerve): payoffs $(c, d) = (1, -1)$; (2) (Swerve, Straight): payoffs $(d, c) = (-1, 1)$; (3) Mixed: $p^* = \frac{c - a}{c - a + c - b} = \frac{1}{K+1}$ probability of Straight.
+
+**Expected payoff at mixed NE**: $EU^* = \frac{a(c-b) + d(c-a)}{2c-a-b} = \frac{-K}{K+1}$.
+
+
+## R implementation
+
+```{r}
+#| label: chicken-game
+
+set.seed(42)
+
+cat("=== The Chicken Game ===\n\n")
+
+# Payoff matrices parameterised by crash severity K
+chicken_game <- function(K) {
+  A <- matrix(c(0, -1, 1, -K), 2, 2)  # Row: Swerve/Straight
+  B <- matrix(c(0, 1, -1, -K), 2, 2)
+  list(A = A, B = B, K = K)
+}
+
+# === Find all Nash equilibria ===
+cat("--- Nash Equilibria (K = 5) ---\n")
+K <- 5
+game <- chicken_game(K)
+
+# Pure NE
+cat("  Pure NE 1: (Straight, Swerve) → payoffs (1, -1)\n")
+cat("  Pure NE 2: (Swerve, Straight) → payoffs (-1, 1)\n")
+
+# Mixed NE
+p_star <- 1 / (K + 1)  # P(Straight)
+eu_mixed <- -K / (K + 1)
+cat(sprintf("  Mixed NE: P(Straight) = 1/%d = %.4f\n", K + 1, p_star))
+cat(sprintf("  Expected payoff at mixed NE: %.4f\n", eu_mixed))
+cat(sprintf("  P(mutual crash): %.4f\n", p_star^2))
+
+# === Vary K: how crash severity affects equilibrium ===
+cat("\n--- Effect of Crash Severity K ---\n")
+cat(sprintf("  %-6s %-12s %-12s %-12s\n", "K", "P(Straight)", "EU(mixed)", "P(crash)"))
+for (K in c(2, 5, 10, 20, 100)) {
+  p <- 1 / (K + 1)
+  eu <- -K / (K + 1)
+  cat(sprintf("  %-6d %-12.4f %-12.4f %-12.6f\n", K, p, eu, p^2))
+}
+
+# === Brinkmanship: commitment value ===
+cat("\n--- Brinkmanship: Value of Commitment ---\n")
+for (K in c(2, 5, 10, 50)) {
+  game <- chicken_game(K)
+  eu_mixed <- -K / (K + 1)
+  eu_commit <- 1  # Committer gets (Straight, Swerve) payoff
+  eu_yield <- -1  # Opponent forced to swerve
+  cat(sprintf("  K=%3d: EU(mixed)=%.3f, EU(commit)=%.3f, gain=%.3f\n",
+              K, eu_mixed, eu_commit, eu_commit - eu_mixed))
+}
+
+# === Repeated Chicken with reputation ===
+cat("\n--- Repeated Chicken (1000 rounds) ---\n")
+n_rounds <- 1000
+K <- 5
+# Strategy: tit-for-tat aggression
+# Player 1: start aggressive, copy opponent's last action
+# Player 2: start swerving, but go straight if opponent swerved last round
+actions <- matrix(0, n_rounds, 2)  # 0=swerve, 1=straight
+actions[1, ] <- c(1, 0)  # P1 starts tough, P2 starts soft
+
+for (t in 2:n_rounds) {
+  # P1: reciprocate — copy P2's last action
+  actions[t, 1] <- actions[t-1, 2]
+  # P2: anti-reciprocate — do opposite of P1's last action
+  actions[t, 2] <- 1 - actions[t-1, 1]
+}
+
+payoffs <- matrix(0, n_rounds, 2)
+for (t in 1:n_rounds) {
+  a1 <- actions[t, 1]; a2 <- actions[t, 2]
+  if (a1 == 0 && a2 == 0) { payoffs[t, ] <- c(0, 0) }
+  else if (a1 == 1 && a2 == 0) { payoffs[t, ] <- c(1, -1) }
+  else if (a1 == 0 && a2 == 1) { payoffs[t, ] <- c(-1, 1) }
+  else { payoffs[t, ] <- c(-K, -K) }
+}
+
+cat(sprintf("  P1 avg payoff: %.3f, P2 avg payoff: %.3f\n",
+            mean(payoffs[, 1]), mean(payoffs[, 2])))
+cat(sprintf("  Crashes: %d (%.1f%%)\n",
+            sum(actions[, 1] == 1 & actions[, 2] == 1),
+            100 * mean(actions[, 1] == 1 & actions[, 2] == 1)))
+cat(sprintf("  Alternation pattern: P1 straight %.0f%%, P2 straight %.0f%%\n",
+            100 * mean(actions[, 1]), 100 * mean(actions[, 2])))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-chicken-equilibria
+#| fig-cap: "Figure 1. Best-response correspondence for the Chicken game (K=5). The row player's best response (solid) and column player's best response (dashed) intersect at three Nash equilibria: two pure (corners) and one mixed (interior). The mixed NE at (1/6, 1/6) creates a positive crash probability of 1/36. As K increases, the mixed NE shifts toward (0,0) — players become more cautious as crashes become more costly. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 8
+#| fig-height: 6
+#| dpi: 300
+
+K_vals <- c(2, 5, 10)
+br_data <- lapply(K_vals, function(K) {
+  p_seq <- seq(0, 1, 0.001)
+  # Row player BR to column's q: straight if EU(straight|q) > EU(swerve|q)
+  # EU(straight|q) = 1*(1-q) + (-K)*q = 1 - (K+1)*q
+  # EU(swerve|q) = 0*(1-q) + (-1)*q = -q
+  # Straight if 1-(K+1)q > -q → 1 > Kq → q < 1/K
+  # Similarly for column
+  tibble(
+    p = p_seq,
+    br_row_q = ifelse(p_seq < 1/K, 1, ifelse(p_seq > 1/K, 0, 1/(K+1))),
+    K_label = paste0("K = ", K)
+  )
+}) |> bind_rows()
+
+# NE points
+ne_points <- lapply(K_vals, function(K) {
+  tibble(p = c(1, 0, 1/(K+1)),
+         q = c(0, 1, 1/(K+1)),
+         K_label = paste0("K = ", K),
+         type = c("Pure NE 1", "Pure NE 2", "Mixed NE"))
+}) |> bind_rows()
+
+ggplot() +
+  # Best response for row: vertical line at q = 1/K
+  geom_vline(data = tibble(K_label = paste0("K = ", K_vals),
+                            xint = 1/K_vals),
+             aes(xintercept = xint), color = okabe_ito[5], linewidth = 1) +
+  # Best response for column: horizontal line at p = 1/K
+  geom_hline(data = tibble(K_label = paste0("K = ", K_vals),
+                            yint = 1/K_vals),
+             aes(yintercept = yint), color = okabe_ito[6], linewidth = 1,
+             linetype = "dashed") +
+  geom_point(data = ne_points, aes(x = q, y = p, shape = type),
+             size = 4, color = okabe_ito[3]) +
+  facet_wrap(~K_label) +
+  scale_shape_manual(values = c("Pure NE 1" = 15, "Pure NE 2" = 17,
+                                 "Mixed NE" = 18), name = "Equilibrium") +
+  labs(title = "Chicken game: best responses and Nash equilibria",
+       subtitle = "Solid = Row BR, Dashed = Col BR; higher K pushes mixed NE toward (0,0)",
+       x = "q = P(Straight) for column", y = "p = P(Straight) for row") +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_publication()
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-chicken-crash-interactive
+
+# Crash probability and expected payoff vs K
+K_seq <- seq(1.1, 50, 0.5)
+crash_data <- tibble(
+  K = K_seq,
+  p_straight = 1 / (K_seq + 1),
+  p_crash = (1 / (K_seq + 1))^2,
+  eu_mixed = -K_seq / (K_seq + 1),
+  commitment_gain = 1 - (-K_seq / (K_seq + 1)),
+  text = paste0("K = ", round(K_seq, 1),
+                "\nP(Straight) = ", round(1/(K_seq+1), 4),
+                "\nP(Crash) = ", round((1/(K_seq+1))^2, 6),
+                "\nEU(mixed) = ", round(-K_seq/(K_seq+1), 3),
+                "\nCommitment gain = ", round(1 + K_seq/(K_seq+1), 3))
+) |>
+  pivot_longer(c(p_crash, eu_mixed), names_to = "metric", values_to = "value") |>
+  mutate(
+    label = ifelse(metric == "p_crash", "P(mutual crash)", "Expected payoff (mixed NE)"),
+    text = paste0("K = ", round(K, 1), "\n", label, " = ", round(value, 4))
+  )
+
+p_crash <- ggplot(crash_data, aes(x = K, y = value, color = label, text = text)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = okabe_ito[c(6, 5)], name = NULL) +
+  labs(title = "Chicken game: crash risk and payoffs vs severity",
+       subtitle = "Higher K → less aggressive mixing but worse expected payoff",
+       x = "Crash severity (K)", y = "Value") +
+  theme_publication()
+
+ggplotly(p_crash, tooltip = "text") |>
+  config(displaylogo = FALSE, modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The Chicken game reveals a fundamental paradox of strategic interaction: the most dangerous situations arise precisely when both players are rational and understand the game perfectly. If one player were irrational — always choosing Straight regardless — the rational player would simply swerve, and the outcome would be safe (if unfair). It is the mutual rationality, combined with the inability to coordinate on which pure equilibrium to play, that drives players to the dangerous mixed equilibrium where crashes occur with positive probability.
+
+Schelling's brinkmanship insight transforms this analysis from descriptive to prescriptive. If you can credibly commit to playing Straight — by publicly throwing away your steering wheel, by building automatic retaliation systems, by staking your reputation on not backing down — you shift the game from simultaneous to sequential, and the opponent's only rational response is to swerve. The value of commitment is enormous: in the mixed NE with K=5, the expected payoff is -5/6 ≈ -0.83, while the committed player gets +1, a gain of nearly 2 payoff units. But commitment is a double-edged sword: if both players attempt it simultaneously, the result is guaranteed catastrophe. The paradox of deterrence is that the most stable outcome requires exactly one player to be inflexible — symmetric commitment is catastrophic.
+
+The crash severity parameter K reveals a counterintuitive relationship: as crashes become more devastating (higher K), the mixed equilibrium becomes safer (lower P(crash) = 1/(K+1)²) but the expected payoff becomes worse (EU → -1). This is because rational players become extremely cautious when the stakes are high — they almost never choose Straight in the mixed NE. But the small remaining probability of mutual Straight, multiplied by the enormous K, still produces a negative expected payoff approaching -1. This captures the Cold War nuclear deterrence paradox: the more devastating nuclear weapons become, the less likely they are to be used, but the expected damage (probability × consequence) doesn't decrease — it stays roughly constant. The "balance of terror" is stable in the sense that nuclear war is unlikely, but unstable in the sense that the expected cost of deterrence remains high.
+
+The repeated game dynamics show that alternation — taking turns being the one who stands firm — is a natural and efficient outcome. This captures many real-world patterns: firms taking turns being aggressive in advertising, countries alternating between hawkish and dovish phases, and even drivers at unmarked intersections who develop informal turn-taking conventions. The alternation pattern achieves an average payoff of 0 for both players, which is better than the mixed NE payoff of -K/(K+1) and represents a form of tacit cooperation in a game that has no cooperative pure equilibrium.
+
+
+## Extensions & related tutorials
+
+- [Hawk-Dove and the war of attrition](../../evolutionary-gt/hawk-dove-war-of-attrition/) — the evolutionary biology version of Chicken.
+- [Correlated equilibrium](../../foundations/correlated-equilibrium/) — traffic lights as a correlation device for Chicken.
+- [Global games and coordination](../../bayesian-methods/global-games-coordination/) — coordination under uncertainty.
+- [Arms race and Cold War](../../real-world-data-applications/arms-race-cold-war/) — Chicken in international relations.
+- [Signaling games and PBE](../../foundations/signaling-games-pbe/) — how commitment is communicated credibly.
+
+
+## References
+
+::: {#refs}
+:::

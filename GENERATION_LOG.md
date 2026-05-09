@@ -51,3 +51,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-09 | 5.32 | Batch 8: 6 articles (group A) | VAR-strategic, spectrum-auction, interior-point, THP-refinement, war-of-attrition-sealed, English-auction |
 | 2026-05-09 | 5.33 | Batch 8: 6 articles (group B) | Savage-SEU, spatial-evolution, matching-markets, common-value-estimation, endowment-effect, spectrum-policy |
 | 2026-05-09 | 5.34 | Batch 8: 6 articles (group C) + refs | Shapley-Shubik, beauty-contest, network-interdiction, Fehr-Schmidt, rational-inattention, no-regret-learning |
+| 2026-05-09 | 5.35 | Batch 9: foundations + classical-games ×2 | epsilon-equilibrium-approximate, chicken-game-brinkmanship |
+| 2026-05-09 | 5.36 | Batch 9: 6 articles (group A) | network-visualization-igraph, cointegration-strategic-long-run, bayesian-inference-game-parameters, cellular-automata-game-theory, literate-programming-game-theory, uber-surge-pricing-game |
+| 2026-05-09 | 5.37 | Batch 9: 6 articles (group B) | vignette-writing-game-packages, kaggle-competition-strategic, simulated-annealing-equilibria, two-sided-markets-platforms, deep-reinforcement-learning-games, singular-value-decomposition-games |
+| 2026-05-09 | 5.38 | Batch 9: 6 articles (group C) | von-neumann-minimax-proof, surveillance-privacy-equilibrium, organ-donation-mechanism, commitment-schemes-game-theory, instrumental-variables-strategic, multi-armed-bandits-exploration |
