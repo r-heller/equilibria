@@ -1,21 +1,21 @@
 ---
-title: "Granger causality in strategic interaction data"
-description: "Apply Granger causality tests to detect strategic interdependence in time-series data, distinguishing simultaneous Cournot play from sequential Stackelberg leadership in simulated oligopoly settings."
+title: "Granger causality in strategic interactions"
+description: "Test for Granger causality between strategic variables in game-theoretic settings, using VAR estimation, F-tests, and impulse response analysis to determine whether one firm's pricing decisions predictively lead another's."
 author: "Raban Heller"
 date: 2026-05-08
 date-modified: 2026-05-08
 categories:
   - time-series-econometrics
   - Granger causality
-  - Cournot
-  - Stackelberg
-keywords: ["Granger causality", "strategic interaction", "Cournot", "Stackelberg", "VAR", "oligopoly", "R"]
-labels: ["time-series", "causality"]
+  - VAR models
+  - strategic pricing
+keywords: ["Granger causality", "vector autoregression", "strategic interaction", "time series", "R"]
+labels: ["econometrics", "time-series"]
 tier: 1
 bibliography: ../../references.bib
 vgwort: "TODO_VGWORT_time-series-econometrics_granger-causality-strategic"
 image: thumbnail.png
-image-alt: "Time series plot of two firms' quantity choices with impulse-response function showing strategic lag structure"
+image-alt: "Time series plot showing two firms pricing trajectories with impulse response functions indicating Granger-causal relationships"
 citation:
   type: webpage
   url: https://r-heller.github.io/equilibria/tutorials/time-series-econometrics/granger-causality-strategic/
@@ -29,15 +29,12 @@ has_shiny_app: false
 ```{r}
 #| label: setup
 #| include: false
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(plotly)
-
 okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
                "#0072B2", "#D55E00", "#CC79A7", "#999999")
-
 theme_publication <- function(base_size = 12) {
   theme_minimal(base_size = base_size) +
     theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
@@ -50,357 +47,200 @@ theme_publication <- function(base_size = 12) {
 
 ## Introduction & motivation
 
-When two firms compete in a market over time, the sequential pattern of their actions contains information about the nature of their strategic interaction. In Cournot competition, firms choose quantities simultaneously: each firm's current output depends on its own history and possibly on expectations about the rival, but there is no direct mechanical dependence of firm B's current quantity on firm A's past quantity beyond what firm B's own history already captures. In Stackelberg competition, by contrast, the follower explicitly conditions on the leader's observed action: firm B's current output is a direct function of firm A's previous output.
+In markets where firms interact repeatedly, a fundamental empirical question arises: does one firm's strategic behavior influence another's future decisions? Standard game theory models simultaneous decision-making through Nash equilibrium concepts, but real markets unfold in continuous time, with firms observing each other's past actions and adjusting accordingly. A gasoline station might lower its price after observing a competitor's price cut yesterday. An airline might adjust seat availability on a route after seeing a rival's fare changes last week. These temporal patterns of strategic response are precisely what Granger causality tests are designed to detect.
 
-Granger causality provides a formal statistical test for this distinction. Variable $X$ is said to Granger-cause variable $Y$ if past values of $X$ contain information useful for predicting $Y$ beyond what is contained in past values of $Y$ alone. In the oligopoly context, if firm A's past quantities Granger-cause firm B's current quantity, this is evidence of sequential (Stackelberg-like) play: firm B is reacting to firm A's observed choices. If neither firm Granger-causes the other, this is consistent with simultaneous (Cournot-like) play where each firm acts based on its own information set.
+Granger causality, introduced by Clive Granger in 1969, formalizes a specific notion of predictive precedence: a variable $X$ Granger-causes variable $Y$ if past values of $X$ contain information useful for predicting $Y$ beyond what is already contained in past values of $Y$ itself. This is not causality in the structural or interventionist sense -- it is a statement about predictive information content in time series data. Nevertheless, in strategic settings, Granger causality provides valuable evidence about the direction and timing of competitive responses.
 
-The test is implemented through a vector autoregression (VAR). We regress each firm's current quantity on lagged values of both firms' quantities, then test whether the coefficients on the rival's lags are jointly zero. The F-statistic for this exclusion restriction is the Granger causality test statistic. Significant rejection in one direction but not the other suggests asymmetric leadership --- precisely the Stackelberg structure.
+The application of Granger causality to strategic interactions raises several methodological challenges that distinguish it from standard macroeconomic applications. First, if firms truly play a simultaneous-move game each period, their actions are determined by common state variables rather than by each other's past actions, and Granger causality tests may fail to detect genuine strategic interdependence. Second, if firms observe each other's actions with a lag and respond optimally, the pattern of Granger causality reflects the information structure and adjustment speed rather than the underlying payoff structure. Third, common shocks -- such as input cost changes or demand shifts -- can induce spurious Granger causality between firms' strategies if not properly controlled for.
 
-This tutorial simulates 200 periods of oligopoly data under both Cournot and Stackelberg regimes, implements the Granger causality test from scratch using ordinary least squares (no external VAR packages), and visualises impulse-response functions that show how a shock to one firm's output propagates through the system. The impulse-response analysis provides an intuitive dynamic complement to the formal Granger test: in Stackelberg play, a shock to the leader generates a delayed but systematic response in the follower, while in Cournot play, shocks to either firm dissipate independently.
+Despite these caveats, Granger causality analysis within a Vector Autoregression (VAR) framework offers practical value for applied researchers studying competitive dynamics. The VAR model treats all strategic variables symmetrically, estimating how each variable depends on its own lags and the lags of all other variables. Impulse response functions derived from the estimated VAR show how a shock to one firm's strategy propagates through the system over time, capturing the dynamic multiplier effects of strategic adjustment.
 
-Understanding the causal structure of strategic interactions matters beyond academia. In antitrust economics, evidence that one firm systematically leads while others follow may indicate market power or tacit collusion. In regulation, knowing whether firms interact simultaneously or sequentially informs the design of capacity markets, spectrum auctions, and procurement mechanisms. The Granger causality framework translates these applied questions into testable statistical hypotheses.
-
+In this tutorial, we simulate a duopoly pricing game where two firms set prices over 300 periods, with firm A acting as a Stackelberg-like leader whose prices Granger-cause firm B's, while firm B's prices have a weaker reverse effect. We estimate a VAR model, conduct Granger causality F-tests, and compute impulse response functions to visualize the dynamic strategic interaction.
 
 ## Mathematical formulation
 
-Consider two firms choosing quantities $q_{1t}$ and $q_{2t}$ over periods $t = 1, \ldots, T$. A VAR(p) model of order $p$ represents the joint dynamics:
+Consider a bivariate VAR($p$) model for two firms' prices $(P_t^A, P_t^B)$:
 
 $$
-\begin{pmatrix} q_{1t} \\ q_{2t} \end{pmatrix} = \begin{pmatrix} c_1 \\ c_2 \end{pmatrix} + \sum_{k=1}^{p} \begin{pmatrix} \alpha_{11}^{(k)} & \alpha_{12}^{(k)} \\ \alpha_{21}^{(k)} & \alpha_{22}^{(k)} \end{pmatrix} \begin{pmatrix} q_{1,t-k} \\ q_{2,t-k} \end{pmatrix} + \begin{pmatrix} \varepsilon_{1t} \\ \varepsilon_{2t} \end{pmatrix}
+\begin{pmatrix} P_t^A \\ P_t^B \end{pmatrix} = \boldsymbol{c} + \sum_{k=1}^{p} \boldsymbol{A}_k \begin{pmatrix} P_{t-k}^A \\ P_{t-k}^B \end{pmatrix} + \boldsymbol{u}_t
 $$
 
-**Granger causality test**: Firm 1 does not Granger-cause Firm 2 if and only if:
+where $\boldsymbol{A}_k$ are $2 \times 2$ coefficient matrices and $\boldsymbol{u}_t \sim N(\boldsymbol{0}, \boldsymbol{\Sigma})$. The null hypothesis for Granger non-causality from $P^A$ to $P^B$ is:
 
 $$
-H_0: \alpha_{21}^{(1)} = \alpha_{21}^{(2)} = \cdots = \alpha_{21}^{(p)} = 0
+H_0: A_k^{(2,1)} = 0 \quad \forall k = 1, \ldots, p
 $$
 
-This is tested via an F-test comparing the restricted model (Firm 2's quantity regressed only on its own lags) to the unrestricted model (including Firm 1's lags):
+The F-test statistic under the null is:
 
 $$
-F = \frac{(\text{RSS}_r - \text{RSS}_u) / p}{\text{RSS}_u / (T - 2p - 1)}
+F = \frac{(RSS_R - RSS_U) / p}{RSS_U / (T - 2p - 1)} \sim F(p, T - 2p - 1)
 $$
 
-Under $H_0$, $F \sim F(p, T - 2p - 1)$.
-
-**Impulse-response function**: The response of $q_{2,t+h}$ to a unit shock $\varepsilon_{1t} = 1$ at horizon $h$ is given by the $(2,1)$ element of $\Phi_h$, where:
+The impulse response function at horizon $h$ is given by the $(i,j)$ element of $\boldsymbol{\Phi}_h$, computed recursively:
 
 $$
-\Phi_h = \sum_{k=1}^{\min(h,p)} A_k \, \Phi_{h-k}, \qquad \Phi_0 = I_2
+\boldsymbol{\Phi}_h = \sum_{k=1}^{h} \boldsymbol{A}_k \boldsymbol{\Phi}_{h-k}, \qquad \boldsymbol{\Phi}_0 = \boldsymbol{I}_2
 $$
-
 
 ## R implementation
 
-We simulate two scenarios: (1) Cournot play with no cross-firm dependence in the data-generating process, and (2) Stackelberg play where Firm 2 is a follower reacting to Firm 1's past output.
+We simulate duopoly pricing data with asymmetric Granger-causal structure and estimate the VAR model using OLS.
 
 ```{r}
-#| label: simulate-oligopoly-data
+#| label: granger-estimation
 
-set.seed(2026)
-T_periods <- 200
-p_lag <- 2  # VAR lag order
+set.seed(42)
 
-# --- Scenario 1: Cournot (simultaneous play) ---
-q1_cournot <- numeric(T_periods)
-q2_cournot <- numeric(T_periods)
-q1_cournot[1:2] <- c(50, 52)
-q2_cournot[1:2] <- c(48, 50)
+n <- 300
+p_a <- numeric(n)
+p_b <- numeric(n)
+p_a[1:2] <- c(10, 10.2)
+p_b[1:2] <- c(10, 9.8)
 
-for (t in 3:T_periods) {
-  # Each firm's quantity depends only on its own lags (no cross effects)
-  q1_cournot[t] <- 10 + 0.5 * q1_cournot[t-1] + 0.2 * q1_cournot[t-2] +
-                    rnorm(1, 0, 3)
-  q2_cournot[t] <- 12 + 0.45 * q2_cournot[t-1] + 0.25 * q2_cournot[t-2] +
-                    rnorm(1, 0, 3)
+for (t in 3:n) {
+  p_a[t] <- 2 + 0.6 * p_a[t-1] + 0.1 * p_a[t-2] +
+            0.05 * p_b[t-1] + rnorm(1, 0, 0.3)
+  p_b[t] <- 1.5 + 0.4 * p_b[t-1] + 0.1 * p_b[t-2] +
+            0.3 * p_a[t-1] + 0.1 * p_a[t-2] + rnorm(1, 0, 0.3)
 }
 
-# --- Scenario 2: Stackelberg (Firm 1 leads, Firm 2 follows) ---
-q1_stackel <- numeric(T_periods)
-q2_stackel <- numeric(T_periods)
-q1_stackel[1:2] <- c(50, 52)
-q2_stackel[1:2] <- c(48, 50)
+df_ts <- data.frame(t = 1:n, price_A = p_a, price_B = p_b)
 
-for (t in 3:T_periods) {
-  # Firm 1 (leader): depends only on own lags
-  q1_stackel[t] <- 10 + 0.5 * q1_stackel[t-1] + 0.2 * q1_stackel[t-2] +
-                    rnorm(1, 0, 3)
-  # Firm 2 (follower): reacts to Firm 1's past output
-  q2_stackel[t] <- 12 + 0.3 * q2_stackel[t-1] + 0.1 * q2_stackel[t-2] -
-                    0.3 * q1_stackel[t-1] + 0.1 * q1_stackel[t-2] +
-                    rnorm(1, 0, 3)
+lag1_a <- p_a[2:(n-1)]; lag2_a <- p_a[1:(n-2)]
+lag1_b <- p_b[2:(n-1)]; lag2_b <- p_b[1:(n-2)]
+y_a <- p_a[3:n]; y_b <- p_b[3:n]
+
+full_b <- lm(y_b ~ lag1_b + lag2_b + lag1_a + lag2_a)
+rest_b <- lm(y_b ~ lag1_b + lag2_b)
+
+f_a_to_b <- ((sum(rest_b$residuals^2) - sum(full_b$residuals^2)) / 2) /
+             (sum(full_b$residuals^2) / full_b$df.residual)
+p_val_a_to_b <- pf(f_a_to_b, 2, full_b$df.residual, lower.tail = FALSE)
+
+full_a <- lm(y_a ~ lag1_a + lag2_a + lag1_b + lag2_b)
+rest_a <- lm(y_a ~ lag1_a + lag2_a)
+
+f_b_to_a <- ((sum(rest_a$residuals^2) - sum(full_a$residuals^2)) / 2) /
+             (sum(full_a$residuals^2) / full_a$df.residual)
+p_val_b_to_a <- pf(f_b_to_a, 2, full_a$df.residual, lower.tail = FALSE)
+
+cat("Granger causality test results:\n")
+cat(sprintf("  A -> B: F = %.3f, p-value = %.6f %s\n",
+            f_a_to_b, p_val_a_to_b,
+            ifelse(p_val_a_to_b < 0.05, "(significant)", "(not significant)")))
+cat(sprintf("  B -> A: F = %.3f, p-value = %.6f %s\n",
+            f_b_to_a, p_val_b_to_a,
+            ifelse(p_val_b_to_a < 0.05, "(significant)", "(not significant)")))
+
+# Compute impulse responses via simulation
+A1 <- matrix(c(coef(full_a)["lag1_a"], coef(full_b)["lag1_a"],
+               coef(full_a)["lag1_b"], coef(full_b)["lag1_b"]), 2, 2)
+A2 <- matrix(c(coef(full_a)["lag2_a"], coef(full_b)["lag2_a"],
+               coef(full_a)["lag2_b"], coef(full_b)["lag2_b"]), 2, 2)
+
+horizons <- 20
+irf_a_shock <- matrix(0, horizons + 1, 2)
+irf_a_shock[1, ] <- c(1, 0)
+if (horizons >= 1) irf_a_shock[2, ] <- A1 %*% irf_a_shock[1, ]
+for (h in 3:(horizons + 1)) {
+  irf_a_shock[h, ] <- A1 %*% irf_a_shock[h-1, ] + A2 %*% irf_a_shock[h-2, ]
 }
 
-cat("=== Simulated Oligopoly Data ===\n")
-cat(sprintf("Cournot: Firm 1 mean = %.1f, Firm 2 mean = %.1f\n",
-            mean(q1_cournot), mean(q2_cournot)))
-cat(sprintf("Stackelberg: Firm 1 mean = %.1f, Firm 2 mean = %.1f\n",
-            mean(q1_stackel), mean(q2_stackel)))
-```
-
-```{r}
-#| label: granger-causality-test
-
-# --- Granger causality test implementation ---
-
-granger_test <- function(y, x, p = 2) {
-  # Test: does x Granger-cause y?
-  T_len <- length(y)
-  n_eff <- T_len - p  # effective sample size
-
-  # Build lag matrices
-  Y <- y[(p + 1):T_len]
-  X_restricted <- matrix(NA, nrow = n_eff, ncol = p)
-  X_unrestricted <- matrix(NA, nrow = n_eff, ncol = 2 * p)
-
-  for (k in 1:p) {
-    X_restricted[, k] <- y[(p + 1 - k):(T_len - k)]
-    X_unrestricted[, k] <- y[(p + 1 - k):(T_len - k)]
-    X_unrestricted[, p + k] <- x[(p + 1 - k):(T_len - k)]
-  }
-
-  # Add intercept
-  X_r <- cbind(1, X_restricted)
-  X_u <- cbind(1, X_unrestricted)
-
-  # OLS fits
-  fit_r <- lm.fit(X_r, Y)
-  fit_u <- lm.fit(X_u, Y)
-
-  RSS_r <- sum(fit_r$residuals^2)
-  RSS_u <- sum(fit_u$residuals^2)
-
-  # F-test
-  df1 <- p  # number of restrictions
-  df2 <- n_eff - 2 * p - 1
-  F_stat <- ((RSS_r - RSS_u) / df1) / (RSS_u / df2)
-  p_value <- pf(F_stat, df1, df2, lower.tail = FALSE)
-
-  list(F_stat = F_stat, df1 = df1, df2 = df2, p_value = p_value,
-       RSS_r = RSS_r, RSS_u = RSS_u)
-}
-
-# --- Run tests for both scenarios ---
-cat("=== Granger Causality Test Results ===\n\n")
-
-cat("--- Cournot scenario (no causal structure expected) ---\n")
-gc_c_1to2 <- granger_test(q2_cournot, q1_cournot, p = p_lag)
-gc_c_2to1 <- granger_test(q1_cournot, q2_cournot, p = p_lag)
-cat(sprintf("  Firm 1 -> Firm 2: F = %.3f, p = %.4f %s\n",
-            gc_c_1to2$F_stat, gc_c_1to2$p_value,
-            ifelse(gc_c_1to2$p_value < 0.05, "*", "")))
-cat(sprintf("  Firm 2 -> Firm 1: F = %.3f, p = %.4f %s\n\n",
-            gc_c_2to1$F_stat, gc_c_2to1$p_value,
-            ifelse(gc_c_2to1$p_value < 0.05, "*", "")))
-
-cat("--- Stackelberg scenario (Firm 1 -> Firm 2 expected) ---\n")
-gc_s_1to2 <- granger_test(q2_stackel, q1_stackel, p = p_lag)
-gc_s_2to1 <- granger_test(q1_stackel, q2_stackel, p = p_lag)
-cat(sprintf("  Firm 1 -> Firm 2: F = %.3f, p = %.4f %s\n",
-            gc_s_1to2$F_stat, gc_s_1to2$p_value,
-            ifelse(gc_s_1to2$p_value < 0.05, "***", "")))
-cat(sprintf("  Firm 2 -> Firm 1: F = %.3f, p = %.4f %s\n",
-            gc_s_2to1$F_stat, gc_s_2to1$p_value,
-            ifelse(gc_s_2to1$p_value < 0.05, "*", "")))
-```
-
-```{r}
-#| label: impulse-response-functions
-
-# --- Impulse-response analysis for Stackelberg scenario ---
-
-# Estimate VAR(2) coefficients for Stackelberg data
-estimate_var <- function(y1, y2, p = 2) {
-  T_len <- length(y1)
-  n_eff <- T_len - p
-
-  Y1 <- y1[(p + 1):T_len]
-  Y2 <- y2[(p + 1):T_len]
-  X <- matrix(1, nrow = n_eff, ncol = 1)  # intercept
-  for (k in 1:p) {
-    X <- cbind(X, y1[(p + 1 - k):(T_len - k)], y2[(p + 1 - k):(T_len - k)])
-  }
-
-  coef1 <- lm.fit(X, Y1)$coefficients
-  coef2 <- lm.fit(X, Y2)$coefficients
-
-  # Extract VAR coefficient matrices A_k
-  A_list <- list()
-  for (k in 1:p) {
-    idx <- 1 + (k - 1) * 2 + 1
-    A_list[[k]] <- matrix(c(coef1[idx], coef1[idx + 1],
-                             coef2[idx], coef2[idx + 1]),
-                           nrow = 2, byrow = TRUE)
-  }
-  list(A = A_list, intercept = c(coef1[1], coef2[1]))
-}
-
-var_est <- estimate_var(q1_stackel, q2_stackel, p = p_lag)
-
-# Compute impulse-response function
-H_max <- 20  # horizons
-Phi <- vector("list", H_max + 1)
-Phi[[1]] <- diag(2)  # Phi_0 = I
-
-for (h in 1:H_max) {
-  Phi[[h + 1]] <- matrix(0, 2, 2)
-  for (k in 1:min(h, p_lag)) {
-    Phi[[h + 1]] <- Phi[[h + 1]] + var_est$A[[k]] %*% Phi[[h - k + 1]]
-  }
-}
-
-# Extract IRF: response of q2 to shock in q1
-irf_21 <- sapply(0:H_max, function(h) Phi[[h + 1]][2, 1])
-irf_11 <- sapply(0:H_max, function(h) Phi[[h + 1]][1, 1])
-
-irf_data <- data.frame(
-  horizon = rep(0:H_max, 2),
-  response = c(irf_11, irf_21),
-  type = rep(c("Firm 1 to itself", "Firm 1 to Firm 2 (follower)"),
-             each = H_max + 1)
+irf_df <- data.frame(
+  horizon = rep(0:horizons, 2),
+  response = c(irf_a_shock[, 1], irf_a_shock[, 2]),
+  variable = rep(c("Price A (own response)", "Price B (cross response)"),
+                 each = horizons + 1)
 )
 
-cat("\n=== Impulse-Response Function (Stackelberg) ===\n")
-cat("Response to unit shock in Firm 1's output:\n")
-cat(sprintf("  Horizon 0: Firm 1 = %.3f, Firm 2 = %.3f\n", irf_11[1], irf_21[1]))
-cat(sprintf("  Horizon 1: Firm 1 = %.3f, Firm 2 = %.3f\n", irf_11[2], irf_21[2]))
-cat(sprintf("  Horizon 5: Firm 1 = %.3f, Firm 2 = %.3f\n", irf_11[6], irf_21[6]))
-cat(sprintf("  Horizon 10: Firm 1 = %.3f, Firm 2 = %.3f\n", irf_11[11], irf_21[11]))
+cat(sprintf("\nImpulse response of B to A shock at horizon 1: %.4f\n",
+            irf_a_shock[2, 2]))
+cat(sprintf("Impulse response of B to A shock at horizon 5: %.4f\n",
+            irf_a_shock[6, 2]))
 ```
-
 
 ## Static publication-ready figure
 
-The static figure presents a two-panel comparison: the Stackelberg time series with the Granger causality test results annotated, and the impulse-response functions showing how a shock to the leader propagates to the follower.
+The static figure displays the impulse response functions showing how a unit shock to Firm A's price propagates to both firms' prices over time.
 
 ```{r}
-#| label: fig-granger-causality-static
-#| fig-cap: "Figure 1. Granger causality analysis of simulated oligopoly data under Stackelberg competition. Left panel: time series of Firm 1 (leader, orange) and Firm 2 (follower, blue) quantity choices over 200 periods. Right panel: impulse-response functions showing the dynamic effect of a unit shock to Firm 1's output on itself (orange) and on Firm 2 (blue). The follower's delayed negative response is the hallmark of Stackelberg sequential play."
+#| label: fig-granger-static
+#| fig-cap: "Figure 1. Impulse response functions from a unit shock to Firm A's price in a bivariate VAR(2) model of duopoly pricing. The blue line shows Firm A's own price adjustment, while the orange line traces the cross-response of Firm B's price, revealing the asymmetric Granger-causal structure where A's pricing decisions propagate strongly to B. Simulated data, 300 periods. Okabe-Ito palette."
 #| dev: [png, pdf]
-#| fig-width: 10
+#| fig-width: 9
 #| fig-height: 5
 #| dpi: 300
 
-# Panel 1: Time series
-ts_data <- data.frame(
-  period = rep(1:T_periods, 2),
-  quantity = c(q1_stackel, q2_stackel),
-  firm = rep(c("Firm 1 (Leader)", "Firm 2 (Follower)"), each = T_periods)
-)
-
-p1 <- ggplot(ts_data, aes(x = period, y = quantity, color = firm)) +
-  geom_line(alpha = 0.8, linewidth = 0.5) +
-  scale_color_manual(values = c(okabe_ito[1], okabe_ito[2]), name = "") +
-  annotate("text", x = 100, y = max(ts_data$quantity) * 0.98,
-           label = sprintf("Granger: F1->F2 F=%.1f (p<0.001)",
-                          gc_s_1to2$F_stat),
-           size = 3, color = "grey30") +
-  labs(title = "Stackelberg quantity dynamics",
-       x = "Period", y = "Quantity") +
-  theme_publication() +
-  theme(legend.position = "bottom")
-
-# Panel 2: Impulse-response functions
-p2 <- ggplot(irf_data, aes(x = horizon, y = response, color = type)) +
+p_static <- ggplot(irf_df, aes(x = horizon, y = response, color = variable)) +
   geom_line(linewidth = 1) +
-  geom_point(size = 1.5) +
+  geom_point(size = 2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  scale_color_manual(values = c(okabe_ito[1], okabe_ito[2]), name = "") +
-  labs(title = "Impulse-response to leader shock",
-       x = "Horizon (periods)", y = "Response") +
-  theme_publication() +
-  theme(legend.position = "bottom")
-
-# Combine panels side by side using a simple approach
-# We'll create a combined data plot with faceting
-combined_data <- rbind(
-  ts_data |> mutate(panel = "A. Quantity dynamics",
-                     x_val = period, y_val = quantity,
-                     group = firm),
-  irf_data |> mutate(panel = "B. Impulse-response function",
-                      x_val = horizon, y_val = response,
-                      group = type,
-                      firm = type)
-) |>
-  select(x_val, y_val, group, panel)
-
-p_combined <- ggplot(combined_data,
-       aes(x = x_val, y = y_val, color = group)) +
-  geom_line(linewidth = 0.7) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey80",
-             linewidth = 0.3) +
-  scale_color_manual(
-    values = c("Firm 1 (Leader)" = okabe_ito[1],
-               "Firm 2 (Follower)" = okabe_ito[2],
-               "Firm 1 to itself" = okabe_ito[1],
-               "Firm 1 to Firm 2 (follower)" = okabe_ito[2]),
-    name = "") +
-  facet_wrap(~ panel, scales = "free", nrow = 1) +
+  scale_color_manual(values = c(okabe_ito[2], okabe_ito[1]),
+                     name = "Response") +
   labs(
-    title = "Detecting Stackelberg leadership via Granger causality",
-    subtitle = sprintf("F-test: Firm 1 Granger-causes Firm 2 (F = %.1f, p < 0.001) | 200 periods simulated",
-                       gc_s_1to2$F_stat),
-    x = "", y = "",
-    caption = "Simulated oligopoly data | #equilibria"
+    title = "Impulse response to a shock in Firm A's price",
+    subtitle = "VAR(2) model of strategic duopoly pricing",
+    x = "Horizon (periods)",
+    y = "Response magnitude"
   ) +
-  theme_publication() +
-  theme(strip.text = element_text(size = 10, face = "bold"))
+  theme_publication()
 
-p_combined
+p_static
 ```
-
 
 ## Interactive figure
 
-The interactive version provides hover details for each time point and impulse-response horizon, enabling precise inspection of the dynamic relationship between the two firms.
+The interactive version allows precise inspection of impulse response values at each horizon through hover tooltips.
 
 ```{r}
-#| label: fig-granger-causality-interactive
+#| label: fig-granger-interactive
 
-# Interactive time series with Granger test annotation
-ts_hover <- ts_data |>
-  mutate(hover = sprintf("Period: %d\nFirm: %s\nQuantity: %.1f",
-                          period,
-                          ifelse(firm == "Firm 1 (Leader)", "Firm 1 (Leader)",
-                                 "Firm 2 (Follower)"),
-                          quantity))
+irf_interactive <- irf_df |>
+  mutate(
+    text = paste0(
+      "Horizon: ", horizon,
+      "\nResponse: ", sprintf("%.4f", response),
+      "\nVariable: ", variable
+    )
+  )
 
-p_ts_int <- ggplot(ts_hover,
-       aes(x = period, y = quantity, color = firm, text = hover)) +
-  geom_line(alpha = 0.8, linewidth = 0.4) +
-  scale_color_manual(values = c(okabe_ito[1], okabe_ito[2]), name = "") +
-  labs(title = "Stackelberg dynamics (hover for details)",
-       x = "Period", y = "Quantity") +
+p_int <- ggplot(irf_interactive, aes(x = horizon, y = response,
+                                      color = variable, text = text)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c(okabe_ito[2], okabe_ito[1]),
+                     name = "Response") +
+  labs(title = "Interactive IRF explorer",
+       x = "Horizon", y = "Response") +
   theme_publication()
 
-ggplotly(p_ts_int, tooltip = "text") |>
+ggplotly(p_int, tooltip = "text") |>
   config(displaylogo = FALSE,
-         modeBarButtonsToRemove = c("select2d", "lasso2d", "autoScale2d"))
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
 ```
-
 
 ## Interpretation
 
-The Granger causality results sharply distinguish the two competitive regimes. Under Cournot simulation, neither firm significantly Granger-causes the other (both p-values well above 0.05), confirming that the simultaneous data-generating process leaves no detectable cross-firm temporal dependence. This is the expected result: in true simultaneous play, knowing firm A's past actions provides no additional predictive power for firm B's current action, because B was not conditioning on A when making its decision.
+The Granger causality test results confirm the asymmetric strategic relationship embedded in our simulated data. The test for A Granger-causing B yields a highly significant F-statistic, reflecting the strong coefficients (0.3 on the first lag, 0.1 on the second lag) by which Firm B responds to Firm A's past prices. In contrast, the reverse test -- B Granger-causing A -- produces a much weaker result, consistent with the small coefficient (0.05) by which Firm A responds to Firm B. This asymmetry is characteristic of markets with a price leader: the leader sets price based primarily on its own cost and demand conditions, while the follower tracks the leader's price closely.
 
-Under the Stackelberg simulation, Firm 1 strongly Granger-causes Firm 2, while Firm 2 does not significantly Granger-cause Firm 1. This asymmetric pattern is the statistical fingerprint of sequential leadership. The follower's decision rule explicitly incorporates the leader's past output (with a negative coefficient, reflecting best-response substitutability in Cournot-style demand), producing a statistically significant improvement in prediction when the leader's lags are included.
+The impulse response functions provide a dynamic view of this asymmetry that goes beyond the binary significant/not-significant conclusion of the F-test. After a unit shock to Firm A's price, Firm B's price responds positively and substantially in the first period, then gradually decays as the system returns to its steady state. The speed of this decay reflects the stability properties of the VAR system -- the eigenvalues of the companion matrix determine whether shocks are absorbed quickly or persist. In our simulation, the moderate autoregressive coefficients ensure that shocks dissipate within approximately 10 to 15 periods, which in a real market might correspond to several weeks or months depending on the frequency of price adjustment.
 
-The impulse-response function provides a complementary dynamic view. A unit shock to the leader's output generates an immediate response in the leader's own trajectory (persistence due to autoregressive dynamics) and a delayed negative response in the follower. The follower reduces output because the leader's increased quantity shifts the follower down its best-response function. This negative cross-response decays over time as both firms return to their long-run equilibrium quantities, but the initial asymmetry --- an immediate effect on the leader, a delayed and opposite effect on the follower --- is diagnostic of Stackelberg structure.
+Several important caveats apply when interpreting Granger causality in strategic settings. First, Granger causality is a statement about predictive content, not structural causation. If both firms respond to a common unobserved demand shock with different lags, Granger causality tests might indicate that the faster-responding firm "causes" the slower one, even though both are responding to the same exogenous force. In applied work, including control variables for observable common factors (input costs, demand indicators, macroeconomic conditions) helps mitigate this concern, though it cannot fully eliminate it.
 
-Several caveats apply. First, Granger causality is a statistical concept, not a structural one. Finding that Firm 1 Granger-causes Firm 2 is consistent with Stackelberg leadership, but it could also arise from other mechanisms: Firm 1 might respond faster to common demand shocks, or Firm 2 might have longer information lags. Disentangling these explanations requires structural modelling. Second, the test has limited power in short samples. With $T = 50$ rather than $T = 200$, the Granger test may fail to detect genuine sequential play. Third, the lag order $p$ must be chosen carefully: too few lags miss the causal structure, while too many reduce power. Information criteria (AIC, BIC) provide data-driven guidance.
+Second, the lag structure of the VAR matters critically. Too few lags may miss genuine delayed responses, leading to false negatives. Too many lags reduce statistical power and may introduce spurious significance. Information criteria such as AIC or BIC should guide lag selection, with robustness checks across neighboring lag orders. In our implementation, we used two lags matching the true data-generating process, but in practice the researcher does not know the true lag structure.
 
-For antitrust applications, the directional pattern of Granger causality --- one firm leading, the other following --- can serve as preliminary evidence of market power or dominant-firm behaviour, complementing traditional measures like concentration ratios and price-cost margins.
-
+Third, and most fundamentally, if firms play a genuinely simultaneous game each period -- choosing prices at the same instant without observing each other's current-period choice -- then the strategic interaction is captured entirely in the contemporaneous correlation of the error terms, not in the lagged coefficients. Granger causality tests, which examine only lagged relationships, will fail to detect this form of strategic interdependence. Structural VAR methods, which impose identifying restrictions to decompose contemporaneous correlations, are needed to address this case. The Cholesky decomposition commonly used for identification implicitly assumes a causal ordering that may or may not align with the true timing of decisions.
 
 ## Extensions & related tutorials
 
-Granger causality is one tool in the broader econometric toolkit for analysing strategic interaction in time-series data. It pairs naturally with VAR estimation, structural break tests, and dynamic game estimation.
+Granger causality analysis in strategic settings connects naturally to broader topics in time-series econometrics and game-theoretic empirical methods. Extending the bivariate VAR to larger systems allows analysis of multi-firm oligopolies, while structural identification strategies can help distinguish genuine strategic causation from common-factor effects.
 
-- [VAR models for strategic interaction](../../time-series-econometrics/strategic-interaction-var-models/) --- full VAR estimation with model selection, forecasting, and variance decomposition
-- [FRED economic data for game-theoretic calibration](../../public-apis-and-datasets/federal-reserve-fred-data/) --- apply Granger tests to real FRED industry data to detect strategic patterns
-- [Bootstrap inference for game-theoretic quantities](../../statistical-foundations/bootstrap-game-theory/) --- block bootstrap for Granger test statistics under weak dependence
-- [Privacy as a game](../../ethics-applications/privacy-game-theory/) --- time-series analysis of disclosure patterns as strategic sequential moves
-
+- [Bootstrap methods for game-theoretic inference](../../statistical-foundations/bootstrap-methods-game-theory/)
+- [Airbnb host pricing as a strategic game](../../real-world-data-applications/airbnb-pricing-strategy/)
+- [Agent-based modeling for game theory in R](../../simulations/agent-based-modeling-netlogo-style/)
+- [Interactive dashboards for game theory with flexdashboard](../../visualization-and-communication/dashboard-flexdashboard-games/)
 
 ## References
 

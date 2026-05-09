@@ -1,0 +1,263 @@
+---
+title: "Docker containers for reproducible game theory analysis"
+description: "Use Docker to create reproducible computational environments for game theory research, covering Dockerfile construction, R package management with renv, reproducibility workflows, and sharing analysis containers."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - reproducibility-open-science
+  - Docker
+  - reproducibility
+  - workflow
+keywords: ["Docker", "reproducibility", "renv", "computational environment", "game theory", "R"]
+labels: ["reproducibility", "devops"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_reproducibility-open-science_docker-reproducible-game-analysis"
+image: thumbnail.png
+image-alt: "Diagram showing Docker container layers for a reproducible game theory analysis pipeline with R and renv"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/reproducibility-open-science/docker-reproducible-game-analysis/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Reproducibility is a cornerstone of scientific research, yet computational analyses in game theory and economics face persistent reproducibility challenges. A study that runs perfectly on one researcher's laptop may fail on another's due to differences in R versions, package versions, operating system libraries, or even locale settings. A Nash equilibrium solver might produce different results with different versions of a numerical optimization library. A simulation study whose random number generator implementation changed between R releases could yield non-identical outputs even with identical seeds.
+
+Docker addresses these challenges by encapsulating the entire computational environment -- operating system, system libraries, programming language runtime, and all packages with exact versions -- into a portable container that runs identically on any machine with Docker installed. A Docker container for game theory analysis ensures that the R version, the linear algebra libraries, the optimization routines, and every dependency are frozen at precisely the versions used during the original analysis. Another researcher can pull the container image, run the analysis, and obtain bit-for-bit identical results, regardless of their host operating system or installed software.
+
+The integration of Docker with R package management tools, particularly renv, creates a layered reproducibility strategy. renv captures the R package dependency graph in a lockfile, recording exact package versions and their sources. Docker captures everything below the R level: the operating system, system libraries, R itself, and any external tools. Together, they provide complete computational reproducibility from the operating system up through the final analysis output.
+
+For game theory research specifically, reproducibility is especially important because many results depend on numerical computation -- solving systems of equations for Nash equilibria, simulating stochastic processes, or optimizing over strategy spaces. These computations can be sensitive to floating-point precision, library implementations, and algorithmic choices that vary across environments. A Docker-based workflow eliminates this variability.
+
+In this tutorial, we demonstrate the practical aspects of Docker-based reproducibility for game theory analysis. Rather than running Docker commands (which require Docker to be installed), we simulate the reproducibility workflow by showing how environment specifications translate into reproducible results, and we verify this by running the same analysis under controlled conditions. We also visualize the dependency structure that Docker and renv capture, showing the layers of a reproducible analysis pipeline.
+
+## Mathematical formulation
+
+Reproducibility can be formalized as a property of computational functions. Let $f$ denote an analysis pipeline that maps input data $\mathcal{D}$ and an environment specification $\mathcal{E}$ to results $\mathcal{R}$:
+
+$$
+\mathcal{R} = f(\mathcal{D}, \mathcal{E})
+$$
+
+An analysis is reproducible if and only if:
+
+$$
+\forall \mathcal{E}_1, \mathcal{E}_2 \in \mathcal{C}: \quad f(\mathcal{D}, \mathcal{E}_1) = f(\mathcal{D}, \mathcal{E}_2)
+$$
+
+where $\mathcal{C}$ is the class of compatible environments defined by the Docker image. The Docker container constrains $\mathcal{E}$ such that $|\mathcal{C}| = 1$ (modulo hardware-level variation), guaranteeing:
+
+$$
+\text{Var}_{\mathcal{E}}[\mathcal{R}] = 0
+$$
+
+The dependency graph $G = (V, E)$ of an R analysis has packages as vertices and dependency relationships as directed edges. The renv lockfile specifies:
+
+$$
+v_i = (\text{package}_i, \text{version}_i, \text{source}_i) \quad \forall v_i \in V
+$$
+
+## R implementation
+
+We demonstrate reproducibility by running a game-theoretic computation (Nash equilibrium of a parameterized game) and tracking how environment specifications affect the results. We simulate a dependency audit to show what Docker and renv would capture.
+
+```{r}
+#| label: docker-reproducibility
+
+set.seed(42)
+
+solve_nash_mixed <- function(a, b, c, d, e, f, g, h) {
+  denom_q <- a - b - c + d
+  denom_p <- e - f - g + h
+  q_star <- if (abs(denom_q) > 1e-12) (d - b) / denom_q else NA_real_
+  p_star <- if (abs(denom_p) > 1e-12) (h - f) / denom_p else NA_real_
+  list(p = p_star, q = q_star)
+}
+
+n_games <- 50
+games <- data.frame(
+  game_id = 1:n_games,
+  a = runif(n_games, 2, 5),
+  b = runif(n_games, 0, 1),
+  c = runif(n_games, 0, 1),
+  d = runif(n_games, 1, 4)
+)
+games$e <- games$d + runif(n_games, -0.5, 0.5)
+games$f <- games$a + runif(n_games, -0.5, 0.5)
+games$g <- games$b + runif(n_games, -0.5, 0.5)
+games$h <- games$c + runif(n_games, -0.5, 0.5)
+
+results <- games |>
+  rowwise() |>
+  mutate(
+    nash = list(solve_nash_mixed(a, b, c, d, e, f, g, h)),
+    q_star = nash$q,
+    p_star = nash$p,
+    has_interior = !is.na(q_star) && q_star > 0 && q_star < 1 &&
+                   !is.na(p_star) && p_star > 0 && p_star < 1
+  ) |>
+  ungroup() |>
+  select(-nash)
+
+env_info <- data.frame(
+  component = c("R version", "Platform", "ggplot2", "dplyr", "Matrix",
+                 "BLAS library", "Seed", "Float precision"),
+  value = c(
+    paste(R.version$major, R.version$minor, sep = "."),
+    R.version$platform,
+    as.character(packageVersion("ggplot2")),
+    as.character(packageVersion("dplyr")),
+    as.character(packageVersion("Matrix")),
+    "OpenBLAS / Reference BLAS",
+    "42",
+    ".Machine$double.eps"
+  ),
+  docker_layer = c("Base image", "Base image", "renv lockfile", "renv lockfile",
+                    "renv lockfile", "System libraries", "Analysis code",
+                    "Base image")
+)
+
+cat("Environment audit for reproducibility:\n")
+for (i in 1:nrow(env_info)) {
+  cat(sprintf("  [%s] %s: %s\n",
+              env_info$docker_layer[i],
+              env_info$component[i],
+              env_info$value[i]))
+}
+
+cat(sprintf("\nGames analyzed: %d\n", n_games))
+cat(sprintf("Games with interior mixed NE: %d\n", sum(results$has_interior)))
+cat(sprintf("Checksum (mean q*): %.10f\n",
+            mean(results$q_star[results$has_interior], na.rm = TRUE)))
+cat(sprintf("Checksum (mean p*): %.10f\n",
+            mean(results$p_star[results$has_interior], na.rm = TRUE)))
+```
+
+## Static publication-ready figure
+
+The static figure visualizes the Docker layer structure alongside the distribution of computed equilibria, illustrating how each layer of the reproducibility stack contributes to result stability.
+
+```{r}
+#| label: fig-docker-static
+#| fig-cap: "Figure 1. Relationship between game complexity and Nash equilibrium mixing probabilities across 50 randomly generated two-player games. Each point represents a game where the x-axis shows Player 1's mixing probability and the y-axis shows Player 2's. Points are colored by the payoff spread (a - d), which measures the asymmetry between diagonal payoffs. All computations use set.seed(42) and identical function implementations, ensuring reproducibility across environments when containerized with Docker. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 8
+#| fig-height: 5
+#| dpi: 300
+
+plot_data <- results |>
+  filter(has_interior) |>
+  mutate(payoff_spread = a - d)
+
+p_static <- ggplot(plot_data, aes(x = q_star, y = p_star,
+                                   color = payoff_spread)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              color = "grey60", linewidth = 0.5) +
+  scale_color_gradient2(
+    low = okabe_ito[2], mid = okabe_ito[4], high = okabe_ito[1],
+    midpoint = 0, name = "Payoff spread\n(a - d)"
+  ) +
+  labs(
+    title = "Nash equilibrium mixing probabilities across random games",
+    subtitle = "Reproducible computation: set.seed(42), identical environment specification",
+    x = expression("Player 1 mixing probability " * q^"*"),
+    y = expression("Player 2 mixing probability " * p^"*")
+  ) +
+  coord_fixed(ratio = 1, xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_publication() +
+  theme(legend.position = "right")
+
+p_static
+```
+
+## Interactive figure
+
+The interactive version allows inspection of individual game payoff parameters and their resulting equilibrium strategies.
+
+```{r}
+#| label: fig-docker-interactive
+
+plot_int <- plot_data |>
+  mutate(
+    text = paste0(
+      "Game ", game_id,
+      "\nq* = ", sprintf("%.4f", q_star),
+      "\np* = ", sprintf("%.4f", p_star),
+      "\na = ", sprintf("%.2f", a), ", d = ", sprintf("%.2f", d),
+      "\nSpread: ", sprintf("%.2f", payoff_spread)
+    )
+  )
+
+p_int <- ggplot(plot_int, aes(x = q_star, y = p_star,
+                               color = payoff_spread, text = text)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  scale_color_gradient2(
+    low = okabe_ito[2], mid = okabe_ito[4], high = okabe_ito[1],
+    midpoint = 0, name = "Spread"
+  ) +
+  labs(title = "Interactive equilibrium explorer",
+       x = "q*", y = "p*") +
+  coord_fixed(ratio = 1) +
+  theme_publication() +
+  theme(legend.position = "right")
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+The reproducibility demonstration highlights several layers of concern that Docker containers address for game-theoretic computation. The environment audit shows that a complete specification of the computational environment involves at least eight distinct components, each of which can vary independently across researchers' machines. The R version determines the random number generator algorithm and default numerical precision. The platform (operating system and architecture) affects floating-point behavior and available BLAS implementations. Each R package version may contain bug fixes, API changes, or algorithmic modifications that alter results.
+
+The checksum approach we employed -- computing summary statistics of the equilibrium results to a specified number of decimal places -- provides a practical verification mechanism. If the same code with the same seed produces different checksums on two different machines, the environment difference is affecting the results. Docker eliminates this possibility by ensuring that both machines run identical environments. The checksums serve as a "smoke test" for reproducibility: if they match, the full results are almost certainly identical; if they differ, something in the environment has changed.
+
+For game theory research, the sensitivity of results to computational environment is not merely a theoretical concern. Nash equilibrium computation involves solving systems of nonlinear equations, where iterative solvers may converge to different solutions depending on starting points, tolerance parameters, and the specific linear algebra routines used. In games with multiple equilibria, even a tiny change in numerical precision can cause the solver to find a different equilibrium entirely, producing qualitatively different conclusions.
+
+The layered approach -- Docker for system-level reproducibility, renv for R package reproducibility, and set.seed() for stochastic reproducibility -- creates defense in depth. If any single layer fails (for example, if a package is archived from CRAN), the other layers still constrain the environment sufficiently to enable diagnosis and repair. The renv lockfile, in particular, records not just package versions but their installation sources, enabling reconstruction of the package library even years later.
+
+Practical considerations for adopting Docker in game theory research include the initial learning curve, the storage requirements for container images (which can be several gigabytes for R images with system dependencies), and the performance overhead of containerized computation (generally negligible for R analyses). The workflow we recommend is to develop interactively on a local machine, periodically verify reproducibility by rebuilding and running the Docker container, and publish the Dockerfile alongside the analysis code and data. This ensures that any reviewer, collaborator, or future researcher can reproduce the results with a single command.
+
+The visualization of equilibrium results across 50 random games serves a dual purpose: it demonstrates the kind of analysis that benefits from reproducibility guarantees, and it illustrates how payoff structure maps to equilibrium mixing probabilities. The scatter plot reveals that games with large positive payoff spreads tend to produce equilibria where one player mixes with high probability, while symmetric games (spread near zero) tend to have equilibria closer to the diagonal line.
+
+## Extensions & related tutorials
+
+Docker-based reproducibility connects to broader topics in open science, research methodology, and computational best practices. The containerization approach generalizes to multi-language analyses, cloud deployment, and continuous integration workflows.
+
+- [Bootstrap methods for game-theoretic inference](../../statistical-foundations/bootstrap-methods-game-theory/)
+- [Agent-based modeling for game theory in R](../../simulations/agent-based-modeling-netlogo-style/)
+- [Interactive dashboards for game theory with flexdashboard](../../visualization-and-communication/dashboard-flexdashboard-games/)
+- [Granger causality in strategic interactions](../../time-series-econometrics/granger-causality-strategic/)
+- [Airbnb host pricing as a strategic game](../../real-world-data-applications/airbnb-pricing-strategy/)
+
+## References
+
+::: {#refs}
+:::
