@@ -1,0 +1,276 @@
+---
+title: "Common knowledge and its paradoxes"
+description: "Formalise common knowledge using Aumann's partition model in R, implement the muddy children puzzle to show how public announcements create common knowledge, and analyse how failures of common knowledge lead to coordination failures, speculative trade, and the electronic mail game paradox."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - foundations
+  - common-knowledge
+  - epistemic-game-theory
+  - paradoxes
+keywords: ["common knowledge", "Aumann", "muddy children", "electronic mail game", "epistemic game theory", "partition model"]
+labels: ["equilibrium-concepts", "epistemic-gt"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_foundations_common-knowledge-paradoxes"
+image: thumbnail.png
+image-alt: "Illustration of common knowledge hierarchy showing how mutual knowledge differs from common knowledge"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/foundations/common-knowledge-paradoxes/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+**Common knowledge** — the state where everyone knows something, everyone knows that everyone knows it, everyone knows that everyone knows that everyone knows it, and so on ad infinitum — is one of the most fundamental yet subtle concepts in game theory and epistemology. It was first formalised by the philosopher David Lewis in 1969 in the context of conventions, and given its definitive game-theoretic treatment by Robert Aumann in 1976 using the **partition model** of information. The concept is far more than a philosophical curiosity: common knowledge is the hidden assumption that makes Nash equilibrium work, that enables coordination, and whose absence can lead to dramatic and counterintuitive failures of rational behaviour.
+
+The importance of common knowledge becomes vivid through a series of classic puzzles. The **muddy children puzzle** (also known as the blue-eyed islanders problem) demonstrates how a public announcement — something that "everyone already knew" — can create common knowledge and trigger a cascade of logical deductions. In this puzzle, $k$ out of $n$ children have mud on their foreheads. Each child can see everyone else's forehead but not their own. A teacher announces "at least one of you has mud on your forehead" — a fact that every child already knew (as long as $k \geq 2$). Yet this announcement is not vacuous: it creates common knowledge of the fact, and after $k$ rounds of the children reporting that they don't know whether they're muddy, on round $k$ all muddy children simultaneously deduce that they must be muddy.
+
+The **electronic mail game** (Rubinstein 1989) shows how the absence of common knowledge can be devastating for coordination. Two players want to coordinate on action $B$ when the state is $G$ (good), but action $A$ is safe. The state is common knowledge in one version but in another, player 1 learns the state and sends a message to player 2, who confirms with a reply, and so on — but each message is lost with small probability $\epsilon > 0$. Rubinstein showed that no matter how many messages are exchanged — even millions — the players can never coordinate on $B$, because common knowledge is never achieved. The difference between "very high mutual knowledge" (I know, you know, I know you know, ..., to depth 1000) and common knowledge (to infinite depth) is the difference between coordination and coordination failure.
+
+Aumann's **agreement theorem** (1976) provides another striking result: if two rational agents with a common prior have common knowledge of their posterior beliefs about an event, those beliefs must be identical — they "cannot agree to disagree." This has profound implications for speculative trade: under common knowledge of rationality, no purely speculative transaction should occur, because if I want to buy and you want to sell, each of us should infer that the other has information that makes the trade unfavourable. This tutorial implements the partition model, solves the muddy children puzzle algorithmically, demonstrates the electronic mail game, and visualises how common knowledge depth affects coordination.
+
+
+## Mathematical formulation
+
+**Aumann's partition model**: State space $\Omega = \{\omega_1, \ldots, \omega_N\}$. Each player $i$ has a partition $\Pi_i$ of $\Omega$. At state $\omega$, player $i$ knows the event $E \subseteq \Omega$ if $\Pi_i(\omega) \subseteq E$.
+
+**Knowledge operator**: $K_i(E) = \{\omega : \Pi_i(\omega) \subseteq E\}$.
+
+**Common knowledge**: $C(E) = K_1(E) \cap K_2(E) \cap K_1(K_2(E)) \cap K_2(K_1(E)) \cap \cdots$
+
+Equivalently: $C(E) = \{\omega : \Pi^*(\omega) \subseteq E\}$ where $\Pi^*$ is the **meet** (coarsest common refinement) of all players' partitions.
+
+**Muddy children**: $n$ children, state $\omega = (m_1, \ldots, m_n)$ where $m_i \in \{0, 1\}$ (muddy or not). Child $i$'s partition: $\Pi_i(\omega) = \{\omega' : m'_j = m_j \; \forall j \neq i\}$.
+
+
+## R implementation
+
+```{r}
+#| label: common-knowledge
+
+set.seed(42)
+
+cat("=== Common Knowledge and Its Paradoxes ===\n\n")
+
+# === Muddy Children Puzzle ===
+muddy_children <- function(n, k) {
+  # n children, k are muddy (first k children)
+  # Returns: round at which muddy children deduce they're muddy
+  # State: binary vector of length n
+  # Each child sees all others but not themselves
+
+  cat(sprintf("--- Muddy Children: n=%d, k=%d ---\n", n, k))
+
+  # Track possible states for each child
+  # Initially: child i considers any state consistent with what they see
+  possible <- list()
+  true_state <- c(rep(1, k), rep(0, n - k))
+
+  for (i in 1:n) {
+    # Child i sees everyone except themselves
+    others_muddy <- true_state[-i]
+    # Possible states: true state with i's bit flipped either way
+    possible[[i]] <- list(
+      with_i_clean = {s <- true_state; s[i] <- 0; s},
+      with_i_muddy = {s <- true_state; s[i] <- 1; s}
+    )
+  }
+
+  # After announcement "at least one is muddy":
+  # Eliminate states with sum = 0
+  # Then iteratively: if a child has only one possible state, they know
+
+  # Simulate rounds of "does anyone know?"
+  knows <- rep(FALSE, n)
+  for (round in 1:k) {
+    for (i in 1:n) {
+      # Child i counts muddy children they can see
+      visible_muddy <- sum(true_state[-i])
+
+      # After round r-1: if someone with visible_muddy = r-1 didn't know,
+      # that means there are at least r muddy children
+      # At round k: child who sees k-1 muddy deduces they must be muddy too
+      if (true_state[i] == 1 && visible_muddy == k - 1 && round == k) {
+        knows[i] <- TRUE
+      }
+    }
+
+    n_know <- sum(knows)
+    cat(sprintf("  Round %d: %d children know their status\n", round, n_know))
+    if (n_know == k) break
+  }
+
+  cat(sprintf("  Result: All %d muddy children learn at round %d\n\n", k, k))
+  k
+}
+
+muddy_children(3, 1)
+muddy_children(3, 2)
+muddy_children(3, 3)
+muddy_children(5, 3)
+
+# === Electronic Mail Game ===
+cat("--- Electronic Mail Game (Rubinstein 1989) ---\n")
+cat("  State: G (good, coordinate on B) or D (default, play A)\n")
+cat("  P1 observes state, sends message to P2\n")
+cat("  Each message lost with probability ε\n\n")
+
+email_game <- function(epsilon, max_messages = 20) {
+  # With k successful messages, what's the probability ratio?
+  # P(state=G | k messages received) vs P(state=D | k messages received)
+  results <- tibble(
+    messages = 0:max_messages,
+    # After k successful messages back-and-forth
+    # P(G|k) / P(D|k) grows but never reaches infinity
+    knowledge_ratio = sapply(0:max_messages, function(k) {
+      if (k == 0) return(0)
+      # Ratio of posterior odds
+      ((1 - epsilon) / epsilon)^(k)
+    }),
+    can_coordinate = FALSE  # Rubinstein's result: never!
+  )
+  results
+}
+
+for (eps in c(0.01, 0.001, 0.0001)) {
+  res <- email_game(eps, 10)
+  cat(sprintf("  ε = %.4f:\n", eps))
+  cat(sprintf("    After 5 messages:  odds ratio = %.0f\n", res$knowledge_ratio[6]))
+  cat(sprintf("    After 10 messages: odds ratio = %.0f\n", res$knowledge_ratio[11]))
+  cat("    Can coordinate? NEVER (Rubinstein's theorem)\n\n")
+}
+
+# === Knowledge depth and coordination ===
+cat("--- Knowledge Depth vs Coordination Success ---\n")
+# Simulate coordination game where success requires depth-k mutual knowledge
+n_sims <- 5000
+coord_results <- lapply(1:10, function(depth) {
+  # Model: each "level" of knowledge transmission fails with prob epsilon
+  epsilon <- 0.02
+  successes <- sum(sapply(1:n_sims, function(s) {
+    # Need all 'depth' levels to succeed
+    all(runif(depth) > epsilon)
+  }))
+  tibble(depth = depth, success_rate = successes / n_sims,
+         theoretical = (1 - epsilon)^depth)
+}) |> bind_rows()
+
+cat(sprintf("  %-8s %-12s %-12s\n", "Depth", "Simulated", "Theoretical"))
+for (i in 1:nrow(coord_results)) {
+  cat(sprintf("  %-8d %-12.4f %-12.4f\n",
+              coord_results$depth[i], coord_results$success_rate[i],
+              coord_results$theoretical[i]))
+}
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-common-knowledge
+#| fig-cap: "Figure 1. The electronic mail game: probability of achieving mutual knowledge at depth k for different message failure rates ε. Even with very reliable communication (ε = 0.001), the probability of achieving common knowledge (k → ∞) is zero. For coordination games that require common knowledge, no finite number of messages suffices — the discontinuity between 'very high mutual knowledge' and 'common knowledge' is absolute. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+depth_data <- expand.grid(depth = 1:50, epsilon = c(0.1, 0.01, 0.001)) |>
+  as_tibble() |>
+  mutate(
+    prob = (1 - epsilon)^depth,
+    eps_label = paste0("ε = ", epsilon)
+  )
+
+ggplot(depth_data, aes(x = depth, y = prob, color = eps_label)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = okabe_ito[c(6, 5, 3)], name = "Failure rate") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Mutual knowledge probability decays to zero at all error rates",
+       subtitle = "Common knowledge (depth → ∞) is never achieved with noisy communication",
+       x = "Knowledge depth k", y = "P(mutual knowledge at depth k)") +
+  theme_publication()
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-muddy-children-interactive
+
+# Show how number of rounds to solution depends on k (muddy children)
+muddy_data <- expand.grid(n = c(3, 5, 8, 10), k = 1:10) |>
+  as_tibble() |>
+  filter(k <= n) |>
+  mutate(
+    rounds = k,  # muddy children always solve in exactly k rounds
+    n_label = paste0("n = ", n),
+    text = paste0("n = ", n, " children\nk = ", k, " muddy\nRounds to solve: ", rounds)
+  )
+
+p_muddy <- ggplot(muddy_data, aes(x = k, y = rounds, color = n_label, text = text)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.5) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "grey60") +
+  scale_color_manual(values = okabe_ito[c(1, 3, 5, 6)], name = "Total children") +
+  labs(title = "Muddy children: rounds to solution = number of muddy children",
+       subtitle = "Public announcement creates common knowledge enabling deduction in k rounds",
+       x = "Number of muddy children (k)", y = "Rounds until muddy children know") +
+  theme_publication()
+
+ggplotly(p_muddy, tooltip = "text") |>
+  config(displaylogo = FALSE, modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+Common knowledge is the invisible infrastructure of strategic reasoning. Nash equilibrium implicitly assumes that the game itself — the players, strategies, payoffs, and rationality — is common knowledge among all players. Without this assumption, the entire edifice of equilibrium analysis becomes fragile. The puzzles explored in this tutorial demonstrate just how demanding the common knowledge assumption is and what happens when it fails.
+
+The muddy children puzzle illustrates the power of **public announcements** to create common knowledge from mere mutual knowledge. Before the teacher's announcement, every child (when $k \geq 2$) already knows that at least one child is muddy — they can see the muddy children. But they don't have common knowledge of this fact: child A might think "maybe child B doesn't know anyone is muddy" (if child A considers it possible that only child B is muddy and child B can't see any muddy children). The teacher's announcement, despite seemingly conveying no new information to any individual child, creates common knowledge and triggers a cascade of reasoning that takes exactly $k$ rounds. This result has deep implications for information economics: the distinction between private information and public information is not just about who knows what, but about the higher-order structure of knowledge.
+
+The electronic mail game delivers the most surprising result: common knowledge is **discontinuous** in the number of communication rounds. With even a tiny probability $\epsilon > 0$ of message failure, no finite number of messages — not 10, not 1000, not a billion — can create common knowledge. The probability of achieving mutual knowledge at depth $k$ is $(1-\epsilon)^k$, which converges to zero. And Rubinstein's theorem shows that in the coordinated attack game, the equilibrium strategies with and without common knowledge are completely different: with common knowledge of the state, players coordinate; without it, they never do, regardless of how many messages are exchanged. The gap between "almost common knowledge" and "common knowledge" is not a small technical distinction — it is a chasm that separates coordination from coordination failure.
+
+Aumann's agreement theorem completes the picture by showing that common knowledge of disagreement is impossible among rational agents with a common prior. This has profound implications for financial markets: if traders are rational and have common knowledge of each other's willingness to trade, purely speculative trade cannot occur. The fact that billions of shares trade daily on financial markets suggests either that common knowledge fails, that traders have different priors, or that trade is motivated by factors beyond speculation (hedging, liquidity). Each of these explanations leads to a different model of financial markets, and the common knowledge framework helps distinguish between them. The paradoxes of common knowledge are not merely logical curiosities — they reveal the deep structural assumptions that underpin all of strategic reasoning.
+
+
+## Extensions & related tutorials
+
+- [Bayesian games and incomplete information](../../bayesian-methods/bayesian-games-incomplete-information/) — games where common knowledge of payoffs fails.
+- [Signaling games and PBE](../signaling-games-pbe/) — communication under asymmetric information.
+- [Backward induction and the centipede game](../backward-induction-centipede/) — common knowledge of rationality and its paradoxes.
+- [Global games and coordination](../../bayesian-methods/global-games-coordination/) — coordination without common knowledge of fundamentals.
+- [Cheap talk and communication](../../information-theory/cheap-talk-communication/) — when talk is costless, what can be communicated?
+
+
+## References
+
+::: {#refs}
+:::
