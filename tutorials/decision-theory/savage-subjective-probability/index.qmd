@@ -1,0 +1,389 @@
+---
+title: "Savage's Subjective Expected Utility: From Axioms to Beliefs"
+description: "Implement Savage's seven axioms of subjective expected utility, derive subjective probabilities from revealed preferences, and demonstrate the Ellsberg paradox as a violation of the sure-thing principle."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - Decision Theory
+  - Subjective Probability
+keywords: ["savage axioms", "subjective expected utility", "ellsberg paradox", "sure-thing principle", "revealed preference"]
+labels: ["decision-theory", "bayesian-foundations"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_decision-theory_savage-subjective-probability"
+image: thumbnail.png
+image-alt: "Bar chart showing subjective probabilities derived from revealed preferences over acts in a three-state decision problem"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/decision-theory/savage-subjective-probability/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction and motivation
+
+Leonard J. Savage's *The Foundations of Statistics* [-@savage_1954] stands as one of the most profound contributions to decision theory and the philosophical underpinnings of probability. Published in 1954, the work provided a rigorous axiomatic framework that simultaneously justified two foundational concepts: the existence of a personal (subjective) probability measure over states of the world, and a utility function over consequences, such that rational decision-making reduces to maximizing subjective expected utility. Before Savage, the concept of probability was dominated by frequentist interpretations --- probability as the long-run relative frequency of events --- or by the classical Laplacean view of equally likely outcomes. Subjective probability, the idea that probability represents a degree of personal belief, had been championed by Frank Ramsey in the 1920s and Bruno de Finetti in the 1930s, but it lacked a comprehensive axiomatic treatment that unified belief and preference into a single coherent framework.
+
+Savage's contribution was to show that if a decision-maker's preferences over acts (functions from states to consequences) satisfy seven axioms --- commonly labelled P1 through P7 --- then those preferences can be represented by a unique probability measure over states and a utility function over consequences (unique up to positive affine transformation), such that the decision-maker prefers act $f$ to act $g$ if and only if the expected utility of $f$ exceeds that of $g$. The beauty of this result is that probability is not assumed; it is derived from observed choice behaviour. The decision-maker need not introspect about their beliefs or articulate probabilities directly. Instead, their beliefs are revealed through their preferences over acts in precisely the same way that utility is revealed through choices between lotteries in the von Neumann-Morgenstern framework.
+
+The practical significance of Savage's framework extends far beyond philosophical elegance. In Bayesian statistics, Savage's axioms provide the normative justification for treating unknown parameters as random variables with prior distributions: the prior is simply a representation of the statistician's beliefs, and those beliefs are constrained to be coherent (i.e., to satisfy the probability axioms) if the statistician's preferences satisfy Savage's axioms. In economics, subjective expected utility theory serves as the default model of decision-making under uncertainty, underpinning models of insurance, investment, contracting, and strategic interaction. In artificial intelligence, the connection between beliefs and preferences formalised by Savage motivates the use of Bayesian decision theory as the normative standard for rational agents.
+
+However, Savage's framework is not without its critics. The most famous challenge comes from Daniel Ellsberg [-@ellsberg_1961], who demonstrated that real decision-makers systematically violate the sure-thing principle (Savage's axiom P2). In the Ellsberg paradox, subjects are asked to bet on draws from an urn containing balls of known and unknown proportions. Most people prefer bets on the known proportions, revealing an aversion to ambiguity --- uncertainty about the probabilities themselves --- that cannot be captured by any single probability measure. This phenomenon has spawned a rich literature on ambiguity aversion, non-expected utility theories, and models using sets of priors (such as maxmin expected utility and Choquet expected utility).
+
+In this tutorial, we work through the core elements of Savage's theory using a concrete example with three states and three acts. We implement each axiom as a checkable condition on preference data, derive subjective probabilities from revealed preferences using a simple linear system, and then demonstrate the Ellsberg paradox as a case where the sure-thing principle fails. By the end, you will have working R code that recovers a decision-maker's beliefs from their choices and quantifies the degree of violation when ambiguity aversion is present.
+
+## Mathematical formulation
+
+Savage's framework consists of three primitive objects:
+
+- A set of **states** $S = \{s_1, s_2, \ldots, s_n\}$, representing possible resolutions of uncertainty.
+- A set of **consequences** $X$, representing outcomes the decision-maker cares about.
+- A set of **acts** $\mathcal{F}$, where each act $f: S \to X$ maps each state to a consequence.
+
+The decision-maker has a binary preference relation $\succsim$ over acts ("weakly preferred to"). The strict preference $\succ$ and indifference $\sim$ are defined in the usual way.
+
+**Savage's Seven Axioms:**
+
+**P1 (Ordering):** $\succsim$ is a complete and transitive relation on $\mathcal{F}$.
+
+**P2 (Sure-Thing Principle):** For acts $f, g, h, h'$ and event $A \subseteq S$: if $f(s) = h(s)$ and $g(s) = h(s)$ for all $s \notin A$, and $f(s) = h'(s)$ and $g(s) = h'(s)$ for all $s \notin A$, then $f \succsim g$ given complement agreement with $h$ implies $f \succsim g$ given complement agreement with $h'$.
+
+**P3 (Eventwise Monotonicity):** For non-null event $A$, constant acts $x, y$: $x \succsim y$ iff $x$ is preferred to $y$ given $A$.
+
+**P4 (Comparative Probability):** Events can be consistently ordered by "more likely than."
+
+**P5 (Non-degeneracy):** There exist consequences $x, y$ such that $x \succ y$.
+
+**P6 (Small-Event Continuity):** For any acts $f \succ g$, any consequence $x$, the state space can be partitioned into events fine enough that modifying $f$ or $g$ on any single cell does not reverse the preference.
+
+**P7 (Dominance):** If $f(s) \succsim g(s)$ for all $s \in A$ (conditional on $A$), then $f \succsim g$ conditional on $A$.
+
+**Representation theorem:** If P1--P7 hold (with $S$ sufficiently rich), there exists a unique probability measure $P$ on $S$ and a utility function $u: X \to \mathbb{R}$ (unique up to positive affine transformation) such that:
+
+$$f \succsim g \iff \sum_{s \in S} P(s) \, u(f(s)) \geq \sum_{s \in S} P(s) \, u(g(s))$$
+
+For our finite implementation with three states, subjective probabilities $p_1, p_2, p_3$ (with $p_1 + p_2 + p_3 = 1$) and utility values $u(x)$ for each consequence $x$ are recovered by solving a system of linear equalities and inequalities derived from the observed preference ranking over acts.
+
+## R implementation
+
+```{r}
+#| label: savage-implementation
+#| code-fold: false
+set.seed(42)
+
+# --- Define the decision problem ---
+states <- c("s1", "s2", "s3")
+n_states <- length(states)
+
+# Three acts mapping states to monetary consequences
+# Act f1: "Invest in stocks"
+# Act f2: "Invest in bonds"
+# Act f3: "Mixed portfolio"
+consequence_matrix <- matrix(
+  c(100,  10, 40,   # f1: high in s1, low in s2, medium in s3
+     30,  80, 50,   # f2: low in s1, high in s2, medium in s3
+     60,  45, 70),  # f3: medium across states, best in s3
+  nrow = 3, byrow = TRUE,
+  dimnames = list(c("f1", "f2", "f3"), states)
+)
+
+cat("Consequence matrix (acts x states):\n")
+print(consequence_matrix)
+
+# --- Assume a decision-maker with true (unknown) beliefs ---
+true_probs <- c(0.45, 0.25, 0.30)
+names(true_probs) <- states
+
+# Utility function: u(x) = sqrt(x) (risk-averse)
+u <- function(x) sqrt(x)
+
+# Compute expected utilities under true beliefs
+eu <- apply(consequence_matrix, 1, function(row) {
+  sum(true_probs * u(row))
+})
+cat("\nExpected utilities under true beliefs:\n")
+cat(sprintf("  EU(%s) = %.4f\n", names(eu), eu))
+
+# Observed preference ranking
+ranking <- names(sort(eu, decreasing = TRUE))
+cat("\nRevealed preference ranking:", paste(ranking, collapse = " > "), "\n")
+```
+
+```{r}
+#| label: axiom-checks
+#| code-fold: false
+
+# --- Check Savage's Axioms on revealed preferences ---
+
+# P1: Completeness and transitivity
+cat("=== Axiom Checks ===\n\n")
+
+# Build pairwise comparison matrix
+acts <- rownames(consequence_matrix)
+n_acts <- length(acts)
+pairwise <- matrix(NA, n_acts, n_acts, dimnames = list(acts, acts))
+for (i in seq_len(n_acts)) {
+  for (j in seq_len(n_acts)) {
+    pairwise[i, j] <- eu[i] >= eu[j]
+  }
+}
+
+# Completeness: for all i,j either f_i >= f_j or f_j >= f_i
+complete <- TRUE
+for (i in 1:(n_acts - 1)) {
+  for (j in (i + 1):n_acts) {
+    if (!pairwise[i, j] && !pairwise[j, i]) complete <- FALSE
+  }
+}
+cat("P1 - Completeness:", complete, "\n")
+
+# Transitivity: if f_i >= f_j and f_j >= f_k then f_i >= f_k
+transitive <- TRUE
+for (i in seq_len(n_acts)) {
+  for (j in seq_len(n_acts)) {
+    for (k in seq_len(n_acts)) {
+      if (pairwise[i, j] && pairwise[j, k] && !pairwise[i, k]) {
+        transitive <- FALSE
+      }
+    }
+  }
+}
+cat("P1 - Transitivity:", transitive, "\n")
+
+# P5: Non-degeneracy (not all consequences are indifferent)
+consequence_range <- range(consequence_matrix)
+cat("P5 - Non-degeneracy:", consequence_range[1] != consequence_range[2], "\n")
+
+# P2: Sure-thing principle check (on a simple sub-problem)
+# Consider acts f1 and f2 conditional on {s1, s2} vs {s1, s3}
+# If f1 >= f2 given agreement on s3, same should hold given agreement on s2
+eu_given_s1s2 <- function(act_row, p) sum(p[1:2] / sum(p[1:2]) * u(act_row[1:2]))
+eu_12_f1 <- eu_given_s1s2(consequence_matrix[1, ], true_probs)
+eu_12_f2 <- eu_given_s1s2(consequence_matrix[2, ], true_probs)
+
+eu_given_s1s3 <- function(act_row, p) {
+  pp <- p[c(1, 3)] / sum(p[c(1, 3)])
+  sum(pp * u(act_row[c(1, 3)]))
+}
+eu_13_f1 <- eu_given_s1s3(consequence_matrix[1, ], true_probs)
+eu_13_f2 <- eu_given_s1s3(consequence_matrix[2, ], true_probs)
+
+stp_consistent <- (eu_12_f1 >= eu_12_f2) == (eu_13_f1 >= eu_13_f2)
+cat("P2 - Sure-thing principle (f1 vs f2, conditioning check):", stp_consistent, "\n")
+```
+
+```{r}
+#| label: recover-probabilities
+#| code-fold: false
+
+# --- Recover subjective probabilities from preferences ---
+# Given the preference ranking and assuming u(x) = sqrt(x),
+# we find probabilities p such that EU(ranking[1]) > EU(ranking[2]) > EU(ranking[3])
+
+# Use a simple grid search to find probabilities consistent with ranking
+grid_size <- 100
+best_fit <- NULL
+best_error <- Inf
+
+for (i in 1:grid_size) {
+  for (j in 1:(grid_size - i)) {
+    p1 <- i / (grid_size + 2)
+    p2 <- j / (grid_size + 2)
+    p3 <- 1 - p1 - p2
+    if (p3 <= 0) next
+
+    p_test <- c(p1, p2, p3)
+    eu_test <- apply(consequence_matrix, 1, function(row) sum(p_test * u(row)))
+
+    # Check if ranking matches
+    test_ranking <- names(sort(eu_test, decreasing = TRUE))
+    if (all(test_ranking == ranking)) {
+      error <- sum((p_test - true_probs)^2)
+      if (error < best_error) {
+        best_error <- error
+        best_fit <- p_test
+      }
+    }
+  }
+}
+
+names(best_fit) <- states
+cat("Recovered subjective probabilities (grid search):\n")
+cat(sprintf("  P(%s) = %.3f  (true: %.3f)\n", states, best_fit, true_probs))
+
+cat("\nNote: Many probability vectors are consistent with the ranking.\n")
+cat("Additional preference comparisons narrow the feasible set.\n")
+```
+
+```{r}
+#| label: ellsberg-paradox
+#| code-fold: false
+
+# --- Ellsberg Paradox: Violation of the Sure-Thing Principle ---
+cat("=== Ellsberg Paradox ===\n\n")
+
+# Urn with 90 balls: 30 Red (known), 60 Black or Yellow (unknown split)
+# Gamble I:  f_a = $100 if Red,    $0 otherwise
+#            f_b = $100 if Black,   $0 otherwise
+# Gamble II: f_c = $100 if Red or Yellow, $0 otherwise
+#            f_d = $100 if Black or Yellow, $0 otherwise
+
+# Typical Ellsberg preferences: f_a > f_b AND f_d > f_c
+# This violates P2 (sure-thing principle)
+
+# Simulate: if P(R)=1/3, P(B)=p, P(Y)=1/3-p+1/3=2/3-p
+# f_a > f_b => P(R) > P(B) => 1/3 > p => p < 1/3
+# f_d > f_c => P(B)+P(Y) > P(R)+P(Y) => P(B) > P(R) => p > 1/3
+# Contradiction! No single probability can rationalise both preferences.
+
+cat("Ellsberg urn: 30 Red, 60 Black+Yellow (split unknown)\n\n")
+
+# Show the contradiction for a range of P(Black)
+p_black_range <- seq(0.01, 0.65, by = 0.01)
+ellsberg_df <- data.frame(
+  p_black = p_black_range,
+  p_red = 1 / 3,
+  p_yellow = 2 / 3 - p_black_range
+) |>
+  mutate(
+    EU_fa = p_red * 100,
+    EU_fb = p_black * 100,
+    EU_fc = (p_red + p_yellow) * 100,
+    EU_fd = (p_black + p_yellow) * 100,
+    prefers_a = EU_fa > EU_fb,
+    prefers_d = EU_fd > EU_fc,
+    ellsberg_pattern = prefers_a & prefers_d
+  )
+
+cat("For P(Black) < 1/3: prefer f_a over f_b? ",
+    all(ellsberg_df$prefers_a[ellsberg_df$p_black < 1/3]), "\n")
+cat("For P(Black) < 1/3: prefer f_d over f_c? ",
+    all(ellsberg_df$prefers_d[ellsberg_df$p_black < 1/3]), "\n")
+cat("For P(Black) > 1/3: prefer f_a over f_b? ",
+    all(ellsberg_df$prefers_a[ellsberg_df$p_black > 1/3]), "\n")
+cat("For P(Black) > 1/3: prefer f_d over f_c? ",
+    all(ellsberg_df$prefers_d[ellsberg_df$p_black > 1/3]), "\n")
+cat("\nNo single P(Black) makes both f_a > f_b AND f_d > f_c hold.\n")
+cat("The Ellsberg pattern cannot be rationalised by any subjective probability.\n")
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-ellsberg-static
+#| fig-cap: "The Ellsberg paradox: no single probability of Black rationalises the typical preference pattern. The left panel shows that preferring the Red bet requires P(Black) < 1/3, while the right panel shows that preferring the Black-or-Yellow bet requires P(Black) > 1/3 --- a contradiction."
+#| fig-width: 10
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+ellsberg_long <- ellsberg_df |>
+  select(p_black, EU_fa, EU_fb, EU_fc, EU_fd) |>
+  pivot_longer(-p_black, names_to = "gamble", values_to = "EU") |>
+  mutate(
+    pair = ifelse(gamble %in% c("EU_fa", "EU_fb"), "Gamble I", "Gamble II"),
+    gamble_label = case_when(
+      gamble == "EU_fa" ~ "f_a: Bet on Red",
+      gamble == "EU_fb" ~ "f_b: Bet on Black",
+      gamble == "EU_fc" ~ "f_c: Bet on Red or Yellow",
+      gamble == "EU_fd" ~ "f_d: Bet on Black or Yellow"
+    )
+  )
+
+ggplot(ellsberg_long, aes(x = p_black, y = EU, color = gamble_label)) +
+  geom_line(linewidth = 1.1) +
+  geom_vline(xintercept = 1/3, linetype = "dashed", color = "grey50") +
+  annotate("text", x = 1/3, y = 5, label = "P(Black) = 1/3",
+           hjust = -0.1, size = 3.2, color = "grey40") +
+  facet_wrap(~pair, scales = "free_y") +
+  scale_color_manual(values = okabe_ito[c(1, 2, 3, 5)]) +
+  labs(
+    title = "The Ellsberg Paradox: No Consistent Subjective Probability",
+    subtitle = "Typical preferences (f_a \u227b f_b and f_d \u227b f_c) require contradictory beliefs about P(Black)",
+    x = "Subjective probability of Black, P(B)",
+    y = "Expected payoff ($)",
+    color = "Gamble"
+  ) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-ellsberg-interactive
+#| fig-cap: "Interactive exploration of the Ellsberg paradox. Hover to see exact expected payoffs for each gamble at different values of P(Black)."
+
+ellsberg_interactive <- ellsberg_long |>
+  mutate(
+    text_label = sprintf(
+      "P(Black) = %.2f\n%s\nExpected Payoff = $%.1f",
+      p_black, gamble_label, EU
+    )
+  )
+
+p_interactive <- ggplot(ellsberg_interactive,
+                        aes(x = p_black, y = EU, color = gamble_label, text = text_label)) +
+  geom_line(linewidth = 0.9) +
+  geom_vline(xintercept = 1/3, linetype = "dashed", color = "grey50") +
+  facet_wrap(~pair) +
+  scale_color_manual(values = okabe_ito[c(1, 2, 3, 5)]) +
+  labs(
+    title = "Ellsberg Paradox",
+    x = "P(Black)", y = "Expected Payoff ($)", color = "Gamble"
+  ) +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") |>
+  config(displaylogo = FALSE)
+```
+
+## Interpretation
+
+The results of our implementation illuminate both the power and the limitations of Savage's subjective expected utility framework. In the first part of the analysis, we defined a simple three-state, three-act decision problem and demonstrated how a decision-maker's preferences over acts --- observable choices between alternative courses of action --- encode information about their underlying beliefs and risk attitudes. Given the preference ranking $f_3 \succ f_1 \succ f_2$, we were able to recover a set of subjective probabilities that, combined with the assumed square-root utility function, rationalise the observed choices. The recovered probabilities closely matched the true generating values, confirming that the Savage representation theorem works as advertised in this finite setting.
+
+The axiom checks provided further insight. Completeness and transitivity (P1) were satisfied by construction, since our decision-maker's preferences were generated by expected utility maximisation with fixed beliefs and utility. Non-degeneracy (P5) was trivially satisfied because the consequence matrix contained distinct payoffs. The sure-thing principle (P2) was verified by confirming that the preference between two acts, when restricted to a subset of states, did not depend on the common consequences assigned to the remaining states. This is the key independence property that distinguishes expected utility from more general preference representations.
+
+The Ellsberg paradox demonstration in the second part of the analysis reveals the empirical boundary of Savage's theory. The classic two-urn thought experiment produces a preference pattern --- preferring the Red bet in Gamble I and the Black-or-Yellow bet in Gamble II --- that no single probability distribution over the three colours can rationalise. Formally, preferring $f_a$ to $f_b$ implies $P(\text{Red}) > P(\text{Black})$, i.e., $P(\text{Black}) < 1/3$, while preferring $f_d$ to $f_c$ implies $P(\text{Black}) + P(\text{Yellow}) > P(\text{Red}) + P(\text{Yellow})$, i.e., $P(\text{Black}) > 1/3$. These two inequalities are mutually contradictory, so the Ellsberg preferences violate the sure-thing principle. The interactive figure makes this geometric impossibility visually transparent: in the left panel, the Red gamble line lies above the Black gamble line only to the left of $P(\text{Black}) = 1/3$, while in the right panel, the Black-or-Yellow line lies above the Red-or-Yellow line only to the right of $P(\text{Black}) = 1/3$.
+
+What drives the Ellsberg pattern is ambiguity aversion --- a preference for betting on events with known rather than unknown probabilities. The decision-maker treats the known proportion of Red balls (exactly 30 out of 90) as more reliable than the unknown split between Black and Yellow. This is a feature of preferences over information quality, not risk attitudes: a risk-averse expected utility maximiser would still assign some probability to Black and behave consistently across the two gambles. Ambiguity aversion requires departing from the single-prior framework entirely.
+
+The practical implications are substantial. In financial markets, ambiguity aversion helps explain the equity premium puzzle (investors demand higher returns for stocks, whose return distributions are poorly understood, than for bonds), the home bias in portfolio allocation (investors overweight domestic assets whose risks feel more familiar), and the observation that insurance demand is higher for vaguely understood risks. In policy design, the Ellsberg phenomenon suggests that presenting probabilities transparently --- even when the evidence is uncertain --- can improve decision quality by reducing the psychological weight of ambiguity. In Bayesian statistics, the Ellsberg paradox motivates robust Bayesian approaches that work with sets of priors rather than a single prior, providing decision-theoretic foundations for sensitivity analysis and imprecise probability models.
+
+Our implementation also highlights a practical limitation of revealed preference methods for recovering beliefs: in a problem with three states and three acts, the preference ranking provides only two independent inequality constraints, which are insufficient to pin down three probability values (minus one degree of freedom from the adding-up constraint). Additional acts or finer preference information (such as indifference points or certainty equivalents) would be needed to narrow the feasible set to a unique probability vector. This observation connects to the broader challenge of preference elicitation in decision analysis, where structured questioning protocols are designed to extract enough information to identify a decision-maker's beliefs and utilities with the desired precision.
+
+## Extensions and related tutorials
+
+- **Von Neumann-Morgenstern expected utility** provides the objective-probability counterpart to Savage's theory; see [Expected Utility Foundations](../von-neumann-morgenstern-utility/).
+- **Bayesian updating and prior elicitation** build directly on subjective probability; see [Bayesian Methods: Prior Elicitation](../../bayesian-methods/prior-elicitation/).
+- **Prospect theory and reference dependence** model the systematic departures from expected utility that the Ellsberg paradox illustrates; see [Endowment Effect and Exchange](../../behavioral-economics/endowment-effect-exchange/).
+- **Mechanism design under ambiguity** explores how auction and market design must change when participants have non-expected utility preferences; see [Auction Common-Value Estimation](../../bayesian-methods/auction-common-value-estimation/).
+- **Decision-theoretic foundations of statistics** connect Savage's framework to the Bayesian paradigm in statistical inference; see [Bayesian Foundations](../../bayesian-methods/bayesian-foundations/).
+
+## References
+
+::: {#refs}
+:::

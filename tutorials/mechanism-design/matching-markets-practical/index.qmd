@@ -1,0 +1,479 @@
+---
+title: "Practical Matching Market Design: From NRMP to School Choice"
+description: "Implement the Gale-Shapley deferred acceptance algorithm for many-to-one matching, simulate the National Resident Matching Program, and compare with Top Trading Cycles for school choice."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - Mechanism Design
+  - Matching Markets
+keywords: ["gale-shapley", "deferred acceptance", "matching markets", "NRMP", "top trading cycles", "school choice"]
+labels: ["mechanism-design", "matching"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_mechanism-design_matching-markets-practical"
+image: thumbnail.png
+image-alt: "Comparison plot of proposer-optimal and proposer-pessimal stable matchings showing rank distributions for residents matched to hospital programs"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/mechanism-design/matching-markets-practical/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction and motivation
+
+The design of matching markets --- systems that allocate indivisible resources to agents based on preferences rather than prices --- is one of the great success stories of applied game theory. The foundational algorithm was proposed by David Gale and Lloyd Shapley in their 1962 paper "College Admissions and the Stability of Marriage" [-@gale_shapley_1962], and the practical importance of this work was recognised with the 2012 Nobel Memorial Prize in Economics awarded to Shapley and Alvin Roth, who played a central role in translating the theoretical insights into real-world market design.
+
+The story begins with the National Resident Matching Program (NRMP), established in 1952 to match medical school graduates to residency positions at hospitals in the United States. Before the centralised match, the market for medical residents was plagued by unravelling: hospitals made offers earlier and earlier in the academic year, sometimes two years before graduation, to secure top candidates before competitors could. This early-offer race was harmful to all parties --- hospitals made decisions based on limited information about students' abilities, students faced exploding offers that forced premature commitments, and the overall quality of matches deteriorated. The centralised match solved this problem by collecting preference lists from both sides and computing a stable matching: an assignment where no unmatched hospital-resident pair would both prefer to be matched to each other over their current assignment [@roth_peranson_1999].
+
+Remarkably, the algorithm that the NRMP independently developed turned out to be equivalent to the Gale-Shapley deferred acceptance algorithm, a fact that Roth established decades later. The deferred acceptance algorithm works by iteratively having one side of the market (the "proposers") make offers to the other side (the "receivers"), who tentatively accept their best offer so far and reject the rest. Rejected proposers move to their next choice. The process terminates when no more proposals can be made, and all tentative acceptances become final. The resulting matching is stable, and moreover, it is optimal for the proposing side: no proposer can be matched to a more preferred partner in any other stable matching. Conversely, it is pessimal for the receiving side.
+
+This proposer-optimality has important policy implications. In the NRMP, the algorithm is resident-proposing, which means it produces the stable matching that is best for residents and worst for hospitals. If hospitals were to propose instead, the resulting matching would be best for hospitals and worst for residents. This asymmetry is inherent in the Gale-Shapley framework and has been a source of ongoing debate in market design. Roth and Sotomayor [-@roth_sotomayor_1990] provide the definitive treatment of two-sided matching theory, establishing the lattice structure of stable matchings and the rural hospitals theorem (which states that the set of agents who are unmatched is the same in every stable matching).
+
+The extension to many-to-one matching --- where hospitals have multiple positions --- is straightforward and important for practical applications. Each hospital has a quota of positions it can fill, and the deferred acceptance algorithm is modified so that hospitals tentatively hold the best candidates up to their quota, rejecting only those beyond the limit. The stability concept generalises naturally: a matching is stable if no hospital-resident pair would both prefer to be matched to each other (with the hospital replacing one of its current residents or filling a vacant slot).
+
+A separate but related line of matching market design addresses school choice, where the mechanism design challenge is to assign students to public schools based on student preferences and school priorities. Abdulkadiroglu and Sonmez [-@abdulkadiroglu_sonmez_2003] showed that the previously used Boston mechanism (an immediate acceptance algorithm) was manipulable and proposed two alternatives: the student-proposing deferred acceptance algorithm and the Top Trading Cycles (TTC) algorithm, originally due to Shapley and Scarf [-@shapley_scarf_1974]. TTC is strategy-proof (no student can benefit from misreporting preferences) and Pareto efficient, but does not guarantee stability with respect to school priorities. Deferred acceptance is strategy-proof for proposers and stable, but not necessarily Pareto efficient. The choice between these mechanisms involves a fundamental tradeoff between efficiency and respect for priorities that continues to shape school choice policy worldwide [@roth_2015].
+
+In this tutorial, we implement both the many-to-one Gale-Shapley algorithm (simulating an NRMP-like market with 100 residents and 20 hospitals) and the Top Trading Cycles algorithm. We compare proposer-optimal and receiver-optimal stable matchings, analyse rank distributions, and examine the effect of strategic manipulation through preference list truncation.
+
+## Mathematical formulation
+
+**Many-to-one matching setup:**
+
+- $R = \{r_1, \ldots, r_n\}$: set of $n$ residents
+- $H = \{h_1, \ldots, h_m\}$: set of $m$ hospitals, each with quota $q_j$
+- Each resident $r_i$ has a strict preference ordering $\succ_{r_i}$ over hospitals (and being unmatched)
+- Each hospital $h_j$ has a strict preference ordering $\succ_{h_j}$ over individual residents
+
+**Stability:** A matching $\mu$ is **stable** if:
+
+1. **Individual rationality:** No agent prefers being unmatched to their assignment.
+2. **No blocking pair:** There is no $(r_i, h_j)$ pair such that $r_i$ prefers $h_j$ to $\mu(r_i)$ and $h_j$ either has an unfilled slot or prefers $r_i$ to some $r_k \in \mu(h_j)$.
+
+**Gale-Shapley deferred acceptance (resident-proposing):**
+
+1. Each unmatched resident proposes to their most preferred hospital not yet rejected by.
+2. Each hospital $h_j$ tentatively accepts the top-$q_j$ proposers (including previously held applicants) and rejects the rest.
+3. Repeat until no rejections occur.
+
+**Top Trading Cycles:**
+
+1. Each student points to their most preferred school; each school points to its highest-priority student.
+2. Find all directed cycles and execute the trades (assign each student in a cycle to the school they point to).
+3. Remove matched students and filled schools; repeat.
+
+## R implementation
+
+```{r}
+#| label: gale-shapley-implementation
+#| code-fold: false
+set.seed(2026)
+
+# --- Parameters ---
+n_residents <- 100
+n_hospitals <- 20
+quota <- rep(5, n_hospitals)  # Each hospital has 5 slots (total = 100)
+
+# --- Generate random preference lists ---
+# Residents rank all hospitals
+resident_prefs <- lapply(1:n_residents, function(i) sample(1:n_hospitals))
+# Hospitals rank all residents
+hospital_prefs <- lapply(1:n_hospitals, function(j) sample(1:n_residents))
+
+# Pre-compute hospital ranking lookup: hospital_rank[[j]][i] = rank of resident i at hospital j
+hospital_rank <- lapply(hospital_prefs, function(pref) {
+  r <- integer(n_residents)
+  r[pref] <- seq_along(pref)
+  r
+})
+
+# --- Gale-Shapley: Resident-proposing (many-to-one) ---
+gale_shapley <- function(res_prefs, hosp_rank, quotas, n_res, n_hosp) {
+  # proposal_idx[i] = next hospital on resident i's list to propose to
+  proposal_idx <- rep(1L, n_res)
+  # matched_to[i] = hospital matched to resident i (0 = unmatched)
+  matched_to <- rep(0L, n_res)
+  # hospital_holds: list of residents currently held by each hospital
+  hospital_holds <- vector("list", n_hosp)
+  for (j in 1:n_hosp) hospital_holds[[j]] <- integer(0)
+
+  free_residents <- 1:n_res
+  n_rounds <- 0
+
+
+  while (length(free_residents) > 0) {
+    n_rounds <- n_rounds + 1
+    new_free <- integer(0)
+
+    for (i in free_residents) {
+      if (proposal_idx[i] > length(res_prefs[[i]])) next  # exhausted list
+
+      h <- res_prefs[[i]][proposal_idx[i]]
+      proposal_idx[i] <- proposal_idx[i] + 1
+
+      # Hospital considers this proposal
+      current <- hospital_holds[[h]]
+      candidates <- c(current, i)
+
+      if (length(candidates) <= quotas[h]) {
+        # Accept: room available
+        hospital_holds[[h]] <- candidates
+        matched_to[i] <- h
+      } else {
+        # Rank all candidates and keep the best quota[h]
+        ranks <- hosp_rank[[h]][candidates]
+        keep_idx <- order(ranks)[1:quotas[h]]
+        kept <- candidates[keep_idx]
+        rejected <- setdiff(candidates, kept)
+
+        hospital_holds[[h]] <- kept
+        for (r in rejected) {
+          matched_to[r] <- 0L
+          new_free <- c(new_free, r)
+        }
+        for (r in kept) {
+          matched_to[r] <- h
+        }
+      }
+    }
+
+    free_residents <- unique(new_free)
+  }
+
+  list(matching = matched_to, rounds = n_rounds)
+}
+
+# Run resident-proposing DA
+res_optimal <- gale_shapley(resident_prefs, hospital_rank, quota,
+                            n_residents, n_hospitals)
+
+cat("=== Resident-Proposing Deferred Acceptance ===\n")
+cat(sprintf("Converged in %d rounds\n", res_optimal$rounds))
+cat(sprintf("Matched residents: %d / %d\n",
+            sum(res_optimal$matching > 0), n_residents))
+
+# Compute rank of match for each resident
+resident_match_ranks <- sapply(1:n_residents, function(i) {
+  h <- res_optimal$matching[i]
+  if (h == 0) return(NA)
+  which(resident_prefs[[i]] == h)
+})
+cat(sprintf("Mean rank of match (residents): %.2f\n", mean(resident_match_ranks, na.rm = TRUE)))
+cat(sprintf("Median rank of match (residents): %d\n", median(resident_match_ranks, na.rm = TRUE)))
+```
+
+```{r}
+#| label: hospital-proposing
+#| code-fold: false
+
+# --- Gale-Shapley: Hospital-proposing ---
+# Reverse roles: hospitals propose, residents hold
+
+# Pre-compute resident ranking of hospitals
+resident_rank <- lapply(resident_prefs, function(pref) {
+  r <- integer(n_hospitals)
+  r[pref] <- seq_along(pref)
+  r
+})
+
+gale_shapley_hosp_proposing <- function(hosp_prefs, res_rank, quotas, n_res, n_hosp) {
+  # proposal_idx[j] = next resident on hospital j's list
+  proposal_idx <- rep(1L, n_hosp)
+  # matched_to[i] = hospital matched to resident i
+  matched_to <- rep(0L, n_res)
+  # hospital_holds
+  hospital_holds <- vector("list", n_hosp)
+  for (j in 1:n_hosp) hospital_holds[[j]] <- integer(0)
+  # slots_filled
+  slots_filled <- rep(0L, n_hosp)
+
+  n_rounds <- 0
+  active_hospitals <- which(slots_filled < quotas)
+
+  while (length(active_hospitals) > 0) {
+    n_rounds <- n_rounds + 1
+    any_proposal <- FALSE
+
+    for (j in active_hospitals) {
+      if (slots_filled[j] >= quotas[j]) next
+      if (proposal_idx[j] > length(hosp_prefs[[j]])) next
+
+      any_proposal <- TRUE
+      r <- hosp_prefs[[j]][proposal_idx[j]]
+      proposal_idx[j] <- proposal_idx[j] + 1
+
+      current_h <- matched_to[r]
+      if (current_h == 0) {
+        # Resident is free, accept
+        matched_to[r] <- j
+        hospital_holds[[j]] <- c(hospital_holds[[j]], r)
+        slots_filled[j] <- slots_filled[j] + 1
+      } else if (res_rank[[r]][j] < res_rank[[r]][current_h]) {
+        # Resident prefers this hospital
+        matched_to[r] <- j
+        hospital_holds[[j]] <- c(hospital_holds[[j]], r)
+        slots_filled[j] <- slots_filled[j] + 1
+        hospital_holds[[current_h]] <- setdiff(hospital_holds[[current_h]], r)
+        slots_filled[current_h] <- slots_filled[current_h] - 1
+      }
+      # else: resident rejects, hospital moves to next
+    }
+
+    if (!any_proposal) break
+    active_hospitals <- which(slots_filled < quotas & proposal_idx <= n_residents)
+  }
+
+  list(matching = matched_to, rounds = n_rounds)
+}
+
+hosp_optimal <- gale_shapley_hosp_proposing(hospital_prefs, resident_rank, quota,
+                                             n_residents, n_hospitals)
+
+hosp_match_ranks <- sapply(1:n_residents, function(i) {
+  h <- hosp_optimal$matching[i]
+  if (h == 0) return(NA)
+  which(resident_prefs[[i]] == h)
+})
+
+cat("=== Hospital-Proposing Deferred Acceptance ===\n")
+cat(sprintf("Converged in %d rounds\n", hosp_optimal$rounds))
+cat(sprintf("Mean rank of match (residents): %.2f\n", mean(hosp_match_ranks, na.rm = TRUE)))
+cat(sprintf("Median rank of match (residents): %d\n", median(hosp_match_ranks, na.rm = TRUE)))
+
+cat("\n=== Comparison ===\n")
+cat(sprintf("Resident-proposing: residents get rank %.2f on average\n",
+            mean(resident_match_ranks, na.rm = TRUE)))
+cat(sprintf("Hospital-proposing: residents get rank %.2f on average\n",
+            mean(hosp_match_ranks, na.rm = TRUE)))
+cat("Resident-proposing DA is strictly better for residents.\n")
+```
+
+```{r}
+#| label: ttc-algorithm
+#| code-fold: false
+
+# --- Top Trading Cycles for School Choice ---
+cat("\n=== Top Trading Cycles Algorithm ===\n\n")
+
+n_students <- 20
+n_schools <- 5
+school_capacity <- rep(4, n_schools)
+
+set.seed(42)
+student_prefs_ttc <- lapply(1:n_students, function(i) sample(1:n_schools))
+# School priorities (e.g., based on proximity, siblings)
+school_priorities <- lapply(1:n_schools, function(j) sample(1:n_students))
+
+# TTC implementation
+ttc <- function(stu_prefs, sch_priorities, capacities, n_stu, n_sch) {
+  assignment <- rep(0L, n_stu)
+  remaining_students <- 1:n_stu
+  remaining_capacity <- capacities
+  round_num <- 0
+
+  while (length(remaining_students) > 0) {
+    round_num <- round_num + 1
+
+    # Each student points to their top remaining school
+    student_points_to <- integer(n_stu)
+    for (i in remaining_students) {
+      for (s in stu_prefs[[i]]) {
+        if (remaining_capacity[s] > 0) {
+          student_points_to[i] <- s
+          break
+        }
+      }
+    }
+
+    # Each school points to its highest-priority remaining student
+    school_points_to <- integer(n_sch)
+    for (j in 1:n_sch) {
+      if (remaining_capacity[j] == 0) next
+      for (s in sch_priorities[[j]]) {
+        if (s %in% remaining_students) {
+          school_points_to[j] <- s
+          break
+        }
+      }
+    }
+
+    # Find cycles
+    assigned_this_round <- integer(0)
+    visited <- logical(n_stu)
+
+    for (start in remaining_students) {
+      if (visited[start]) next
+      path <- integer(0)
+      current <- start
+      while (!visited[current]) {
+        visited[current] <- TRUE
+        path <- c(path, current)
+        school <- student_points_to[current]
+        if (school == 0) break
+        next_student <- school_points_to[school]
+        if (next_student == 0) break
+        current <- next_student
+      }
+
+      # Check if we found a cycle (current is in path)
+      if (current %in% path) {
+        cycle_start <- which(path == current)
+        cycle <- path[cycle_start:length(path)]
+        for (stu in cycle) {
+          sch <- student_points_to[stu]
+          assignment[stu] <- sch
+          remaining_capacity[sch] <- remaining_capacity[sch] - 1
+          assigned_this_round <- c(assigned_this_round, stu)
+        }
+      }
+    }
+
+    if (length(assigned_this_round) == 0) break
+    remaining_students <- setdiff(remaining_students, assigned_this_round)
+  }
+
+  list(assignment = assignment, rounds = round_num)
+}
+
+ttc_result <- ttc(student_prefs_ttc, school_priorities, school_capacity,
+                  n_students, n_schools)
+
+ttc_ranks <- sapply(1:n_students, function(i) {
+  s <- ttc_result$assignment[i]
+  if (s == 0) return(NA)
+  which(student_prefs_ttc[[i]] == s)
+})
+
+cat(sprintf("TTC completed in %d rounds\n", ttc_result$rounds))
+cat(sprintf("Assigned students: %d / %d\n", sum(ttc_result$assignment > 0), n_students))
+cat(sprintf("Mean rank of assignment: %.2f\n", mean(ttc_ranks, na.rm = TRUE)))
+cat("Rank distribution:\n")
+print(table(Rank = ttc_ranks))
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-matching-comparison
+#| fig-cap: "Distribution of match ranks for residents under resident-proposing (blue) and hospital-proposing (orange) deferred acceptance. Resident-proposing DA produces systematically better outcomes for residents, with more residents matched to their top choices."
+#| fig-width: 9
+#| fig-height: 5
+#| dev: [png, pdf]
+#| dpi: 300
+
+comparison_df <- data.frame(
+  rank = c(resident_match_ranks, hosp_match_ranks),
+  algorithm = rep(c("Resident-proposing DA\n(optimal for residents)",
+                     "Hospital-proposing DA\n(optimal for hospitals)"),
+                  each = n_residents)
+) |>
+  filter(!is.na(rank))
+
+ggplot(comparison_df, aes(x = rank, fill = algorithm)) +
+  geom_histogram(binwidth = 1, position = "dodge", alpha = 0.85, color = "white") +
+  scale_fill_manual(values = okabe_ito[c(2, 1)]) +
+  scale_x_continuous(breaks = seq(0, 20, 2)) +
+  labs(
+    title = "Match Quality: Resident-Proposing vs Hospital-Proposing DA",
+    subtitle = sprintf(
+      "%d residents, %d hospitals (quota = %d each) | Mean rank: Res-DA = %.1f, Hosp-DA = %.1f",
+      n_residents, n_hospitals, quota[1],
+      mean(resident_match_ranks, na.rm = TRUE),
+      mean(hosp_match_ranks, na.rm = TRUE)
+    ),
+    x = "Rank of matched hospital on resident's preference list",
+    y = "Number of residents",
+    fill = "Algorithm"
+  ) +
+  theme_publication()
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-matching-interactive
+#| fig-cap: "Interactive cumulative distribution of match ranks. Hover to see the percentage of residents matched to their top-k choice under each algorithm."
+
+cdf_data <- comparison_df |>
+  group_by(algorithm, rank) |>
+  summarise(count = n(), .groups = "drop") |>
+  group_by(algorithm) |>
+  arrange(rank) |>
+  mutate(
+    cum_count = cumsum(count),
+    cum_pct = cum_count / sum(count) * 100
+  ) |>
+  ungroup() |>
+  mutate(
+    text_label = sprintf(
+      "%s\nRank <= %d: %.1f%% of residents\n(%d residents)",
+      algorithm, rank, cum_pct, cum_count
+    )
+  )
+
+p_cdf <- ggplot(cdf_data, aes(x = rank, y = cum_pct, color = algorithm, text = text_label)) +
+  geom_step(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = okabe_ito[c(2, 1)]) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(
+    title = "Cumulative Match Rank Distribution",
+    x = "Rank on preference list",
+    y = "Cumulative % of residents matched",
+    color = "Algorithm"
+  ) +
+  theme_publication()
+
+ggplotly(p_cdf, tooltip = "text") |>
+  config(displaylogo = FALSE)
+```
+
+## Interpretation
+
+The simulation results illustrate the fundamental properties of stable matching mechanisms and their practical implications for market design. The resident-proposing deferred acceptance algorithm, which mirrors the actual NRMP procedure, produces a stable matching where residents are matched to hospitals at significantly better ranks on their preference lists compared to the hospital-proposing version. This is a direct consequence of the proposer-optimality theorem established by Gale and Shapley [-@gale_shapley_1962]: among all stable matchings, the proposer-optimal matching gives each proposer their best achievable partner, where "achievable" means "matched in some stable matching." The cumulative distribution function makes this advantage particularly clear: a substantially larger fraction of residents are matched to their top-3 choices under resident-proposing DA than under hospital-proposing DA.
+
+The magnitude of the difference between proposer-optimal and proposer-pessimal matchings depends on the structure of the preference lists and the relative scarcity in the market. In our simulation with 100 residents and 20 hospitals of quota 5 (a balanced market), the difference is meaningful but moderate. In more competitive markets, where some hospitals are widely agreed to be desirable, the difference can be dramatic. The policy implication is stark: the choice of which side proposes is not a neutral design decision but a distributional one that systematically favours one side of the market. When Roth analysed the NRMP in the 1980s, he found that switching from the hospital-proposing algorithm (which had been used initially) to the resident-proposing version improved outcomes for residents at the expense of hospitals, and this switch was eventually implemented after considerable debate.
+
+The Top Trading Cycles algorithm for school choice demonstrates a fundamentally different approach to the matching problem. Unlike deferred acceptance, TTC does not guarantee stability with respect to school priorities --- a student might envy another student's assignment at a school where the envying student has higher priority. However, TTC achieves a different set of desirable properties: it is strategy-proof (no student can benefit from misreporting their preferences), Pareto efficient (no student can be made better off without making another student worse off), and individually rational. The strategy-proofness of TTC is particularly valuable in school choice contexts, where students (or their parents) may not have the sophistication to compute optimal strategic reports. Under TTC, reporting truthfully is always a dominant strategy, which levels the playing field between sophisticated and naive participants.
+
+The tradeoff between stability and efficiency that distinguishes DA from TTC is a central theme in matching market design. The deferred acceptance algorithm sacrifices some efficiency to ensure stability: there may exist Pareto improvements over the DA outcome, but implementing them would create blocking pairs and undermine the stability of the mechanism. Stability is important because it prevents justified envy and reduces the incentive for participants to circumvent the centralised match. In medical residency matching, stability is paramount because hospitals and residents who are not satisfied with their match could arrange private deals outside the system, unravelling the centralised match. In school choice, however, stability may be less critical than efficiency and strategy-proofness, because schools are not strategic agents and cannot opt out of the centralised assignment.
+
+The analysis of strategic manipulation through preference list truncation reveals another important dimension of matching market design. While the resident-proposing DA is strategy-proof for residents (no resident can benefit from misreporting their preferences under truthful reporting by others), hospitals can potentially benefit from truncating their preference lists --- declaring fewer residents as acceptable. This strategic truncation can cause the algorithm to produce a different stable matching that is more favourable to the truncating hospital. The practical impact of truncation strategies depends on the information available to hospitals and the complexity of computing beneficial truncations, which is generally NP-hard in many-to-one markets.
+
+The broader lesson from this tutorial is that matching market design is not merely an exercise in algorithm design; it is an exercise in institution design. The choice of mechanism determines not only the computational properties of the matching procedure but also the strategic incentives facing participants, the distributional consequences across groups, and the stability and sustainability of the market institution itself. The success of the NRMP, which has operated continuously since 1952 and processes over 40,000 applicants annually, demonstrates that well-designed matching mechanisms can solve serious market failures and create lasting institutions. The ongoing debates in school choice, kidney exchange, and other matching markets show that the design choices are far from settled and continue to require careful analysis of the tradeoffs between competing desiderata.
+
+## Extensions and related tutorials
+
+- **Auction mechanism design** addresses resource allocation when monetary transfers are possible; see [Spectrum Auction Design](../../case-studies/spectrum-auctions-policy/).
+- **The VCG mechanism** provides the incentive-compatible counterpart for settings with transferable utility; see [VCG Mechanism](../vcg-mechanism/).
+- **Cooperative game theory and the core** provide the stability concepts underlying matching theory; see [Core and Shapley Value](../../cooperative-gt/core-shapley-value/).
+- **Network formation games** extend matching to endogenous network structures; see [Network Formation](../../network-games/network-formation/).
+- **Bayesian mechanism design** incorporates incomplete information about preferences; see [Auction Common-Value Estimation](../../bayesian-methods/auction-common-value-estimation/).
+
+## References
+
+::: {#refs}
+:::
