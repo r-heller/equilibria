@@ -1,0 +1,326 @@
+---
+title: "The Sealed-Bid War of Attrition"
+description: "Analyse the sealed-bid war of attrition as an all-pay second-price auction, derive the symmetric Bayesian Nash equilibrium with exponential bidding strategies for uniform private values, and compare revenue and surplus with the standard all-pay auction."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - classical-games
+  - war of attrition
+  - all-pay auction
+  - Bayesian Nash equilibrium
+keywords: ["war of attrition", "sealed-bid", "all-pay auction", "second-price", "Bayesian Nash equilibrium", "revenue equivalence", "bidder surplus", "R"]
+labels: ["auctions", "classical"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_CLASSICAL-GAMES_WAR-OF-ATTRITION-SEALED"
+image: thumbnail.png
+image-alt: "Equilibrium bid functions for the sealed-bid war of attrition and standard all-pay auction, showing exponential versus quadratic bidding strategies"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/classical-games/war-of-attrition-sealed/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+The war of attrition is one of the most fascinating and counterintuitive games in economic theory. Originally introduced by Maynard Smith in 1974 in the context of evolutionary biology to model animal conflicts where two contestants compete for a resource by persisting until one gives up, the war of attrition has since found applications across economics, political science, and industrial organization. In its most common continuous-time formulation, two players simultaneously choose how long they are willing to wait or fight. Both players incur costs proportional to the time spent in the contest, and the player who persists longer wins the prize. The loser has wasted all the time and resources spent waiting. This structure creates a strategic tension: staying in the contest is costly, but dropping out means conceding the prize.
+
+The sealed-bid version of the war of attrition translates this dynamic conflict into a static mechanism design framework. In the sealed-bid war of attrition, each player simultaneously submits a bid representing their willingness to persist. Both players pay the lower of the two bids (reflecting the cost both incur up to the moment one drops out), and the higher bidder wins the prize. This makes the sealed-bid war of attrition an all-pay auction with second-price payment: "all-pay" because the loser also pays, and "second-price" because the payment equals the losing bid rather than the winning bid.
+
+This payment rule creates dramatically different incentive structures compared to the standard (first-price) all-pay auction. In a first-price all-pay auction, each bidder pays their own bid regardless of winning or losing. The equilibrium bidding strategy in the first-price all-pay auction with two bidders and uniform values on [0, 1] is $b(v) = v^2/2$, which is concave -- high-value bidders bid conservatively because they already have a good chance of winning. In the sealed-bid war of attrition, the second-price payment rule changes the calculation fundamentally. Because a bidder's payment is determined by the opponent's bid (not their own), there is less cost to bidding high. In equilibrium, bidders with high values bid very aggressively -- so aggressively, in fact, that the equilibrium bid function grows exponentially and bids can exceed the prize value. This seemingly irrational overbidding is rational because the expected payment (which depends on the opponent's bid) is much lower than the bid itself.
+
+The war of attrition structure appears in many real-world settings. Patent races, where firms invest in R&D hoping to be the first to develop a new technology, have a war-of-attrition flavour: all firms bear the cost of R&D, but only the winner profits from the patent. Price wars between firms competing for market share involve mutual losses until one firm exits. Political standoffs, such as government shutdowns or trade disputes, can persist well past the point where both sides have incurred substantial costs, because neither is willing to concede. In all these settings, the key feature is that both sides pay costs that depend on the shorter duration (or lower bid), and only the more persistent player captures the surplus.
+
+The revenue equivalence theorem tells us that under certain conditions (independent private values, symmetric bidders, the same allocation rule), all auction formats generate the same expected revenue to the seller. The sealed-bid war of attrition and the standard all-pay auction both allocate the object to the highest bidder and require both bidders to pay, so they satisfy the conditions for revenue equivalence. Despite their very different bid functions and risk profiles, they generate identical expected revenue. However, the distribution of revenue can differ: the war of attrition tends to have higher variance in revenue because of the explosive bid function.
+
+In this tutorial, we derive the symmetric Bayesian Nash equilibrium for the sealed-bid war of attrition with two bidders whose values are independently and uniformly distributed on [0, 1]. We implement the equilibrium bid function, simulate auctions to verify the theoretical predictions, compare revenue and surplus with the standard first-price all-pay auction, and analyse the distribution of outcomes for both formats. The analysis illustrates how the same allocation rule (highest bidder wins) can be implemented through radically different payment mechanisms with identical expected but very different realized outcomes.
+
+
+## Mathematical formulation
+
+Consider two risk-neutral bidders with independent private values $v_1, v_2 \sim U[0, 1]$. Each bidder submits a sealed bid $b_i$. The higher bidder wins the prize of value $v_i$ to bidder $i$. Both bidders pay the minimum of the two bids.
+
+**Bidder $i$'s payoff** given values $v_i$ and bids $b_i, b_j$:
+
+$$
+\pi_i(b_i, b_j; v_i) = \begin{cases}
+v_i - \min(b_i, b_j) & \text{if } b_i > b_j \\
+-\min(b_i, b_j) & \text{if } b_i < b_j \\
+\frac{v_i}{2} - \min(b_i, b_j) & \text{if } b_i = b_j
+\end{cases}
+$$
+
+**Symmetric BNE derivation.** Assume a symmetric, strictly increasing equilibrium bid function $\beta(v)$. Bidder $i$ with value $v$ chooses bid $b$ to maximize expected payoff:
+
+$$
+\max_b \; \Pr(\beta(v_j) < b) \cdot v - E[\beta(v_j) \mid \beta(v_j) < b]
+$$
+
+Since $v_j \sim U[0,1]$ and $\beta$ is increasing, $\Pr(\beta(v_j) < b) = \beta^{-1}(b)$. Let $z = \beta^{-1}(b)$. The expected payoff becomes:
+
+$$
+\Pi(z; v) = z \cdot v - \int_0^z \beta(s)\, ds
+$$
+
+Taking the first-order condition $\partial \Pi / \partial z = 0$ and evaluating at the symmetric equilibrium where $z = v$:
+
+$$
+v + v \cdot \beta'(v) - \beta(v) = 0 \quad \Longrightarrow \quad \beta'(v) - \frac{\beta(v)}{v} = -1
+$$
+
+Wait -- let us redo this carefully. The expected payoff of bidding as if value is $z$ (i.e., bidding $\beta(z)$) when true value is $v$:
+
+$$
+\Pi(z; v) = z \cdot v - \int_0^z \beta(s)\, ds
+$$
+
+FOC: $v = \beta(z)$, evaluated at $z = v$ gives $\beta(v) = v$. But this is the first-price all-pay auction solution. For the war of attrition, the payment is different.
+
+Correcting: in the war of attrition, bidder $i$'s expected payment when bidding $b = \beta(z)$ and opponent uses $\beta$:
+
+$$
+E[\text{payment}] = E[\min(\beta(z), \beta(v_j))] = \int_0^z \beta(s)\, ds + (1 - z)\beta(z) \cdot \mathbf{1}_{[\text{lose}]}
+$$
+
+Actually, since both pay the lower bid: if $i$ bids $\beta(z)$ and wins ($v_j < z$), payment is $\beta(v_j)$. If $i$ loses ($v_j > z$), payment is $\beta(z)$. So:
+
+$$
+\Pi(z; v) = z \cdot v - \int_0^z \beta(s)\,ds - (1 - z)\beta(z)
+$$
+
+FOC with respect to $z$, set $z = v$:
+
+$$
+v - \beta(v) + \beta(v) - (1-v)\beta'(v) = 0 \implies \beta'(v) = \frac{v}{1 - v}
+$$
+
+Integrating with $\beta(0) = 0$:
+
+$$
+\beta(v) = v - \ln(1 - v) - v = -v - \ln(1 - v)
+$$
+
+Wait, let us integrate $v/(1-v) = -1 + 1/(1-v)$:
+
+$$
+\beta(v) = \int_0^v \frac{s}{1-s}\,ds = \int_0^v \left(-1 + \frac{1}{1-s}\right)ds = -v - \ln(1-v)
+$$
+
+So the symmetric BNE bid function is:
+
+$$
+\boxed{\beta^{\text{WoA}}(v) = -v - \ln(1 - v)}
+$$
+
+For comparison, the first-price all-pay auction BNE is $\beta^{\text{AP}}(v) = v^2 / 2$.
+
+
+## R implementation
+
+We implement both bid functions, simulate 50,000 auctions under each format, and compare revenue, surplus, and outcome distributions.
+
+```{r}
+#| label: war-of-attrition-sim
+
+set.seed(789)
+
+n_sim <- 50000
+
+# --- Equilibrium bid functions ---
+beta_woa <- function(v) -v - log(1 - v)     # War of attrition (second-price all-pay)
+beta_ap  <- function(v) v^2 / 2              # Standard all-pay (first-price)
+
+# --- Simulate auctions ---
+v1 <- runif(n_sim)
+v2 <- runif(n_sim)
+
+# War of attrition
+b1_woa <- beta_woa(v1)
+b2_woa <- beta_woa(v2)
+winner_woa <- ifelse(b1_woa > b2_woa, 1, 2)
+payment_woa <- pmin(b1_woa, b2_woa)  # both pay the lower bid
+revenue_woa <- 2 * payment_woa       # total payment by both bidders
+
+# Winner surplus
+surplus_winner_woa <- ifelse(winner_woa == 1,
+                              v1 - payment_woa,
+                              v2 - payment_woa)
+# Loser surplus (negative)
+surplus_loser_woa <- -payment_woa
+
+# Standard all-pay auction
+b1_ap <- beta_ap(v1)
+b2_ap <- beta_ap(v2)
+winner_ap <- ifelse(b1_ap > b2_ap, 1, 2)
+revenue_ap <- b1_ap + b2_ap  # each pays own bid
+
+surplus_winner_ap <- ifelse(winner_ap == 1,
+                             v1 - b1_ap,
+                             v2 - b2_ap)
+surplus_loser_ap <- ifelse(winner_ap == 1, -b2_ap, -b1_ap)
+
+cat("=== Bid Function Comparison ===\n")
+cat(sprintf("%-8s  WoA bid   AP bid\n", "Value"))
+for (v in seq(0.1, 0.9, by = 0.1)) {
+  cat(sprintf("v = %.1f   %.4f    %.4f\n", v, beta_woa(v), beta_ap(v)))
+}
+
+cat("\n=== Revenue Comparison (50,000 simulated auctions) ===\n")
+cat(sprintf("War of Attrition: mean revenue = %.4f, sd = %.4f\n",
+            mean(revenue_woa), sd(revenue_woa)))
+cat(sprintf("All-Pay Auction:  mean revenue = %.4f, sd = %.4f\n",
+            mean(revenue_ap), sd(revenue_ap)))
+cat(sprintf("Theoretical expected revenue (both): %.4f\n", 1/3))
+
+cat("\n=== Surplus Comparison ===\n")
+cat(sprintf("WoA winner surplus: mean = %.4f\n", mean(surplus_winner_woa)))
+cat(sprintf("WoA loser surplus:  mean = %.4f\n", mean(surplus_loser_woa)))
+cat(sprintf("AP  winner surplus: mean = %.4f\n", mean(surplus_winner_ap)))
+cat(sprintf("AP  loser surplus:  mean = %.4f\n", mean(surplus_loser_ap)))
+
+cat(sprintf("\nWoA total expected surplus: %.4f\n",
+            mean(surplus_winner_woa) + mean(surplus_loser_woa)))
+cat(sprintf("AP  total expected surplus: %.4f\n",
+            mean(surplus_winner_ap) + mean(surplus_loser_ap)))
+
+# Efficiency check: does the highest-value bidder win?
+efficient_woa <- mean((winner_woa == 1 & v1 > v2) | (winner_woa == 2 & v2 > v1))
+efficient_ap <- mean((winner_ap == 1 & v1 > v2) | (winner_ap == 2 & v2 > v1))
+cat(sprintf("\nAllocative efficiency: WoA = %.4f, AP = %.4f\n",
+            efficient_woa, efficient_ap))
+```
+
+
+## Static publication-ready figure
+
+The static figure shows the equilibrium bid functions for both auction formats side by side, highlighting the dramatic difference in bidding behaviour despite revenue equivalence.
+
+```{r}
+#| label: fig-woa-static
+#| fig-cap: "Figure 1. Equilibrium bid functions for the sealed-bid war of attrition (exponential growth) and standard all-pay auction (quadratic). Despite radically different bid levels, both formats generate identical expected revenue of 1/3 under uniform values on [0,1]. The war of attrition's explosive bid function reflects the second-price payment rule: bidders bid far above their values because they expect to pay only the losing bid. Data: analytical (CC BY-SA 4.0)."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+v_grid <- seq(0.001, 0.95, length.out = 500)
+bid_df <- data.frame(
+  value = rep(v_grid, 2),
+  bid = c(beta_woa(v_grid), beta_ap(v_grid)),
+  format = rep(c("War of Attrition (second-price all-pay)",
+                  "Standard All-Pay (first-price)"), each = length(v_grid))
+)
+
+p_bids <- ggplot(bid_df, aes(x = value, y = bid, color = format)) +
+  geom_line(linewidth = 1.1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey60") +
+  scale_color_manual(values = okabe_ito[c(1, 2)]) +
+  annotate("text", x = 0.5, y = 0.55, label = "45-degree line (bid = value)",
+           color = "grey50", size = 3.5, hjust = 0) +
+  labs(title = "Equilibrium Bid Functions: War of Attrition vs. All-Pay Auction",
+       subtitle = "2 bidders, values ~ U[0,1]; WoA bids exceed value for v > 0.5",
+       x = "Private value (v)", y = "Equilibrium bid b(v)",
+       color = "Auction format") +
+  coord_cartesian(ylim = c(0, 3)) +
+  theme_publication() +
+  theme(legend.position = "bottom")
+
+p_bids
+```
+
+
+## Interactive figure
+
+The interactive version displays the revenue distribution for both formats, allowing the user to compare the spread and shape of revenue outcomes.
+
+```{r}
+#| label: fig-woa-interactive
+
+rev_df <- data.frame(
+  revenue = c(revenue_woa, revenue_ap),
+  format = rep(c("War of Attrition", "All-Pay Auction"), each = n_sim)
+)
+
+# Sample for performance
+set.seed(42)
+rev_sample <- rev_df |>
+  group_by(format) |>
+  slice_sample(n = 5000) |>
+  ungroup()
+
+rev_sample$text <- paste0("Format: ", rev_sample$format,
+                            "\nRevenue: $", round(rev_sample$revenue, 4))
+
+p_rev <- ggplot(rev_sample, aes(x = revenue, fill = format, text = text)) +
+  geom_histogram(aes(y = after_stat(density)),
+                  bins = 60, alpha = 0.6, position = "identity") +
+  scale_fill_manual(values = okabe_ito[c(1, 2)]) +
+  geom_vline(xintercept = 1/3, linetype = "dashed", color = "grey30") +
+  annotate("text", x = 1/3 + 0.02, y = 2.5, label = "E[Revenue] = 1/3",
+           size = 3, hjust = 0, color = "grey30") +
+  labs(title = "Revenue Distribution: War of Attrition vs. All-Pay",
+       x = "Total Revenue", y = "Density", fill = "Format") +
+  coord_cartesian(xlim = c(0, 2)) +
+  theme_publication()
+
+ggplotly(p_rev, tooltip = "text") |>
+  config(displaylogo = FALSE)
+```
+
+
+## Interpretation
+
+The results illuminate a beautiful tension in auction theory: mechanisms with identical expected outcomes can have radically different strategic and distributional properties. Let us examine the key findings in detail.
+
+The equilibrium bid functions for the two formats could hardly be more different. In the standard all-pay auction, the bid function $\beta^{AP}(v) = v^2/2$ is concave and bounded above by 1/2. A bidder with the highest possible value ($v = 1$) bids only 0.5, which is half the prize value. The logic is straightforward: since both bidders pay, high-value bidders shade their bids down because they already have a high probability of winning. Low-value bidders bid very little because their chance of winning is small. In the war of attrition, the bid function $\beta^{WoA}(v) = -v - \ln(1-v)$ is convex and unbounded as $v \to 1$. A bidder with value 0.9 bids approximately 1.40, which exceeds the prize value. A bidder with value 0.99 bids approximately 3.62. This explosive overbidding seems paradoxical -- why would a rational bidder bid more than the prize is worth?
+
+The resolution lies in the payment rule. In the war of attrition, the bidder does not pay their own bid; they pay the opponent's bid (or rather, both pay the lower bid). By bidding high, a player increases their probability of winning without directly increasing their expected payment (which is determined by the opponent's bid). The high bid serves as a commitment device: it signals willingness to persist, but the actual cost is determined by when the opponent gives up. This is analogous to the continuous-time war of attrition, where a player might be willing to wait for a very long time, but if the opponent drops out quickly, the actual cost is small.
+
+Revenue equivalence is confirmed by the simulation: both formats generate mean revenue very close to the theoretical prediction of 1/3. This is a consequence of the revenue equivalence theorem, which holds for symmetric IPV settings with the same allocation rule and the same expected payment for the lowest type (which is zero in both cases). However, the revenue variance is much higher for the war of attrition. The war of attrition's revenue distribution has a long right tail, reflecting the possibility of very high payments when both bidders have high values and both submit explosive bids. In contrast, the all-pay auction's revenue is bounded above by 1 (the sum of two bids each at most 1/2). This difference in revenue risk is an important practical consideration: a risk-averse seller might prefer the all-pay auction despite identical expected revenue, because the war of attrition's revenue is more volatile.
+
+The surplus analysis reveals another facet of the comparison. In both formats, the total expected bidder surplus is the same (a consequence of revenue equivalence, since total surplus equals total value minus revenue, and both are equal across formats). However, the distribution of surplus between winners and losers can differ. In the all-pay auction, losers pay their own bids, which are relatively small. In the war of attrition, losers pay the lower bid, which can be large when the loser has a high value (and therefore a high bid). This means the war of attrition is harsher on losers with high values -- they tend to lose more when they lose.
+
+The allocative efficiency is 100% in both formats (up to tie-breaking), because both use monotone symmetric bid functions: the bidder with the higher value bids more and wins the object. This is guaranteed by the strictly increasing equilibrium bid function in both cases. Efficiency is a strength shared by all standard auction formats in the symmetric IPV setting, but it breaks down when bidders are asymmetric (different value distributions) or when values have common components.
+
+From a broader perspective, the sealed-bid war of attrition connects to the literature on contests and tournament design. Contests where participants expend effort to win prizes (R&D races, lobbying, litigation) often have war-of-attrition features. The insight that second-price payment rules lead to more aggressive behaviour than first-price rules parallels the well-known result in standard auctions (without all-pay): the second-price sealed-bid auction induces truthful bidding, while the first-price auction induces bid shading. In the all-pay setting, the same qualitative pattern holds but with much more dramatic quantitative consequences.
+
+
+## Extensions & related tutorials
+
+The sealed-bid war of attrition connects to several areas of auction theory and contest design:
+
+- [English ascending auction](../../auction-theory-deep-dive/english-ascending-auction/) -- the ascending format shares the second-price payment logic, but without the all-pay feature
+- [First-price sealed-bid auction](../../auction-theory-deep-dive/first-price-auction/) -- the benchmark comparison for payment rule effects on bidding strategy
+- [Revenue equivalence theorem](../../auction-theory-deep-dive/revenue-equivalence/) -- the theoretical result that unifies expected revenue across formats
+- [All-pay auctions and lobbying](../../classical-games/all-pay-lobbying/) -- the first-price all-pay auction in the context of rent-seeking contests
+- [Evolutionary stability and animal conflict](../../evolutionary-gt/hawk-dove/) -- the biological origins of the war of attrition in the hawk-dove game
+
+
+## References
+
+::: {#refs}
+:::

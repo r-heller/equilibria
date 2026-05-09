@@ -1,0 +1,323 @@
+---
+title: "Trembling Hand Perfect Equilibrium"
+description: "Implement Selten's trembling hand perfection refinement to eliminate unreasonable Nash equilibria by requiring robustness to small probability mistakes, with applications to coordination games and weakly dominated strategies."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - foundations
+  - equilibrium refinement
+  - trembling hand perfection
+  - Nash equilibrium
+keywords: ["trembling hand perfection", "Selten", "equilibrium refinement", "perturbed game", "weakly dominated strategies", "coordination game", "R"]
+labels: ["foundations", "refinements"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_FOUNDATIONS_TREMBLING-HAND-REFINEMENT"
+image: thumbnail.png
+image-alt: "Strategy probability trajectories converging to a trembling hand perfect equilibrium as the tremble parameter epsilon approaches zero"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/foundations/trembling-hand-refinement/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Nash equilibrium is the cornerstone solution concept of non-cooperative game theory. A strategy profile is a Nash equilibrium if no player can improve their payoff by unilaterally changing their strategy. However, the Nash equilibrium concept is often criticized for being too permissive: in many games, there are multiple Nash equilibria, and some of them rely on strategies that seem unreasonable or implausible when examined carefully. The challenge of selecting among multiple equilibria and eliminating the "unreasonable" ones has driven the development of equilibrium refinement theory, one of the most important research programmes in game theory since the 1970s.
+
+Reinhard Selten, who shared the 1994 Nobel Memorial Prize in Economics with John Nash and John Harsanyi, introduced the concept of trembling hand perfect equilibrium in his seminal 1975 paper. The basic intuition is disarmingly simple: what if players occasionally make mistakes? In a real strategic interaction, no player can be absolutely certain that their opponents will play exactly according to the equilibrium prescription. A hand might tremble -- a player might accidentally choose the "wrong" action with some small probability. A robust equilibrium should remain an equilibrium even when we account for the possibility of such trembles. If an equilibrium is destroyed by arbitrarily small perturbations of strategies, it is fragile in a fundamental way and arguably should not be considered a credible prediction of play.
+
+Formally, Selten's approach works as follows. Consider a finite normal-form game. For any $\epsilon > 0$, define a "perturbed game" in which every player must assign at least probability $\epsilon$ to every available action. This ensures that every action profile has positive probability of occurring, no matter what strategies the players intend to use. A Nash equilibrium of the perturbed game is called an $\epsilon$-perfect equilibrium. A strategy profile $\sigma$ in the original game is a trembling hand perfect equilibrium if there exists a sequence of $\epsilon_k$-perfect equilibria (with $\epsilon_k \to 0$) that converges to $\sigma$.
+
+This definition has powerful implications. Most importantly, trembling hand perfect equilibria cannot use weakly dominated strategies. A weakly dominated strategy is one that performs no better than an alternative against every opponent strategy and strictly worse against at least one. In a standard Nash equilibrium, a player might rationally play a weakly dominated strategy if their opponent is playing in a way that makes them indifferent. But with trembles, the opponent plays every action with at least probability $\epsilon > 0$, which means the weakly dominated strategy performs strictly worse in expectation than the dominating strategy. As $\epsilon \to 0$, the player must continue to avoid the dominated strategy, and so the limiting equilibrium excludes it.
+
+Consider the classic example of the Battle of the Sexes game with an additional "outside option" for one player. This game has Nash equilibria where a player chooses a weakly dominated action, sustained by the belief that the opponent will play a specific strategy. Trembling hand perfection eliminates these equilibria because the tremble forces the player to face the possibility that the opponent deviates, and under that possibility, the dominated action is strictly suboptimal.
+
+The concept also distinguishes between "normal form perfection" and "extensive form perfection." Normal form trembling hand perfection, which we focus on here, requires the equilibrium to be robust to trembles in the normal (strategic) form of the game. Extensive form perfection (also due to Selten, 1975) requires robustness to trembles at every information set in the game tree. Extensive form perfection is a stronger requirement and is closely related to sequential equilibrium, another important refinement concept introduced by Kreps and Wilson in 1982.
+
+In this tutorial, we implement the perturbation approach computationally. For a given game and a sequence of decreasing $\epsilon$ values, we compute the Nash equilibrium of each perturbed game by iterating best responses within the constrained strategy space. We then track how the equilibrium strategies change as $\epsilon \to 0$, identifying which Nash equilibria of the original game survive as trembling hand perfect and which are eliminated. We apply this to a coordination game and to a game with a weakly dominated strategy, demonstrating the refinement in action.
+
+
+## Mathematical formulation
+
+Let $\Gamma = (N, (S_i)_{i \in N}, (u_i)_{i \in N})$ be a finite $n$-player normal-form game where player $i$ has strategy set $S_i = \{s_i^1, \ldots, s_i^{m_i}\}$ and payoff function $u_i: \times_{i \in N} S_i \to \mathbb{R}$.
+
+A **mixed strategy** for player $i$ is $\sigma_i \in \Delta(S_i)$, the probability simplex over $S_i$.
+
+For $\epsilon > 0$, the **$\epsilon$-perturbed game** restricts each player's strategy set to:
+
+$$
+\Delta^\epsilon(S_i) = \left\{ \sigma_i \in \Delta(S_i) : \sigma_i(s_i^k) \geq \epsilon \quad \forall k = 1, \ldots, m_i \right\}
+$$
+
+A strategy profile $\sigma^\epsilon = (\sigma_1^\epsilon, \ldots, \sigma_n^\epsilon)$ is an **$\epsilon$-perfect equilibrium** if it is a Nash equilibrium of the perturbed game, meaning for each player $i$:
+
+$$
+u_i(\sigma_i^\epsilon, \sigma_{-i}^\epsilon) \geq u_i(\sigma_i', \sigma_{-i}^\epsilon) \quad \forall \sigma_i' \in \Delta^\epsilon(S_i)
+$$
+
+A strategy profile $\sigma^*$ is a **trembling hand perfect equilibrium** (THPE) if there exists a sequence $(\epsilon_k)_{k=1}^\infty$ with $\epsilon_k \to 0$ and corresponding $\epsilon_k$-perfect equilibria $\sigma^{\epsilon_k}$ such that:
+
+$$
+\sigma^{\epsilon_k} \xrightarrow{k \to \infty} \sigma^*
+$$
+
+**Key theorem (Selten 1975).** Every finite game has at least one trembling hand perfect equilibrium. Moreover, if $\sigma^*$ is a THPE, then no player uses a weakly dominated strategy with positive probability in $\sigma^*$.
+
+
+## R implementation
+
+We implement the perturbation approach for two games: (1) a 3x3 game with a weakly dominated strategy that has a non-perfect Nash equilibrium, and (2) a coordination game. For each epsilon in a decreasing sequence, we compute the NE of the perturbed game using iterated best response within the constrained simplex.
+
+```{r}
+#| label: trembling-hand-computation
+
+set.seed(2024)
+
+# === Game 1: 3x3 game with weakly dominated strategy ===
+# Row player payoffs
+U1 <- matrix(c(
+  2, 1, 0,
+  1, 2, 0,
+  0, 0, 0
+), nrow = 3, byrow = TRUE)
+
+# Column player payoffs
+U2 <- matrix(c(
+  1, 0, 0,
+  0, 1, 0,
+  0, 0, 0
+), nrow = 3, byrow = TRUE)
+
+cat("=== Game 1: Weakly Dominated Strategy ===\n")
+cat("Row player payoffs:\n"); print(U1)
+cat("Column player payoffs:\n"); print(U2)
+cat("\nNote: Strategy 3 for both players is weakly dominated.\n")
+cat("Nash equilibria include (s3, s3) with payoff (0,0),\n")
+cat("but this requires both players to play a weakly dominated strategy.\n\n")
+
+# --- Best response in perturbed game ---
+best_response_perturbed <- function(opp_strategy, payoff_matrix, epsilon) {
+  n_actions <- nrow(payoff_matrix)
+  expected_payoffs <- payoff_matrix %*% opp_strategy
+
+  # In the perturbed game, allocate (1 - n_actions * epsilon) to best responses
+  free_mass <- 1 - n_actions * epsilon
+  if (free_mass < 0) free_mass <- 0
+
+  # Put all free mass on the best response(s)
+  br <- rep(epsilon, n_actions)
+  best_actions <- which(expected_payoffs == max(expected_payoffs))
+  br[best_actions] <- br[best_actions] + free_mass / length(best_actions)
+
+  return(br)
+}
+
+# --- Compute epsilon-perfect equilibrium via iterated best response ---
+compute_eps_perfect <- function(U1, U2, epsilon, max_iter = 500, tol = 1e-10) {
+  n1 <- nrow(U1); n2 <- ncol(U1)
+
+  # Start from uniform
+  sigma1 <- rep(1/n1, n1)
+  sigma2 <- rep(1/n2, n2)
+
+  for (iter in 1:max_iter) {
+    sigma1_new <- best_response_perturbed(sigma2, U1, epsilon)
+    sigma2_new <- best_response_perturbed(sigma1, t(U2), epsilon)
+
+    # Damped update for convergence
+    alpha <- 0.3
+    sigma1_next <- alpha * sigma1_new + (1 - alpha) * sigma1
+    sigma2_next <- alpha * sigma2_new + (1 - alpha) * sigma2
+
+    if (max(abs(sigma1_next - sigma1)) < tol &&
+        max(abs(sigma2_next - sigma2)) < tol) {
+      sigma1 <- sigma1_next
+      sigma2 <- sigma2_next
+      break
+    }
+    sigma1 <- sigma1_next
+    sigma2 <- sigma2_next
+  }
+
+  return(list(sigma1 = sigma1, sigma2 = sigma2))
+}
+
+# --- Trace the path as epsilon -> 0 ---
+epsilons <- c(0.2, 0.15, 0.1, 0.07, 0.05, 0.03, 0.02, 0.01,
+              0.005, 0.002, 0.001, 0.0005, 0.0001, 0.00001)
+
+path_df <- data.frame()
+for (eps in epsilons) {
+  eq <- compute_eps_perfect(U1, U2, eps)
+  path_df <- rbind(path_df,
+    data.frame(epsilon = eps,
+               player = rep(c("Row Player", "Col Player"), each = 3),
+               strategy = rep(paste0("s", 1:3), 2),
+               probability = c(eq$sigma1, eq$sigma2)))
+}
+
+cat("=== Epsilon-Perfect Equilibria Path (Game 1) ===\n")
+path_wide <- path_df |>
+  filter(player == "Row Player") |>
+  pivot_wider(names_from = strategy, values_from = probability) |>
+  select(-player)
+cat("Row player strategies as epsilon -> 0:\n")
+print(round(path_wide, 6))
+
+# Final THP equilibrium (smallest epsilon)
+final_eq <- compute_eps_perfect(U1, U2, min(epsilons))
+cat("\n=== Trembling Hand Perfect Equilibrium (Game 1) ===\n")
+cat(sprintf("Row player: (%.6f, %.6f, %.6f)\n",
+            final_eq$sigma1[1], final_eq$sigma1[2], final_eq$sigma1[3]))
+cat(sprintf("Col player: (%.6f, %.6f, %.6f)\n",
+            final_eq$sigma2[1], final_eq$sigma2[2], final_eq$sigma2[3]))
+cat("Strategy 3 (weakly dominated) gets only epsilon probability.\n")
+
+# === Game 2: Coordination game ===
+U1_coord <- matrix(c(3, 0, 0, 2), nrow = 2, byrow = TRUE)
+U2_coord <- matrix(c(3, 0, 0, 2), nrow = 2, byrow = TRUE)
+
+cat("\n=== Game 2: Coordination Game ===\n")
+cat("Payoff matrix (symmetric):\n")
+cat("        L     R\n")
+cat(sprintf("  T   (%d,%d) (%d,%d)\n", U1_coord[1,1], U2_coord[1,1],
+            U1_coord[1,2], U2_coord[1,2]))
+cat(sprintf("  B   (%d,%d) (%d,%d)\n", U1_coord[2,1], U2_coord[2,1],
+            U1_coord[2,2], U2_coord[2,2]))
+cat("Pure NE: (T,L) with payoff 3 and (B,R) with payoff 2.\n")
+cat("Both are trembling hand perfect (no weakly dominated strategies).\n\n")
+
+path_coord <- data.frame()
+for (eps in epsilons) {
+  eq <- compute_eps_perfect(U1_coord, U2_coord, eps)
+  path_coord <- rbind(path_coord,
+    data.frame(epsilon = eps,
+               player = rep(c("Row", "Col"), each = 2),
+               strategy = rep(c("T/L", "B/R"), 2),
+               probability = c(eq$sigma1, eq$sigma2)))
+}
+
+cat("=== Both Pure NE Survive as THPE ===\n")
+eq_TL <- compute_eps_perfect(U1_coord, U2_coord, 1e-5)
+cat(sprintf("Near (T,L): Row = (%.6f, %.6f), Col = (%.6f, %.6f)\n",
+            eq_TL$sigma1[1], eq_TL$sigma1[2], eq_TL$sigma2[1], eq_TL$sigma2[2]))
+```
+
+
+## Static publication-ready figure
+
+The static figure shows how strategy probabilities evolve as the tremble parameter epsilon decreases toward zero, revealing which equilibria survive as trembling hand perfect.
+
+```{r}
+#| label: fig-trembling-hand-static
+#| fig-cap: "Figure 1. Strategy probabilities in epsilon-perfect equilibria as epsilon approaches zero (Game 1). The weakly dominated strategy s3 receives only the minimum required probability epsilon, confirming that the Nash equilibrium (s3, s3) is eliminated by trembling hand perfection. The surviving equilibrium concentrates probability on the undominated strategies s1 and s2. Data: computed (CC BY-SA 4.0)."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+p_thp <- ggplot(path_df |> filter(player == "Row Player"),
+                 aes(x = epsilon, y = probability, color = strategy)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_manual(values = okabe_ito[1:3],
+                      labels = c("s1 (undominated)", "s2 (undominated)",
+                                 "s3 (weakly dominated)")) +
+  labs(title = "Trembling Hand Perfection: Strategy Probabilities as Epsilon -> 0",
+       subtitle = "Game with weakly dominated strategy s3; Row player's mixed strategy",
+       x = expression(paste("Tremble parameter ", epsilon, " (log scale)")),
+       y = "Probability",
+       color = "Strategy") +
+  theme_publication() +
+  theme(legend.position = "right")
+
+p_thp
+```
+
+
+## Interactive figure
+
+The interactive version allows precise inspection of probability values at each epsilon level, making it easy to verify that the weakly dominated strategy converges to zero probability.
+
+```{r}
+#| label: fig-trembling-hand-interactive
+
+path_df$text <- paste0("Epsilon: ", signif(path_df$epsilon, 4),
+                        "\nStrategy: ", path_df$strategy,
+                        "\nProbability: ", round(path_df$probability, 6),
+                        "\nPlayer: ", path_df$player)
+
+p_thp_int <- ggplot(path_df |> filter(player == "Row Player"),
+                     aes(x = epsilon, y = probability, color = strategy, text = text)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_manual(values = okabe_ito[1:3]) +
+  labs(title = "THPE Path: Row Player",
+       x = "Epsilon (log scale)", y = "Probability",
+       color = "Strategy") +
+  theme_publication()
+
+ggplotly(p_thp_int, tooltip = "text") |>
+  config(displaylogo = FALSE)
+```
+
+
+## Interpretation
+
+The computational results vividly demonstrate how trembling hand perfection operates as an equilibrium refinement. In Game 1, which features a weakly dominated strategy s3 for both players, the standard Nash equilibrium concept admits the strategy profile (s3, s3) as an equilibrium with payoff (0, 0). This is a Nash equilibrium because neither player can improve by deviating: if the column player plays s3, the row player gets 0 regardless of their own strategy, so s3 is a (weak) best response. However, this equilibrium is fragile in a fundamental way.
+
+When we introduce even a tiny tremble parameter epsilon, forcing each player to place at least epsilon probability on every action, the equilibrium structure changes dramatically. With trembles, the column player places at least epsilon probability on s1 and s2, which means the row player now faces a positive probability of the column playing a non-s3 strategy. Against a mixture of s1 and s2 (even with very small probabilities), strategies s1 and s2 yield strictly positive expected payoffs for the row player, while s3 always yields 0. Therefore, in the perturbed game, s3 is strictly dominated and receives only the minimum required probability epsilon. The same logic applies to the column player.
+
+As we trace the path of epsilon-perfect equilibria from large epsilon toward zero, we see the probability on s3 declining steadily. It never rises above epsilon; in fact, it is exactly at its lower bound at every step. The probabilities on s1 and s2, meanwhile, converge to a well-defined limit that constitutes the trembling hand perfect equilibrium. This limit places all meaningful probability on the undominated strategies and assigns zero probability to the weakly dominated s3. The Nash equilibrium (s3, s3) is thus eliminated: no sequence of epsilon-perfect equilibria converges to it, because for any epsilon > 0, s3 is never a best response in the perturbed game.
+
+The coordination game (Game 2) provides an instructive contrast. Here, neither player has a weakly dominated strategy. Both pure-strategy Nash equilibria -- (T, L) with payoff 3 and (B, R) with payoff 2 -- survive as trembling hand perfect equilibria. This is because each pure strategy is a strict best response in the neighbourhood of the corresponding equilibrium. If the column player plays L with probability close to 1 (placing only epsilon on R), the row player strictly prefers T. Similarly, if the column player plays R with probability close to 1, the row player strictly prefers B. The perturbation does not destabilize either equilibrium because the trembles are small enough that the best response remains unchanged.
+
+This illustrates an important point: trembling hand perfection is a refinement, not a selection criterion. It eliminates equilibria that are unreasonable (those relying on weakly dominated strategies or implausible beliefs), but it does not select a unique equilibrium when multiple reasonable equilibria exist. In the coordination game, both (T, L) and (B, R) are perfectly reasonable, and trembling hand perfection correctly preserves both. To select among perfect equilibria, one needs additional criteria such as Pareto dominance, risk dominance (Harsanyi and Selten, 1988), or evolutionary stability.
+
+The computational approach we have implemented -- tracing epsilon-perfect equilibria as epsilon varies -- also reveals how the equilibrium correspondence behaves near its limits. For games where the set of trembling hand perfect equilibria is a strict subset of Nash equilibria, there is typically a "phase transition" at some critical epsilon below which certain equilibria disappear. Above this threshold, the perturbed game may support equilibria near the non-perfect Nash equilibria of the original game; below it, only the perfect equilibria survive. Our logarithmic spacing of epsilon values is designed to capture this transition region.
+
+A practical limitation of the normal-form trembling hand perfection concept is that it does not account for the sequential structure of extensive-form games. In games with sequential moves, the extensive form provides additional information about which actions are taken at which information sets, and the appropriate refinement is extensive-form perfection, which requires optimality at every information set given the possibility of trembles. Extensive-form perfection is strictly stronger than normal-form perfection and is closely related to sequential equilibrium. However, for simultaneous-move games (the setting of this tutorial), normal-form and extensive-form perfection coincide.
+
+
+## Extensions & related tutorials
+
+Trembling hand perfection connects to a rich web of equilibrium refinement concepts and computational methods:
+
+- [Nash equilibrium computation](../../foundations/nash-equilibrium/) -- the baseline solution concept that trembling hand perfection refines
+- [Sequential equilibrium and perfect Bayesian equilibrium](../../foundations/sequential-equilibrium/) -- refinements for extensive-form games with imperfect information
+- [Quantal response equilibrium](../../behavioral-gt/quantal-response/) -- a behavioural model where trembles have logistic structure, connecting to bounded rationality
+- [Proper equilibrium and strategic stability](../../foundations/proper-equilibrium/) -- Myerson's stronger refinement where costlier mistakes are less probable
+- [Iterated elimination of dominated strategies](../../foundations/iterated-dominance/) -- a simpler approach to removing unreasonable strategies that trembling hand perfection subsumes
+
+
+## References
+
+::: {#refs}
+:::
