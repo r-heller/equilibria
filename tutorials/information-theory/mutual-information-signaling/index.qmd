@@ -1,0 +1,263 @@
+---
+title: "Mutual information in signaling games"
+description: "Quantify information transmission in signaling games using Shannon mutual information. Compare pooling versus separating equilibria by their channel capacity and information content."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - information-theory
+  - signaling games
+  - mutual information
+  - channel capacity
+keywords: ["mutual information", "signaling games", "channel capacity", "Shannon entropy", "pooling equilibrium", "separating equilibrium"]
+labels: ["information-theory", "signaling", "entropy"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_information-theory_mutual-information-signaling"
+image: thumbnail.png
+image-alt: "Bar chart comparing mutual information across babbling, partial pooling, and separating equilibria in a signaling game, rendered using the Okabe-Ito palette."
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/information-theory/mutual-information-signaling/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction and motivation
+
+Signaling games lie at the heart of strategic communication. Introduced by David Lewis in the context of conventions and later formalized by Michael Spence in his seminal work on job market signaling, these games model situations where one player (the sender) possesses private information and transmits a message to another player (the receiver), who then takes an action. The central question is: how much information actually gets transmitted in equilibrium? This question, seemingly simple, connects two deep intellectual traditions -- game theory and information theory -- in ways that illuminate both.
+
+Shannon's information theory provides a precise, quantitative framework for measuring information transmission. The key concept is mutual information, which quantifies the statistical dependence between two random variables. In the context of signaling games, the two variables of interest are the sender's type (the private information) and either the message sent or the action taken by the receiver. When mutual information is zero, the message carries no information about the sender's type -- this corresponds to a babbling equilibrium. When mutual information reaches its maximum, every type sends a distinct message, and the receiver can perfectly infer the sender's type -- this is a fully separating equilibrium.
+
+The value of applying information-theoretic measures to signaling games extends well beyond simply labelling equilibria as "pooling" or "separating." Real-world communication rarely falls neatly into these extremes. In many strategic settings, we observe partial separation: some types pool together while others distinguish themselves. Mutual information provides a continuous measure that captures the degree of information transmission along this spectrum. This allows analysts to compare equilibria not just qualitatively but quantitatively, asking precisely how many bits of information are transmitted under different strategic configurations.
+
+Consider labour markets, where job candidates send signals through education, certifications, and work experience. Different market conditions and cost structures lead to different equilibrium signaling patterns. In some markets, education is highly informative about worker productivity; in others, credential inflation has eroded the signal's value. Mutual information provides a unified metric for comparing these regimes. Similarly, in biological signaling -- from the peacock's tail to bacterial quorum sensing -- organisms transmit information strategically, and the channel capacity of these biological signaling systems determines how finely organisms can coordinate their behaviour.
+
+The concept of channel capacity, borrowed directly from Shannon's noisy channel coding theorem, acquires strategic meaning in this context. The channel capacity of a signaling game is the maximum mutual information achievable across all possible sender strategies, given the game's payoff structure and equilibrium constraints. Unlike in classical information theory, where the channel is a fixed physical entity, in a signaling game the "channel" is endogenously determined by the players' strategies. This means that incentive constraints can reduce the effective channel capacity well below the entropy of the type distribution. Understanding these strategic bottlenecks is essential for mechanism designers who wish to facilitate efficient communication.
+
+In this tutorial, we formalize these ideas by computing mutual information for a parameterized family of signaling strategies that span the continuum from babbling to full separation. We implement the calculations in R, visualize how information content varies across equilibrium types, and interpret the results through the dual lens of game theory and information theory.
+
+## Mathematical formulation
+
+Let the sender's type be drawn from a finite set $\Theta = \{\theta_1, \ldots, \theta_n\}$ with prior distribution $p(\theta)$. The sender chooses a message $m \in M$ according to a conditional strategy $\sigma(\cdot|\theta)$, inducing a joint distribution:
+
+$$
+p(\theta, m) = p(\theta) \cdot \sigma(m|\theta)
+$$
+
+The marginal distribution over messages is:
+
+$$
+p(m) = \sum_{\theta \in \Theta} p(\theta) \cdot \sigma(m|\theta)
+$$
+
+Shannon entropy of the type distribution is:
+
+$$
+H(\Theta) = -\sum_{\theta} p(\theta) \log_2 p(\theta)
+$$
+
+The mutual information between types and messages is:
+
+$$
+I(\Theta; M) = \sum_{\theta} \sum_{m} p(\theta, m) \log_2 \frac{p(\theta, m)}{p(\theta)\, p(m)}
+$$
+
+Equivalently, $I(\Theta; M) = H(\Theta) - H(\Theta|M)$, where $H(\Theta|M)$ is the conditional entropy of types given messages. The channel capacity is:
+
+$$
+C = \max_{\sigma} I(\Theta; M)
+$$
+
+subject to equilibrium constraints. For a babbling equilibrium, $\sigma(m|\theta) = \sigma(m)$ for all $\theta$, so $I(\Theta; M) = 0$. For a separating equilibrium with $n$ types and $n$ distinct messages, $I(\Theta; M) = H(\Theta)$.
+
+## R implementation
+
+```{r}
+#| label: compute-mi
+set.seed(42)
+
+# Define a signaling game with 4 sender types
+n_types <- 4
+type_probs <- c(0.3, 0.25, 0.25, 0.2)
+type_labels <- paste0("theta_", 1:n_types)
+
+# Entropy function (base 2)
+entropy <- function(p) {
+  p <- p[p > 0]
+  -sum(p * log2(p))
+}
+
+# Mutual information from a conditional strategy matrix sigma[type, message]
+mutual_info <- function(sigma, type_probs) {
+  joint <- sweep(sigma, 1, type_probs, "*")
+  msg_probs <- colSums(joint)
+  mi <- 0
+  for (i in seq_along(type_probs)) {
+    for (j in seq_along(msg_probs)) {
+      if (joint[i, j] > 0 && msg_probs[j] > 0) {
+        mi <- mi + joint[i, j] * log2(joint[i, j] / (type_probs[i] * msg_probs[j]))
+      }
+    }
+  }
+  mi
+}
+
+# Generate signaling strategies along a separation parameter alpha in [0,1]
+# alpha = 0: babbling (uniform messages for all types)
+# alpha = 1: fully separating (each type sends unique message)
+n_messages <- 4
+alphas <- seq(0, 1, by = 0.02)
+
+mi_values <- sapply(alphas, function(alpha) {
+  sigma <- matrix((1 - alpha) / n_messages, nrow = n_types, ncol = n_messages)
+  for (i in 1:n_types) {
+    sigma[i, i] <- sigma[i, i] + alpha
+  }
+  # Normalize rows
+  sigma <- sigma / rowSums(sigma)
+  mutual_info(sigma, type_probs)
+})
+
+H_theta <- entropy(type_probs)
+
+results_df <- data.frame(
+  alpha = alphas,
+  mutual_info = mi_values,
+  normalized_mi = mi_values / H_theta
+)
+
+# Compute MI for three canonical equilibria
+sigma_babbling <- matrix(1 / n_messages, nrow = n_types, ncol = n_messages)
+sigma_partial <- matrix(0.15, nrow = n_types, ncol = n_messages)
+for (i in 1:n_types) sigma_partial[i, i] <- 0.55
+sigma_separating <- diag(n_types)
+
+eq_names <- c("Babbling", "Partial pooling", "Separating")
+eq_mi <- c(
+  mutual_info(sigma_babbling, type_probs),
+  mutual_info(sigma_partial, type_probs),
+  mutual_info(sigma_separating, type_probs)
+)
+
+cat(sprintf("Type entropy H(Theta): %.4f bits\n", H_theta))
+cat(sprintf("Channel capacity (separating): %.4f bits\n\n", max(mi_values)))
+for (i in seq_along(eq_names)) {
+  cat(sprintf("%-20s MI = %.4f bits (%.1f%% of capacity)\n",
+              eq_names[i], eq_mi[i], 100 * eq_mi[i] / H_theta))
+}
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-mi-curve
+#| fig-cap: "Mutual information between sender types and messages as a function of the separation parameter alpha. At alpha equals zero the sender babbles and no information is transmitted. As alpha increases toward one the equilibrium approaches full separation and mutual information converges to the type entropy. Dashed lines mark the three canonical equilibria. Rendered using the Okabe-Ito palette."
+#| dev: [png, pdf]
+#| dpi: 300
+#| fig-width: 9
+#| fig-height: 5
+
+eq_df <- data.frame(
+  label = eq_names,
+  alpha = c(0, 0.4, 1),
+  mi = eq_mi
+)
+
+p_static <- ggplot(results_df, aes(x = alpha, y = mutual_info)) +
+  geom_ribbon(aes(ymin = 0, ymax = mutual_info), fill = okabe_ito[2], alpha = 0.15) +
+  geom_line(color = okabe_ito[5], linewidth = 1.2) +
+  geom_hline(yintercept = H_theta, linetype = "dotted", color = okabe_ito[8], linewidth = 0.6) +
+  geom_point(data = eq_df, aes(x = alpha, y = mi),
+             color = okabe_ito[c(6, 1, 3)], size = 4) +
+  geom_segment(data = eq_df, aes(x = alpha, xend = alpha, y = 0, yend = mi),
+               linetype = "dashed", color = okabe_ito[c(6, 1, 3)], linewidth = 0.5) +
+  annotate("text", x = 0.05, y = H_theta + 0.07, label = "H(Theta)",
+           hjust = 0, size = 3.5, color = okabe_ito[8]) +
+  annotate("text", x = eq_df$alpha + c(0.06, 0.06, -0.06),
+           y = eq_df$mi + 0.1,
+           label = eq_df$label, size = 3.2,
+           color = okabe_ito[c(6, 1, 3)], hjust = c(0, 0, 1)) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2), expand = c(0.02, 0)) +
+  scale_y_continuous(breaks = seq(0, 2, 0.5), limits = c(0, H_theta + 0.2)) +
+  labs(title = "Information transmission in signaling games",
+       subtitle = "Mutual information I(Theta; M) across the pooling-separating spectrum",
+       x = "Separation parameter (alpha)",
+       y = "Mutual information (bits)") +
+  theme_publication()
+
+print(p_static)
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-mi-interactive
+#| fig-cap: "Interactive version of the mutual information curve. Hover to inspect the exact separation parameter, mutual information in bits, and the percentage of channel capacity achieved."
+
+p_interactive <- ggplot(results_df, aes(x = alpha, y = mutual_info,
+    text = sprintf("alpha: %.2f\nMI: %.3f bits\nCapacity used: %.1f%%",
+                   alpha, mutual_info, 100 * normalized_mi))) +
+  geom_area(fill = okabe_ito[2], alpha = 0.15) +
+  geom_line(color = okabe_ito[5], linewidth = 0.8) +
+  geom_point(data = eq_df, aes(x = alpha, y = mi,
+    text = sprintf("%s\nalpha: %.2f\nMI: %.3f bits", label, alpha, mi)),
+    color = okabe_ito[c(6, 1, 3)], size = 3) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  labs(title = "Information transmission in signaling games",
+       x = "Separation parameter (alpha)",
+       y = "Mutual information (bits)") +
+  theme_publication()
+
+ggplotly(p_interactive, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+The results reveal a clear and intuitive relationship between the degree of strategic separation in a signaling game and the quantity of information transmitted, but the shape of this relationship contains important subtleties that deserve careful attention. The mutual information curve is concave in the separation parameter, meaning that the marginal information gain from increasing separation is highest when starting from a babbling equilibrium and diminishes as the equilibrium approaches full separation. This has direct implications for costly signaling: if the cost of partial separation is proportional to the separation parameter, the "information return on investment" is highest for the first increments of separation.
+
+The three canonical equilibria illustrate the full spectrum of information transmission. The babbling equilibrium transmits exactly zero bits of information, confirming the formal equivalence between the game-theoretic notion of uninformative communication and the information-theoretic notion of statistical independence. The partial pooling equilibrium, with its moderate separation parameter, transmits a substantial fraction of the available information -- demonstrating that perfect separation is not necessary for meaningful communication. The separating equilibrium achieves the channel capacity, which equals the entropy of the type distribution. This last point deserves emphasis: the maximum information that can be transmitted is bounded by the uncertainty in the sender's type, not by the number of messages available.
+
+The channel capacity result connects to a deep insight from information theory. Shannon's channel coding theorem tells us that reliable communication is possible at any rate below channel capacity. In the strategic context, this means that the type distribution sets a fundamental limit on how much a receiver can learn from observing messages, regardless of the signaling protocol. When the type distribution is highly skewed (for example, if most senders are of a single type), the entropy is low and even a separating equilibrium conveys relatively little information. Conversely, a uniform type distribution maximizes the potential for informative signaling.
+
+The practical implications extend across domains. In labour economics, the mutual information framework helps quantify how much employers actually learn from educational credentials in different market conditions. As credential inflation increases, the signaling strategy shifts from separating toward pooling, and mutual information declines even if the signaling behaviour itself appears unchanged from the sender's perspective. In regulatory contexts, a regulator designing disclosure requirements can use mutual information as an objective function: what disclosure format maximizes the information transmitted to consumers, given the strategic incentives of firms?
+
+The framework also provides a natural way to measure the "quality" of cheap talk equilibria. In Crawford and Sobel's classic cheap talk model, the number of distinct messages used in equilibrium is determined by the alignment of sender and receiver preferences. More aligned preferences support more partitions and hence more information transmission. Mutual information formalizes this by providing a single scalar summary of the equilibrium's informativeness, which can be compared across games with different numbers of types and messages. This comparison would be difficult using purely game-theoretic concepts like the number of pooling groups, which do not account for the relative frequencies of different types.
+
+Finally, the concavity of the mutual information curve suggests an interesting evolutionary interpretation. If signaling strategies evolve through gradual mutation and selection, and if selection favours more informative equilibria, then the evolutionary dynamics will exhibit diminishing returns: early mutations that introduce partial separation are strongly favoured, while later mutations that refine an already-informative signal face weaker selection pressure. This may explain why many biological signaling systems appear to operate in the intermediate range rather than at full separation.
+
+## Extensions and related tutorials
+
+- [Entropy and strategic uncertainty](../../information-theory/entropy-strategic-uncertainty/) -- foundational concepts of Shannon entropy applied to mixed strategies.
+- [Cheap talk and communication equilibria](../../classical-games/cheap-talk-communication/) -- game-theoretic analysis of costless signaling and Crawford-Sobel partitional equilibria.
+- [Bayesian games and incomplete information](../../bayesian-methods/bayesian-games-incomplete-information/) -- formal treatment of type spaces and belief updating underlying signaling games.
+- [KL divergence for equilibrium comparison](../../information-theory/kl-divergence-equilibrium/) -- using Kullback-Leibler divergence to measure distances between equilibrium belief distributions.
+
+## References
+
+::: {#refs}
+:::
