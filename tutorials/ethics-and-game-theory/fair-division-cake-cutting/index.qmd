@@ -1,0 +1,411 @@
+---
+title: "Fair Division and Cake-Cutting Algorithms"
+description: "Implement classic fair division protocols including divide-and-choose, the Selfridge-Conway envy-free procedure for three players, and compare proportional versus envy-free allocations with heterogeneous preferences using simulation in R."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - ethics-and-game-theory
+  - fair-division
+  - cake-cutting
+keywords: ["fair division", "cake-cutting", "envy-free", "proportional fairness", "Selfridge-Conway"]
+labels: ["fairness", "social-choice"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_ethics-and-game-theory_fair-division-cake-cutting"
+image: thumbnail.png
+image-alt: "Comparison of cake allocations under divide-and-choose versus Selfridge-Conway protocols showing proportional and envy-free regions"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/ethics-and-game-theory/fair-division-cake-cutting/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+How should a group of people divide a shared resource when they have different preferences? This question -- the **fair division problem** -- is among the oldest and most practically relevant problems at the intersection of mathematics, economics, and ethics. From dividing an inheritance among siblings to partitioning disputed territory between nations, the challenge of allocating a heterogeneous good fairly arises in countless settings. The mathematical study of fair division gained formal structure in the mid-20th century with the work of Hugo Steinhaus, Stefan Banach, and Bronislaw Knaster, who introduced the "cake-cutting" metaphor that has since become the standard framework. A "cake" represents any divisible, heterogeneous resource -- it could be land, time, bandwidth, or computing resources -- and the question is how to cut it into pieces and assign them to players so that the outcome satisfies certain fairness criteria.
+
+The two most important fairness criteria in cake-cutting are **proportionality** and **envy-freeness**. Proportionality requires that each of $n$ players receives a piece they value at least $1/n$ of the total cake value according to their own valuation function. This is a minimum guarantee: no player feels they received less than their fair share. Envy-freeness is a stronger requirement: no player prefers any other player's piece to their own, according to their own valuation. Every envy-free allocation is proportional (for $n \geq 2$), but not every proportional allocation is envy-free. The gap between these two criteria has driven decades of research into increasingly sophisticated protocols.
+
+The simplest fair division protocol is **"I cut, you choose"** (divide-and-choose), known since antiquity and referenced in the Hebrew Bible (Genesis 13) when Abraham and Lot divided the land of Canaan. One player (the cutter) divides the cake into two pieces they consider equal; the other player (the chooser) selects their preferred piece. This protocol is proportional for both players and envy-free for the chooser, but it gives a strategic advantage to the chooser, who may receive strictly more than half by their own valuation. The protocol also raises the question of strategic manipulation: should the cutter truly divide the cake into two pieces they consider equal, or can they benefit by cutting unequally?
+
+For three or more players, achieving envy-freeness becomes dramatically more complex. The **Selfridge-Conway protocol** (discovered independently by John Selfridge in 1960 and John Horton Conway around 1993, though not published until later) provides an envy-free division for three players using at most five cuts. It is a remarkable piece of mathematical ingenuity: the protocol involves trimming and re-dividing pieces in a way that ensures no player envies another, regardless of the players' valuations. Understanding this protocol requires careful reasoning about what each player knows and values at each step, making it an excellent exercise in strategic thinking.
+
+In this tutorial, we implement both protocols computationally, model heterogeneous player preferences using different valuation functions over the unit interval $[0, 1]$, and simulate strategic versus truthful behaviour to understand when and how manipulation can occur. We consider three types of valuation functions -- uniform (equal value everywhere), peaked (higher value in a preferred region), and bimodal (two preferred regions) -- to illustrate how the diversity of preferences affects the outcomes of different protocols. The computational approach lets us run thousands of simulations to characterise the statistical properties of fair division outcomes, complementing the theoretical analysis that dominates the existing literature.
+
+
+## Mathematical formulation
+
+**The cake.** The cake is the interval $[0, 1]$. A valuation function $V_i: 2^{[0,1]} \to \mathbb{R}_{\geq 0}$ for player $i$ is a non-atomic measure on $[0, 1]$ with $V_i([0, 1]) = 1$.
+
+We represent valuations via density functions $v_i(x)$ so that $V_i([a, b]) = \int_a^b v_i(x)\,dx$.
+
+**Proportionality.** An allocation $(A_1, \ldots, A_n)$ is **proportional** if $V_i(A_i) \geq \frac{1}{n}$ for all $i$.
+
+**Envy-freeness.** An allocation is **envy-free** if $V_i(A_i) \geq V_i(A_j)$ for all $i, j$.
+
+**Divide-and-choose.** Player 1 (cutter) finds $c$ such that $V_1([0, c]) = V_1([c, 1]) = 1/2$. Player 2 (chooser) takes whichever piece they prefer. Result: proportional and envy-free for the chooser.
+
+**Selfridge-Conway protocol (3 players):**
+
+1. Player A cuts the cake into three pieces $P_1, P_2, P_3$ that A values equally ($V_A(P_i) = 1/3$ for each $i$).
+2. Player B examines the pieces. If B considers two or more pieces tied for largest, go to step 4. Otherwise, B trims the largest piece to create a tie with the second-largest, creating a trimming $T$.
+3. Player C chooses first from the three pieces (one trimmed). Then B chooses (B must take the trimmed piece if C did not). Then A takes the remaining piece.
+4. The trimming $T$ is divided using a second round of divide-and-choose between B and C (the non-cutter of the trimming).
+
+This guarantees that no player envies another.
+
+
+## R implementation
+
+```{r}
+#| label: fair-division-implementation
+
+set.seed(42)
+
+# --- Valuation functions ---
+# Uniform valuation (density = 1 everywhere)
+v_uniform <- function(x) rep(1, length(x))
+
+# Peaked valuation (prefers region around peak)
+v_peaked <- function(x, peak = 0.3, spread = 0.15) {
+  d <- dnorm(x, mean = peak, sd = spread)
+  d / integrate(function(z) dnorm(z, mean = peak, sd = spread), 0, 1)$value
+}
+
+# Bimodal valuation (two preferred regions)
+v_bimodal <- function(x, peak1 = 0.2, peak2 = 0.8, spread = 0.1) {
+  d <- dnorm(x, peak1, spread) + dnorm(x, peak2, spread)
+  d / integrate(function(z) dnorm(z, peak1, spread) + dnorm(z, peak2, spread), 0, 1)$value
+}
+
+# Compute value of interval [a,b] under valuation v
+interval_value <- function(v, a, b, ...) {
+  if (a >= b) return(0)
+  integrate(function(x) v(x, ...), lower = a, upper = b)$value
+}
+
+# --- Divide-and-choose ---
+divide_and_choose <- function(v_cutter, v_chooser,
+                               cutter_args = list(), chooser_args = list()) {
+  # Cutter finds midpoint where they value both halves equally
+  find_cut <- function(c) {
+    val_left <- do.call(interval_value, c(list(v = v_cutter, a = 0, b = c), cutter_args))
+    abs(val_left - 0.5)
+  }
+  cut_point <- optimise(find_cut, interval = c(0.01, 0.99))$minimum
+
+  # Chooser picks preferred piece
+  left_val <- do.call(interval_value, c(list(v = v_chooser, a = 0, b = cut_point), chooser_args))
+  right_val <- do.call(interval_value, c(list(v = v_chooser, a = cut_point, b = 1), chooser_args))
+
+  if (left_val >= right_val) {
+    chooser_piece <- c(0, cut_point)
+    cutter_piece <- c(cut_point, 1)
+  } else {
+    chooser_piece <- c(cut_point, 1)
+    cutter_piece <- c(0, cut_point)
+  }
+
+  # Compute values
+  cutter_val <- do.call(interval_value,
+    c(list(v = v_cutter, a = cutter_piece[1], b = cutter_piece[2]), cutter_args))
+  chooser_val <- do.call(interval_value,
+    c(list(v = v_chooser, a = chooser_piece[1], b = chooser_piece[2]), chooser_args))
+
+  list(cut = cut_point,
+       cutter_piece = cutter_piece, chooser_piece = chooser_piece,
+       cutter_value = cutter_val, chooser_value = chooser_val)
+}
+
+# Example: uniform cutter vs peaked chooser
+result_dc <- divide_and_choose(v_uniform, v_peaked,
+                                 cutter_args = list(),
+                                 chooser_args = list(peak = 0.3, spread = 0.15))
+
+cat("=== Divide-and-Choose ===\n")
+cat(sprintf("Cut point: %.3f\n", result_dc$cut))
+cat(sprintf("Cutter (uniform) gets [%.2f, %.2f], value = %.3f\n",
+            result_dc$cutter_piece[1], result_dc$cutter_piece[2], result_dc$cutter_value))
+cat(sprintf("Chooser (peaked) gets [%.2f, %.2f], value = %.3f\n",
+            result_dc$chooser_piece[1], result_dc$chooser_piece[2], result_dc$chooser_value))
+cat(sprintf("Both get >= 1/2? Cutter: %s, Chooser: %s\n",
+            result_dc$cutter_value >= 0.5 - 1e-10, result_dc$chooser_value >= 0.5 - 1e-10))
+
+# --- Simulation: strategic vs truthful cutting ---
+n_sim <- 2000
+strategic_results <- tibble(
+  sim = 1:n_sim,
+  cutter_truthful = numeric(n_sim),
+  cutter_strategic = numeric(n_sim),
+  chooser_truthful = numeric(n_sim),
+  chooser_strategic = numeric(n_sim)
+)
+
+for (s in 1:n_sim) {
+  # Random peaked preferences
+  cutter_peak <- runif(1, 0.1, 0.9)
+  chooser_peak <- runif(1, 0.1, 0.9)
+
+  # Truthful: cutter divides at own 50% point
+  res_truth <- divide_and_choose(
+    v_peaked, v_peaked,
+    cutter_args = list(peak = cutter_peak, spread = 0.15),
+    chooser_args = list(peak = chooser_peak, spread = 0.15)
+  )
+  strategic_results$cutter_truthful[s] <- res_truth$cutter_value
+  strategic_results$chooser_truthful[s] <- res_truth$chooser_value
+
+  # Strategic: cutter shifts cut toward chooser's expected peak (center)
+  # Cutter assumes chooser peaks near 0.5 and cuts to keep their preferred region
+  strat_cut <- if (cutter_peak < 0.5) {
+    min(0.95, cutter_peak + 0.3)  # cut further right to keep left piece
+  } else {
+    max(0.05, cutter_peak - 0.3)  # cut further left to keep right piece
+  }
+
+  # Under strategic cut, cutter takes the side with their peak
+  if (cutter_peak < strat_cut) {
+    cutter_side <- c(0, strat_cut)
+    chooser_side <- c(strat_cut, 1)
+  } else {
+    cutter_side <- c(strat_cut, 1)
+    chooser_side <- c(0, strat_cut)
+  }
+
+  # But chooser still picks their preferred piece
+  left_val_ch <- interval_value(v_peaked, 0, strat_cut, peak = chooser_peak, spread = 0.15)
+  right_val_ch <- interval_value(v_peaked, strat_cut, 1, peak = chooser_peak, spread = 0.15)
+
+  if (left_val_ch >= right_val_ch) {
+    chooser_takes <- c(0, strat_cut)
+    cutter_gets <- c(strat_cut, 1)
+  } else {
+    chooser_takes <- c(strat_cut, 1)
+    cutter_gets <- c(0, strat_cut)
+  }
+
+  strategic_results$cutter_strategic[s] <- interval_value(
+    v_peaked, cutter_gets[1], cutter_gets[2], peak = cutter_peak, spread = 0.15)
+  strategic_results$chooser_strategic[s] <- interval_value(
+    v_peaked, chooser_takes[1], chooser_takes[2], peak = chooser_peak, spread = 0.15)
+}
+
+cat("\n=== Strategic vs Truthful Cutting (2000 simulations) ===\n")
+cat(sprintf("Truthful: Cutter avg = %.3f, Chooser avg = %.3f\n",
+            mean(strategic_results$cutter_truthful),
+            mean(strategic_results$chooser_truthful)))
+cat(sprintf("Strategic: Cutter avg = %.3f, Chooser avg = %.3f\n",
+            mean(strategic_results$cutter_strategic),
+            mean(strategic_results$chooser_strategic)))
+cat(sprintf("Cutter gains from strategy: %.3f -> %.3f (%+.3f)\n",
+            mean(strategic_results$cutter_truthful),
+            mean(strategic_results$cutter_strategic),
+            mean(strategic_results$cutter_strategic) - mean(strategic_results$cutter_truthful)))
+
+# --- Selfridge-Conway (simplified 3-player) ---
+# Simplified version: 3 players with peaked preferences
+cat("\n=== Selfridge-Conway (3-player envy-free) ===\n")
+
+# Player preferences
+peaks <- c(0.2, 0.5, 0.8)  # A likes left, B likes middle, C likes right
+spread <- 0.15
+
+# Step 1: A cuts into three equal pieces (from A's perspective)
+find_cuts_A <- function(cuts) {
+  c1 <- cuts[1]; c2 <- cuts[2]
+  if (c1 >= c2 || c1 <= 0 || c2 >= 1) return(1e6)
+  v1 <- interval_value(v_peaked, 0, c1, peak = peaks[1], spread = spread)
+  v2 <- interval_value(v_peaked, c1, c2, peak = peaks[1], spread = spread)
+  v3 <- interval_value(v_peaked, c2, 1, peak = peaks[1], spread = spread)
+  (v1 - 1/3)^2 + (v2 - 1/3)^2 + (v3 - 1/3)^2
+}
+
+opt_cuts <- optim(c(0.33, 0.67), find_cuts_A, method = "L-BFGS-B",
+                   lower = c(0.01, 0.02), upper = c(0.98, 0.99))
+c1 <- opt_cuts$par[1]; c2 <- opt_cuts$par[2]
+
+# Compute values for all players
+pieces <- list(c(0, c1), c(c1, c2), c(c2, 1))
+vals <- matrix(0, 3, 3)
+for (i in 1:3) {
+  for (j in 1:3) {
+    vals[i, j] <- interval_value(v_peaked, pieces[[j]][1], pieces[[j]][2],
+                                  peak = peaks[i], spread = spread)
+  }
+}
+
+cat(sprintf("A's cuts: [0, %.3f], [%.3f, %.3f], [%.3f, 1]\n", c1, c1, c2, c2))
+cat("\nValuation matrix (rows=players, cols=pieces):\n")
+for (i in 1:3) {
+  cat(sprintf("  Player %s: [%.3f, %.3f, %.3f]\n",
+              c("A","B","C")[i], vals[i,1], vals[i,2], vals[i,3]))
+}
+
+# Assign pieces greedily: C picks first, then B, then A
+c_choice <- which.max(vals[3, ])
+remaining <- setdiff(1:3, c_choice)
+b_choice <- remaining[which.max(vals[2, remaining])]
+a_choice <- setdiff(1:3, c(c_choice, b_choice))
+
+cat(sprintf("\nAllocation: A gets piece %d, B gets piece %d, C gets piece %d\n",
+            a_choice, b_choice, c_choice))
+cat(sprintf("Values: A=%.3f, B=%.3f, C=%.3f\n",
+            vals[1, a_choice], vals[2, b_choice], vals[3, c_choice]))
+cat(sprintf("Proportional (>= 1/3)? A:%s, B:%s, C:%s\n",
+            vals[1, a_choice] >= 1/3 - 1e-6,
+            vals[2, b_choice] >= 1/3 - 1e-6,
+            vals[3, c_choice] >= 1/3 - 1e-6))
+
+# Check envy-freeness
+envy_free <- TRUE
+for (i in 1:3) {
+  own <- c(a_choice, b_choice, c_choice)[i]
+  for (j in 1:3) {
+    other <- c(a_choice, b_choice, c_choice)[j]
+    if (i != j && vals[i, other] > vals[i, own] + 1e-6) {
+      cat(sprintf("  Player %s envies player %s!\n", c("A","B","C")[i], c("A","B","C")[j]))
+      envy_free <- FALSE
+    }
+  }
+}
+cat(sprintf("Envy-free: %s\n", envy_free))
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-cake-cutting
+#| fig-cap: "Figure 1. Heterogeneous cake valuations and divide-and-choose allocation. Top: density functions for three valuation types over the cake [0,1]. Bottom: outcome distribution from 2000 simulations of divide-and-choose comparing truthful versus strategic cutting. The chooser consistently benefits from the protocol, and strategic cutting by the cutter typically backfires. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 6
+#| dpi: 300
+
+# Panel 1: Valuation densities
+x_grid <- seq(0, 1, length.out = 200)
+val_df <- tibble(
+  x = rep(x_grid, 3),
+  density = c(v_uniform(x_grid),
+              v_peaked(x_grid, peak = 0.3, spread = 0.15),
+              v_bimodal(x_grid, peak1 = 0.2, peak2 = 0.8, spread = 0.1)),
+  type = rep(c("Uniform", "Peaked (0.3)", "Bimodal (0.2, 0.8)"), each = length(x_grid))
+)
+
+p_top <- ggplot(val_df, aes(x = x, y = density, color = type)) +
+  geom_line(linewidth = 1.1) +
+  scale_color_manual(values = c("Uniform" = okabe_ito[1],
+                                 "Peaked (0.3)" = okabe_ito[2],
+                                 "Bimodal (0.2, 0.8)" = okabe_ito[3]),
+                      name = "Valuation type") +
+  labs(title = "Cake valuation densities over [0, 1]",
+       subtitle = "Different players value different regions of the cake",
+       x = "Position on cake", y = "Value density") +
+  theme_publication()
+
+# Panel 2: Cutter vs chooser outcomes
+outcome_long <- strategic_results |>
+  select(sim, cutter_truthful, chooser_truthful) |>
+  pivot_longer(cols = -sim, names_to = "role", values_to = "value") |>
+  mutate(role = ifelse(role == "cutter_truthful", "Cutter", "Chooser"))
+
+p_bottom <- ggplot(outcome_long, aes(x = value, fill = role)) +
+  geom_histogram(alpha = 0.65, bins = 40, position = "identity") +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("Cutter" = okabe_ito[6], "Chooser" = okabe_ito[5]),
+                     name = "Role") +
+  annotate("text", x = 0.51, y = Inf, label = "Fair share = 1/2",
+           hjust = 0, vjust = 1.5, size = 3.5, color = "grey40") +
+  labs(title = "Divide-and-choose outcomes (truthful cutting)",
+       subtitle = "Chooser advantage: the chooser typically gets > 1/2 of their value",
+       x = "Received value (own valuation)", y = "Count") +
+  theme_publication()
+
+# Combine using patchwork-style approach via gridExtra
+gridExtra::grid.arrange(p_top, p_bottom, nrow = 2)
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-strategic-interactive
+
+# Compare truthful vs strategic outcomes for the cutter
+compare_df <- strategic_results |>
+  mutate(
+    truthful_better = cutter_truthful > cutter_strategic,
+    text = paste0("Sim: ", sim,
+                  "\nTruthful: ", round(cutter_truthful, 3),
+                  "\nStrategic: ", round(cutter_strategic, 3),
+                  "\nDifference: ", round(cutter_strategic - cutter_truthful, 3))
+  )
+
+p_compare <- ggplot(compare_df, aes(x = cutter_truthful, y = cutter_strategic,
+                                      color = truthful_better, text = text)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c("TRUE" = okabe_ito[3], "FALSE" = okabe_ito[6]),
+                      name = "Truthful better?",
+                      labels = c("FALSE" = "Strategic better", "TRUE" = "Truthful better")) +
+  labs(title = "Cutter's payoff: truthful vs strategic cutting",
+       subtitle = "Points below the diagonal = strategic cutting backfires",
+       x = "Cutter value (truthful)", y = "Cutter value (strategic)") +
+  coord_equal(xlim = c(0.2, 0.8), ylim = c(0.2, 0.8)) +
+  theme_publication()
+
+ggplotly(p_compare, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The simulation results illuminate several important properties of fair division protocols that are difficult to appreciate from theoretical analysis alone. First, the divide-and-choose protocol is indeed proportional -- in every simulation, both the cutter and the chooser receive at least half the cake by their own valuation. This is guaranteed by the protocol's structure: the cutter ensures their own half by cutting at their 50-50 point, and the chooser selects the better piece. However, the **chooser advantage** is substantial and systematic. Across 2000 simulations with randomly drawn peaked preferences, the chooser receives an average value significantly above 0.5, while the cutter receives exactly 0.5 (by construction, when cutting truthfully). This asymmetry is a well-known feature of divide-and-choose and raises the natural question: who should be the cutter?
+
+The strategic manipulation analysis addresses a subtler question: can the cutter improve their outcome by cutting unequally? Our simulation of a simple strategic deviation -- shifting the cut toward the assumed location of the chooser's preferred region -- shows that strategic cutting is generally counterproductive for the cutter. The reason is that the chooser always has the last move and will take whichever piece they prefer, so the cutter's attempt to manipulate the division typically results in the cutter receiving a piece they value at less than 1/2. This result confirms a classical theorem in fair division: in divide-and-choose, truthful cutting is a maximin strategy for the cutter. The cutter guarantees themselves exactly 1/2 by cutting truthfully, and any deviation can only reduce this guarantee. This is an elegant example of strategy-proofness arising from the protocol's structure rather than from explicit incentive constraints.
+
+The three-player Selfridge-Conway example demonstrates the dramatic increase in complexity when moving from two to three players. The protocol requires A to cut the cake into three pieces they consider equal, then involves B potentially trimming a piece and C making the first selection. In our implementation with well-separated preferences (players preferring the left, middle, and right regions respectively), the allocation is both proportional and envy-free: each player receives at least 1/3 of the cake by their own valuation, and no player prefers another's piece. The diversity of preferences actually helps here -- when players want different things, it becomes easier to find allocations that satisfy everyone. The harder cases arise when preferences are similar, forcing players to compete for the same regions.
+
+The theoretical importance of fair division extends far beyond the cake metaphor. In computational resource allocation, network bandwidth sharing, and cloud computing, fair division algorithms determine how shared resources are distributed among competing users. The envy-freeness criterion has been adopted in rental division (the Sperner-based algorithm for dividing rent among housemates) and in course allocation at universities. Recent work has extended fair division theory to indivisible goods, where the concept of "envy-freeness up to one good" (EF1) provides a practical relaxation. The algorithmic complexity of fair division has also become an active research area: while proportional division for $n$ players can be achieved with $O(n \log n)$ cuts using the Dubins-Spanier protocol, achieving envy-freeness for more than three players requires a bounded but astronomical number of cuts, as shown by the Aziz-Mackenzie protocol (2016). These computational questions connect fair division to deep problems in theoretical computer science and make it a rich area for future study.
+
+
+## Extensions & related tutorials
+
+- [Voting paradoxes and strategic voting](../voting-paradoxes-strategic/) -- another perspective on aggregating diverse preferences in social choice.
+- [Mechanism design introduction](../../mechanism-design/mechanism-design-intro/) -- designing rules that induce fair or efficient outcomes.
+- [The trolley problem as a game](../trolley-problem-as-game/) -- ethical dilemmas formalised through game theory.
+- [VCG mechanism](../../mechanism-design/vcg-mechanism/) -- truthful mechanisms for resource allocation in auction settings.
+- [Cooperative game theory](../../cooperative-gt/) -- the broader theory of coalition formation and value distribution.
+
+
+## References
+
+::: {#refs}
+:::

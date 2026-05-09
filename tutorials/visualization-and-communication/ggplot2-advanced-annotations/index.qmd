@@ -1,0 +1,365 @@
+---
+title: "Advanced ggplot2 Annotation Techniques for Game Theory Figures"
+description: "Master publication-quality game theory diagrams with Nash equilibrium labels, best-response arrows, payoff region shading, and mathematical annotations using ggplot2."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - visualization-and-communication
+  - ggplot2
+  - annotations
+keywords: ["ggplot2 annotations", "game theory visualization", "best response diagram", "Nash equilibrium plot"]
+labels: ["visualization", "ggplot2"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_visualization-and-communication_ggplot2-advanced-annotations"
+image: thumbnail.png
+image-alt: "Best-response diagram for the Battle of the Sexes game with Nash equilibrium annotations and strategy region shading"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/visualization-and-communication/ggplot2-advanced-annotations/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+## Introduction & motivation
+
+Game theory is, at its core, a mathematical discipline, but its insights gain clarity and persuasive force when they are communicated through well-crafted visual representations. A payoff matrix written in tabular form conveys the structure of a strategic interaction, yet a carefully annotated diagram can reveal the geometry of best responses, the location of equilibria, and the qualitative features of strategic landscapes in ways that tables and equations alone cannot. The gap between a rough exploratory plot and a publication-ready figure is substantial, and bridging it requires command of annotation tools that go far beyond the default capabilities of standard plotting functions.
+
+The R package ggplot2, built on the grammar of graphics framework introduced by @von_neumann_morgenstern_1944 and later formalized in statistical visualization, provides a layered approach to figure construction that is particularly well suited to the demands of game theory visualization. Every element of a game theory diagram --- the strategy space axes, the best-response curves, the equilibrium markers, the payoff labels, the shaded regions indicating strategy supports --- can be added as a separate layer, independently styled, and composed into a coherent whole. The key annotation functions in ggplot2 include `annotate()` for placing text, labels, and geometric primitives at precise coordinates; `geom_segment()` with the `arrow` argument for indicating best-response correspondences and directional dynamics; `geom_polygon()` for shading convex strategy regions; and `geom_label()` or `geom_text()` for attaching payoff values or equilibrium names to specific points.
+
+This tutorial focuses on the Battle of the Sexes game as a canonical example that is rich enough to require all of these annotation techniques. The Battle of the Sexes is a two-player coordination game in which both players prefer to coordinate on the same activity, but they disagree about which activity is better. It has two pure-strategy Nash equilibria and one mixed-strategy equilibrium, making it an ideal candidate for a best-response diagram that shows how the players' optimal strategies vary as a function of the opponent's mixing probability. The best-response diagram for this game features two step-function-like curves that intersect at three points, creating distinct regions in the strategy space that correspond to different strategic regimes. Annotating these regions, labeling the equilibria with their payoff values, and adding arrows that indicate the direction of best-response adjustments transforms a bare-bones plot into a publication-quality figure that tells a complete story.
+
+Beyond the specific example, the techniques demonstrated here are transferable to virtually any game theory visualization task. Whether you are plotting the replicator dynamics of an evolutionary game, illustrating the core of a cooperative game in a simplex diagram, or mapping the parameter space of a mechanism design problem, the same annotation primitives --- text placement, arrow drawing, region shading, and mathematical typesetting --- recur again and again. Learning to use them fluently in ggplot2 will save hours of post-processing in vector graphics editors and ensure that your figures are reproducible, version-controlled, and integrated into your Quarto or R Markdown workflow.
+
+The mathematical annotation capabilities of R deserve special attention. The `plotmath` system, accessible through the `expression()` and `bquote()` functions, allows you to render Greek letters, subscripts, superscripts, fractions, and other mathematical notation directly in plot labels and annotations. For more complex expressions, the `latex2exp` package can parse LaTeX strings into plotmath expressions. In game theory, where notation like $\sigma_i$, $BR_i(\sigma_{-i})$, and $u_i(s^*)$ is ubiquitous, the ability to typeset these symbols correctly within a figure is not merely cosmetic but essential for clear communication.
+
+This tutorial will walk through the complete process of constructing a best-response diagram for the Battle of the Sexes, starting from the payoff matrix, computing the best-response correspondences analytically, and then building the figure layer by layer with full annotation. By the end, you will have a reusable template for creating publication-quality game theory diagrams entirely within R.
+
+## Mathematical formulation
+
+The **Battle of the Sexes** is a two-player normal-form game. Player 1 (Row) and Player 2 (Column) each choose between two actions. We label the actions as $O$ (Opera) and $F$ (Football). The payoff matrix is:
+
+$$
+\begin{pmatrix}
+(3,\,2) & (0,\,0) \\
+(0,\,0) & (2,\,3)
+\end{pmatrix}
+$$
+
+where rows correspond to Player 1's choices ($O$ top, $F$ bottom) and columns to Player 2's choices ($O$ left, $F$ right).
+
+Let $p = \Pr(\text{Player 1 plays } O)$ and $q = \Pr(\text{Player 2 plays } O)$. The expected payoffs are:
+
+$$
+u_1(p, q) = p \cdot q \cdot 3 + p(1-q) \cdot 0 + (1-p)q \cdot 0 + (1-p)(1-q) \cdot 2 = 3pq + 2(1-p)(1-q)
+$$
+
+$$
+u_2(p, q) = p \cdot q \cdot 2 + p(1-q) \cdot 0 + (1-p)q \cdot 0 + (1-p)(1-q) \cdot 3 = 2pq + 3(1-p)(1-q)
+$$
+
+**Best-response correspondences.** Player 1's best response to $q$ is:
+
+$$
+BR_1(q) = \begin{cases} 1 & \text{if } q > \frac{2}{5} \\ [0,1] & \text{if } q = \frac{2}{5} \\ 0 & \text{if } q < \frac{2}{5} \end{cases}
+$$
+
+Player 2's best response to $p$ is:
+
+$$
+BR_2(p) = \begin{cases} 1 & \text{if } p > \frac{3}{5} \\ [0,1] & \text{if } p = \frac{3}{5} \\ 0 & \text{if } p < \frac{3}{5} \end{cases}
+$$
+
+The three **Nash equilibria** are:
+
+1. $(p^*, q^*) = (1, 1)$: both play Opera, payoffs $(3, 2)$
+2. $(p^*, q^*) = (0, 0)$: both play Football, payoffs $(2, 3)$
+3. $(p^*, q^*) = (3/5, 2/5)$: mixed equilibrium, payoffs $(6/5, 6/5)$
+
+## R implementation
+
+```{r}
+#| label: best-response-data
+#| code-fold: false
+
+set.seed(42)
+
+# --- Payoff matrix ---
+payoff_1 <- matrix(c(3, 0, 0, 2), nrow = 2, byrow = TRUE,
+                   dimnames = list(c("Opera", "Football"),
+                                  c("Opera", "Football")))
+payoff_2 <- matrix(c(2, 0, 0, 3), nrow = 2, byrow = TRUE,
+                   dimnames = list(c("Opera", "Football"),
+                                  c("Opera", "Football")))
+
+cat("Player 1 payoff matrix:\n")
+print(payoff_1)
+cat("\nPlayer 2 payoff matrix:\n")
+print(payoff_2)
+
+# --- Best-response thresholds ---
+# Player 1 indifferent when 3q = 2(1-q) => q = 2/5
+q_threshold <- 2 / 5
+# Player 2 indifferent when 2p = 3(1-p) => p = 3/5
+p_threshold <- 3 / 5
+
+cat("\nPlayer 1 indifference threshold: q =", q_threshold, "\n")
+cat("Player 2 indifference threshold: p =", p_threshold, "\n")
+
+# --- Best-response correspondence data for plotting ---
+# BR1: p as function of q
+br1 <- data.frame(
+  q = c(0, q_threshold, q_threshold, q_threshold, 1),
+  p = c(0, 0,           0,           1,           1),
+  segment = c("low", "low", "indiff", "high", "high")
+)
+
+# BR2: q as function of p (but we plot p on y-axis, q on x-axis)
+br2 <- data.frame(
+  p = c(0, p_threshold, p_threshold, p_threshold, 1),
+  q = c(0, 0,           0,           1,           1),
+  segment = c("low", "low", "indiff", "high", "high")
+)
+
+# Nash equilibria
+nash_eq <- data.frame(
+  q = c(0, q_threshold, 1),
+  p = c(0, p_threshold, 1),
+  label = c("NE[2]: (F, F)", "NE[3]: Mixed", "NE[1]: (O, O)"),
+  payoff = c("(2, 3)", "(6/5, 6/5)", "(3, 2)")
+)
+
+cat("\nNash Equilibria:\n")
+for (i in seq_len(nrow(nash_eq))) {
+  cat(sprintf("  %s at (q=%.2f, p=%.2f) with payoffs %s\n",
+              nash_eq$label[i], nash_eq$q[i], nash_eq$p[i],
+              nash_eq$payoff[i]))
+}
+```
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-best-response-static
+#| fig-cap: "Best-response diagram for the Battle of the Sexes. The orange step function is Player 1's best response BR₁(q) and the blue step function is Player 2's best response BR₂(p). The three intersections are the Nash equilibria: two pure-strategy equilibria at the corners and one mixed-strategy equilibrium in the interior."
+#| fig-width: 8
+#| fig-height: 6
+#| dev: [png, pdf]
+#| dpi: 300
+
+# Build plot layer by layer
+p_static <- ggplot() +
+  # --- Shaded strategy regions ---
+  annotate("rect", xmin = 0, xmax = q_threshold, ymin = 0, ymax = p_threshold,
+           fill = okabe_ito[1], alpha = 0.08) +
+  annotate("rect", xmin = q_threshold, xmax = 1, ymin = p_threshold, ymax = 1,
+           fill = okabe_ito[2], alpha = 0.08) +
+  annotate("rect", xmin = 0, xmax = q_threshold, ymin = p_threshold, ymax = 1,
+           fill = okabe_ito[8], alpha = 0.08) +
+  annotate("rect", xmin = q_threshold, xmax = 1, ymin = 0, ymax = p_threshold,
+           fill = okabe_ito[8], alpha = 0.08) +
+
+  # --- Best-response for Player 1 (BR1): horizontal segments ---
+  # Below threshold: p = 0
+
+  geom_segment(aes(x = 0, xend = q_threshold, y = 0, yend = 0),
+               color = okabe_ito[1], linewidth = 1.2) +
+  # At threshold: vertical segment p in [0,1]
+  geom_segment(aes(x = q_threshold, xend = q_threshold, y = 0, yend = 1),
+               color = okabe_ito[1], linewidth = 1.2, linetype = "dashed") +
+  # Above threshold: p = 1
+  geom_segment(aes(x = q_threshold, xend = 1, y = 1, yend = 1),
+               color = okabe_ito[1], linewidth = 1.2) +
+
+  # --- Best-response for Player 2 (BR2): vertical segments ---
+  # Below threshold: q = 0
+  geom_segment(aes(x = 0, xend = 0, y = 0, yend = p_threshold),
+               color = okabe_ito[2], linewidth = 1.2) +
+  # At threshold: horizontal segment q in [0,1]
+  geom_segment(aes(x = 0, xend = 1, y = p_threshold, yend = p_threshold),
+               color = okabe_ito[2], linewidth = 1.2, linetype = "dashed") +
+  # Above threshold: q = 1
+  geom_segment(aes(x = 1, xend = 1, y = p_threshold, yend = 1),
+               color = okabe_ito[2], linewidth = 1.2) +
+
+  # --- Nash equilibrium points ---
+  geom_point(data = nash_eq, aes(x = q, y = p),
+             size = 4, shape = 21, fill = okabe_ito[3], color = "black",
+             stroke = 1.2) +
+
+  # --- Equilibrium labels ---
+  annotate("label", x = 1, y = 1, label = "NE[1]:~(O,O)~~pi==(3,2)",
+           parse = TRUE, hjust = 1.1, vjust = -0.3,
+           size = 3.5, fill = "white", label.size = 0.3) +
+  annotate("label", x = 0, y = 0, label = "NE[2]:~(F,F)~~pi==(2,3)",
+           parse = TRUE, hjust = -0.1, vjust = 1.3,
+           size = 3.5, fill = "white", label.size = 0.3) +
+  annotate("label", x = q_threshold, y = p_threshold,
+           label = "NE[3]:~Mixed~~pi==(frac(6,5),frac(6,5))",
+           parse = TRUE, hjust = -0.1, vjust = -0.5,
+           size = 3.5, fill = "white", label.size = 0.3) +
+
+  # --- Best-response arrows indicating direction of adjustment ---
+  # Arrow: in lower-right region, both move toward (F,F)
+  geom_segment(aes(x = 0.7, xend = 0.5, y = 0.25, yend = 0.1),
+               arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+               color = okabe_ito[6], linewidth = 0.7) +
+  # Arrow: in upper-left region, both move toward (O,O)
+  geom_segment(aes(x = 0.15, xend = 0.3, y = 0.8, yend = 0.9),
+               arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+               color = okabe_ito[6], linewidth = 0.7) +
+
+  # --- Region labels ---
+  annotate("text", x = 0.15, y = 0.2,
+           label = "Both prefer\nFootball", size = 3, color = "grey40",
+           fontface = "italic") +
+  annotate("text", x = 0.75, y = 0.85,
+           label = "Both prefer\nOpera", size = 3, color = "grey40",
+           fontface = "italic") +
+
+  # --- Threshold reference lines ---
+  geom_vline(xintercept = q_threshold, linetype = "dotted",
+             color = "grey60", linewidth = 0.4) +
+  geom_hline(yintercept = p_threshold, linetype = "dotted",
+             color = "grey60", linewidth = 0.4) +
+
+  # --- Legend text annotations ---
+  annotate("text", x = 0.95, y = 0.45,
+           label = "BR[1](q)", parse = TRUE,
+           color = okabe_ito[1], size = 4, fontface = "bold") +
+  annotate("text", x = 0.55, y = 0.05,
+           label = "BR[2](p)", parse = TRUE,
+           color = okabe_ito[2], size = 4, fontface = "bold") +
+
+  # --- Axis labels and scales ---
+  scale_x_continuous(
+    name = expression(q == Pr(Player~2~plays~O)),
+    breaks = c(0, q_threshold, 0.5, 1),
+    labels = c("0", "2/5", "0.5", "1"),
+    limits = c(-0.05, 1.1), expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    name = expression(p == Pr(Player~1~plays~O)),
+    breaks = c(0, p_threshold, 0.5, 1),
+    labels = c("0", "3/5", "0.5", "1"),
+    limits = c(-0.05, 1.15), expand = c(0, 0)
+  ) +
+  labs(
+    title = "Best-Response Diagram: Battle of the Sexes",
+    subtitle = "Three Nash equilibria: two pure-strategy (corners) and one mixed-strategy (interior)"
+  ) +
+  theme_publication() +
+  theme(legend.position = "none")
+
+p_static
+```
+
+## Interactive figure
+
+```{r}
+#| label: fig-best-response-interactive
+#| fig-cap: "Interactive best-response diagram. Hover over equilibrium points for details."
+
+# Prepare data for interactive version
+br1_plot <- data.frame(
+  q = c(0, q_threshold - 0.001, NA, q_threshold, q_threshold, NA,
+        q_threshold + 0.001, 1),
+  p = c(0, 0, NA, 0, 1, NA, 1, 1),
+  player = "BR1(q)",
+  text = c("BR1: p=0 (play F)", "BR1: p=0 (play F)", NA,
+           "BR1: indifferent", "BR1: indifferent", NA,
+           "BR1: p=1 (play O)", "BR1: p=1 (play O)")
+)
+
+br2_plot <- data.frame(
+  q = c(0, 0, NA, 0, 1, NA, 1, 1),
+  p = c(0, p_threshold - 0.001, NA, p_threshold, p_threshold, NA,
+        p_threshold + 0.001, 1),
+  player = "BR2(p)",
+  text = c("BR2: q=0 (play F)", "BR2: q=0 (play F)", NA,
+           "BR2: indifferent", "BR2: indifferent", NA,
+           "BR2: q=1 (play O)", "BR2: q=1 (play O)")
+)
+
+ne_interactive <- data.frame(
+  q = c(0, q_threshold, 1),
+  p = c(0, p_threshold, 1),
+  text = c("NE2: (F,F) | Payoffs: (2,3)",
+           "NE3: Mixed (p=3/5,q=2/5) | Payoffs: (6/5,6/5)",
+           "NE1: (O,O) | Payoffs: (3,2)"),
+  eq_type = c("Pure", "Mixed", "Pure")
+)
+
+p_int <- ggplot() +
+  geom_path(data = br1_plot, aes(x = q, y = p, text = text),
+            color = okabe_ito[1], linewidth = 1) +
+  geom_path(data = br2_plot, aes(x = q, y = p, text = text),
+            color = okabe_ito[2], linewidth = 1) +
+  geom_point(data = ne_interactive,
+             aes(x = q, y = p, text = text, shape = eq_type),
+             size = 4, fill = okabe_ito[3], color = "black", stroke = 1) +
+  scale_shape_manual(values = c("Pure" = 21, "Mixed" = 24)) +
+  scale_x_continuous(
+    name = "q = Pr(Player 2 plays O)",
+    limits = c(-0.02, 1.05), breaks = seq(0, 1, 0.2)
+  ) +
+  scale_y_continuous(
+    name = "p = Pr(Player 1 plays O)",
+    limits = c(-0.02, 1.05), breaks = seq(0, 1, 0.2)
+  ) +
+  labs(title = "Best-Response Diagram: Battle of the Sexes") +
+  theme_publication() +
+  theme(legend.position = "none")
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+## Interpretation
+
+The best-response diagram for the Battle of the Sexes reveals the complete strategic structure of this classic coordination game in a single figure, and the annotation techniques used to construct it illustrate principles that apply far beyond this particular example. The most immediately striking feature of the diagram is the step-function shape of both best-response correspondences. Unlike games with continuous strategy spaces where best responses are smooth curves, the Battle of the Sexes --- like all 2x2 games --- produces best responses that jump discontinuously at a critical threshold, with a vertical or horizontal segment connecting the two branches at the indifference point. The dashed line segments at the thresholds $q = 2/5$ and $p = 3/5$ indicate that at these mixing probabilities, the responding player is indifferent between their two pure strategies and any mixture is a best response.
+
+The three Nash equilibria appear as the intersection points of the two best-response correspondences. The two pure-strategy equilibria at $(0, 0)$ and $(1, 1)$ sit at the corners of the unit square, corresponding to the outcomes where both players coordinate on Football or both coordinate on Opera. The payoff annotations $(2, 3)$ and $(3, 2)$ make the distributional conflict visible: coordination is mutually beneficial, but the surplus is divided unequally, with each player preferring the equilibrium associated with their favored activity. The mixed-strategy equilibrium at $(2/5, 3/5)$ sits in the interior, and its payoffs $(6/5, 6/5)$ are strikingly lower than either pure equilibrium. This is a characteristic feature of mixed equilibria in coordination games: by randomizing, both players incur a substantial probability of miscoordination, which destroys much of the available surplus.
+
+The shaded regions in the diagram partition the strategy space into four quadrants defined by the indifference thresholds. In the lower-left region (both mixing probabilities below their respective thresholds), both players' best responses point toward the Football equilibrium, as indicated by the directional arrow. In the upper-right region, both best responses point toward the Opera equilibrium. The off-diagonal regions represent states of strategic tension where one player's best response pulls toward Opera while the other's pulls toward Football. These regions are the basins of attraction for the two pure equilibria under various learning dynamics, and their relative sizes provide intuition about which equilibrium is more likely to be reached from a random initial condition.
+
+The annotation techniques used in this figure form a reusable toolkit for game theory visualization. The `annotate("label", ..., parse = TRUE)` calls demonstrate how to render mathematical notation using R's plotmath syntax directly within the figure, avoiding the need for post-processing in external software. The `geom_segment(..., arrow = arrow(...))` calls show how to indicate directional dynamics, which is essential for evolutionary game theory phase portraits and learning dynamics diagrams. The `annotate("rect", ..., alpha = ...)` calls illustrate semi-transparent region shading, which is indispensable for illustrating strategy supports, feasibility regions, and basins of attraction. Together with the Okabe-Ito colorblind-safe palette and the clean publication theme, these layers produce a figure that is immediately ready for inclusion in a journal article or presentation.
+
+The interactive version of the figure, built with `ggplotly()`, adds a complementary dimension. Hovering over any point on the best-response curves reveals whether the player is choosing a pure best response or is in the indifference region, and hovering over the equilibrium markers displays the full equilibrium profile and associated payoffs. This interactivity is particularly valuable in teaching contexts, where students can explore the strategic logic by tracing along the best-response curves and observing how optimal behavior changes as the opponent's mixing probability crosses the indifference threshold. The tooltip-driven approach scales naturally to more complex games with larger strategy spaces, where static labels would create clutter.
+
+## Extensions & related tutorials
+
+- **Publication-ready ggplot themes**: See the [Publication-Ready ggplot Theme](../publication-ready-ggplot-theme/) tutorial for a comprehensive theming system for all game theory figures.
+- **Interactive game theory dashboards**: The [Interactive Game Theory Dashboards](../interactive-game-theory-dashboards/) tutorial extends these techniques to full Shiny-based interactive visualizations.
+- **Classical games**: For the game-theoretic foundations of the Battle of the Sexes and other 2x2 games, see the [Classical Games](../../classical-games/) section.
+- **Evolutionary dynamics visualization**: Apply these annotation techniques to replicator dynamics phase portraits in the [Evolutionary Game Theory](../../evolutionary-gt/) tutorials.
+- **S4 classes for game objects**: Learn to represent games programmatically with the [S4 Classes for Game Objects](../../r-package-development/s4-classes-game-objects/) tutorial, which pairs naturally with these visualization methods.
+
+## References
+
+::: {#refs}
+:::

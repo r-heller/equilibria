@@ -1,0 +1,372 @@
+---
+title: "Hedonic coalition formation games"
+description: "Implement hedonic coalition formation with individual and Nash stability concepts in R, applied to a roommate matching example with 6 players."
+author: "Raban Heller"
+date: 2026-05-08
+date-modified: 2026-05-08
+categories:
+  - cooperative-gt
+  - coalition-formation
+  - hedonic-games
+  - matching
+keywords: ["hedonic games", "coalition formation", "individual stability", "Nash stability", "roommate problem"]
+labels: ["cooperative-games", "matching-theory"]
+tier: 1
+bibliography: ../../references.bib
+vgwort: "TODO_VGWORT_cooperative-gt_coalition-formation-hedonic"
+image: thumbnail.png
+image-alt: "Network diagram showing stable coalition partitions in a hedonic game with 6 players"
+citation:
+  type: webpage
+  url: https://r-heller.github.io/equilibria/tutorials/cooperative-gt/coalition-formation-hedonic/
+license: "CC BY-SA 4.0"
+draft: false
+has_static_fig: true
+has_interactive_fig: true
+has_shiny_app: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7", "#999999")
+theme_publication <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(plot.title = element_text(size = base_size * 1.2, face = "bold"),
+          plot.subtitle = element_text(size = base_size * 0.9, color = "grey40"),
+          axis.line = element_line(color = "grey30", linewidth = 0.3),
+          panel.grid.minor = element_blank(), legend.position = "bottom",
+          plot.margin = margin(10, 10, 10, 10))
+}
+```
+
+
+## Introduction & motivation
+
+Coalition formation is one of the oldest and most fundamental problems in cooperative game theory. The classical approach, rooted in the work of von Neumann and Morgenstern, focuses on the worth that coalitions can generate and how that worth should be divided among members. Concepts like the core, the Shapley value, and the nucleolus all take the coalition function (or characteristic function) as given and ask: given what each coalition can achieve, what payoff allocations are stable? But this approach sidesteps a crucial prior question: which coalitions actually form? In many real-world settings, the relevant question is not how to divide a fixed pie but which groups of agents will choose to work together in the first place.
+
+Hedonic coalition formation games, introduced formally by Dreze and Greenberg (1980) and extensively analysed by Bogomolnaia and Jackson (2002) and Banerjee, Konishi, and Sonmez (2001), provide a framework for answering this question. The defining characteristic of hedonic games is that each player's preferences depend only on the coalition they belong to — not on how the rest of the population is partitioned. This "hedonic" property (the name alludes to the idea that players care about the composition of their own group, not about external arrangements) makes the model tractable while still capturing essential features of many real coalition formation problems. Examples include the formation of research teams, political parties, social clubs, study groups, and — the example we develop in detail — roommate assignments.
+
+The hedonic framework is closely connected to matching theory, which has been enormously influential in economics since the pioneering work of Gale and Shapley (1962). The stable roommates problem — assigning $2n$ individuals into $n$ pairs such that no two unpaired individuals would prefer each other to their current partners — is a special case of hedonic coalition formation where all coalitions have size at most 2. The classic result of Gale and Shapley shows that stable matchings always exist for two-sided markets (men-women, students-hospitals), but Irving (1985) demonstrated that for one-sided roommate problems, stable matchings may fail to exist. Hedonic game theory provides the conceptual framework for understanding when and why this happens: cycling among deviations can prevent any partition from being stable.
+
+In this tutorial, we implement two key stability concepts for hedonic games. Individual stability requires that no player can improve by moving to another coalition (or becoming a singleton) without making any member of the receiving coalition worse off. Nash stability is more demanding: a partition is Nash stable if no player can improve by moving to any other existing coalition or forming a singleton, regardless of the preferences of the receiving coalition's members. We apply these concepts to a concrete roommate matching example with 6 players, enumerate partitions, identify stable and unstable configurations, and show how the structure of preferences determines the existence or non-existence of stable outcomes. The implementation uses only base R and tidyverse tools, building the stability-checking algorithms from scratch to provide full transparency into the logic of hedonic games.
+
+Understanding hedonic coalition formation is essential for anyone working on mechanism design, matching markets, or organisational economics. The concepts and algorithms developed here extend naturally to larger games, more complex preference structures, and computational questions about the complexity of finding stable partitions — a topic of active research in algorithmic game theory.
+
+
+## Mathematical formulation
+
+A **hedonic coalition formation game** is a pair $(N, \succeq)$ where:
+
+- $N = \{1, 2, \ldots, n\}$ is a finite set of players.
+- $\succeq = (\succeq_1, \ldots, \succeq_n)$ is a preference profile, where $\succeq_i$ is player $i$'s preference ordering over all coalitions containing $i$: $\mathcal{C}_i = \{S \subseteq N : i \in S\}$.
+
+A **partition** (or coalition structure) $\pi = \{S_1, \ldots, S_K\}$ is a partition of $N$ into disjoint, exhaustive coalitions. Let $\pi(i)$ denote the coalition in $\pi$ that contains player $i$.
+
+**Stability concepts:**
+
+1. **Nash stability**: A partition $\pi$ is Nash stable if for all $i \in N$ and all $S \in \pi \cup \{\emptyset\}$ with $S \neq \pi(i)$:
+$$
+\pi(i) \succeq_i S \cup \{i\}
+$$
+No player can unilaterally improve by moving to another existing coalition (or becoming alone), even without the consent of the receiving coalition.
+
+2. **Individual stability**: A partition $\pi$ is individually stable if there is no player $i$ and coalition $S \in \pi \cup \{\emptyset\}$ such that:
+   - $S \cup \{i\} \succ_i \pi(i)$ (player $i$ strictly prefers the move), and
+   - $S \cup \{i\} \succeq_j S$ for all $j \in S$ (no member of the receiving coalition is made worse off).
+
+Individual stability is weaker than Nash stability: the receiving coalition must "accept" the new member. Every Nash stable partition is individually stable, but not vice versa.
+
+For the **roommate problem** with $|N| = 2k$ players, we restrict attention to partitions into pairs (and possibly singletons). Each player $i$ has a strict preference ordering over potential partners. A matching $\mu$ is **stable** if there is no **blocking pair** $(i, j)$ where $i$ and $j$ are not matched together but both prefer each other to their current partner.
+
+
+## R implementation
+
+We implement the hedonic game framework for a 6-player roommate problem with explicit preferences, then check individual and Nash stability of all pair partitions.
+
+```{r}
+#| label: hedonic-implementation
+
+set.seed(123)
+
+# 6 players, preferences over partners (lower rank = more preferred)
+# Preference lists: player i's ranking of all other players as roommates
+# 0 = being alone (singleton)
+players <- 1:6
+n <- length(players)
+
+# Each player's preference ordering over partners (1 = best, 5 = worst)
+# Also include "alone" option with a rank
+preferences <- list(
+  "1" = c("2" = 1, "3" = 2, "4" = 4, "5" = 3, "6" = 5, "alone" = 6),
+  "2" = c("1" = 2, "3" = 1, "4" = 3, "5" = 5, "6" = 4, "alone" = 6),
+  "3" = c("1" = 3, "2" = 1, "4" = 2, "5" = 4, "6" = 5, "alone" = 6),
+  "4" = c("1" = 4, "2" = 3, "3" = 1, "5" = 2, "6" = 5, "alone" = 6),
+  "5" = c("1" = 2, "2" = 4, "3" = 3, "4" = 1, "6" = 5, "alone" = 6),
+  "6" = c("1" = 3, "2" = 2, "3" = 4, "4" = 5, "5" = 1, "alone" = 6)
+)
+
+# Utility: higher is better (invert ranks)
+utility <- lapply(preferences, function(p) {
+  max_rank <- max(p)
+  max_rank + 1 - p
+})
+
+cat("Player utilities (higher = better):\n")
+for (i in 1:n) {
+  cat(sprintf("  Player %d: %s\n", i,
+              paste(names(utility[[i]]), "=", utility[[i]], collapse = ", ")))
+}
+
+# Generate all perfect matchings (partitions into 3 pairs) of 6 players
+generate_matchings <- function(players) {
+  if (length(players) == 0) return(list(list()))
+  first <- players[1]
+  rest <- players[-1]
+  matchings <- list()
+  for (partner in rest) {
+    remaining <- setdiff(rest, partner)
+    sub_matchings <- generate_matchings(remaining)
+    for (sm in sub_matchings) {
+      matchings <- c(matchings, list(c(list(sort(c(first, partner))), sm)))
+    }
+  }
+  matchings
+}
+
+all_matchings <- generate_matchings(players)
+cat(sprintf("\nTotal perfect matchings of 6 players: %d\n", length(all_matchings)))
+
+# Check if a matching is Nash stable
+is_nash_stable <- function(matching, utility) {
+  for (i in 1:6) {
+    # Find i's current partner
+    current_pair <- NULL
+    for (pair in matching) {
+      if (i %in% pair) { current_pair <- pair; break }
+    }
+    partner <- setdiff(current_pair, i)
+    current_util <- utility[[as.character(i)]][as.character(partner)]
+
+    # Check if i wants to deviate to any other coalition member
+    for (pair in matching) {
+      if (i %in% pair) next
+      for (j in pair) {
+        alt_util <- utility[[as.character(i)]][as.character(j)]
+        if (alt_util > current_util) return(FALSE)
+      }
+    }
+    # Check singleton deviation
+    alone_util <- utility[[as.character(i)]]["alone"]
+    if (alone_util > current_util) return(FALSE)
+  }
+  TRUE
+}
+
+# Check if a matching is individually stable
+is_individually_stable <- function(matching, utility) {
+  for (i in 1:6) {
+    current_pair <- NULL
+    for (pair in matching) {
+      if (i %in% pair) { current_pair <- pair; break }
+    }
+    partner <- setdiff(current_pair, i)
+    current_util_i <- utility[[as.character(i)]][as.character(partner)]
+
+    for (pair in matching) {
+      if (i %in% pair) next
+      for (j in pair) {
+        alt_util_i <- utility[[as.character(i)]][as.character(j)]
+        # j's current partner
+        j_partner <- setdiff(pair, j)
+        j_current_util <- utility[[as.character(j)]][as.character(j_partner)]
+        j_new_util <- utility[[as.character(j)]][as.character(i)]
+
+        # i wants to move AND j doesn't mind (weakly prefers)
+        if (alt_util_i > current_util_i && j_new_util >= j_current_util) {
+          return(FALSE)
+        }
+      }
+    }
+    # Singleton deviation (always "accepted")
+    alone_util <- utility[[as.character(i)]]["alone"]
+    if (alone_util > current_util_i) return(FALSE)
+  }
+  TRUE
+}
+
+# Evaluate all matchings
+matching_results <- data.frame(
+  matching_id = seq_along(all_matchings),
+  pairs = sapply(all_matchings, function(m) {
+    paste(sapply(m, function(p) paste0("(", p[1], ",", p[2], ")")),
+          collapse = " ")
+  }),
+  nash_stable = sapply(all_matchings, is_nash_stable, utility = utility),
+  ind_stable = sapply(all_matchings, is_individually_stable, utility = utility),
+  stringsAsFactors = FALSE
+)
+
+# Compute total welfare for each matching
+matching_results$total_welfare <- sapply(all_matchings, function(m) {
+  total <- 0
+  for (pair in m) {
+    i <- pair[1]; j <- pair[2]
+    total <- total + utility[[as.character(i)]][as.character(j)]
+    total <- total + utility[[as.character(j)]][as.character(i)]
+  }
+  total
+})
+
+cat("\nAll matchings with stability analysis:\n")
+print(matching_results)
+
+cat(sprintf("\nNash stable matchings: %d\n", sum(matching_results$nash_stable)))
+cat(sprintf("Individually stable matchings: %d\n", sum(matching_results$ind_stable)))
+```
+
+```{r}
+#| label: blocking-pairs-analysis
+
+# For each matching, count blocking pairs
+count_blocking_pairs <- function(matching, utility) {
+  blocks <- 0
+  block_list <- c()
+  assigned <- integer(6)
+  for (pair in matching) {
+    assigned[pair[1]] <- pair[2]
+    assigned[pair[2]] <- pair[1]
+  }
+
+  for (i in 1:5) {
+    for (j in (i+1):6) {
+      if (assigned[i] == j) next  # already paired
+      i_current <- utility[[as.character(i)]][as.character(assigned[i])]
+      i_with_j <- utility[[as.character(i)]][as.character(j)]
+      j_current <- utility[[as.character(j)]][as.character(assigned[j])]
+      j_with_i <- utility[[as.character(j)]][as.character(i)]
+      if (i_with_j > i_current && j_with_i > j_current) {
+        blocks <- blocks + 1
+        block_list <- c(block_list, paste0("(", i, ",", j, ")"))
+      }
+    }
+  }
+  list(count = blocks, pairs = block_list)
+}
+
+blocking_info <- lapply(all_matchings, count_blocking_pairs, utility = utility)
+matching_results$blocking_pairs <- sapply(blocking_info, function(x) x$count)
+matching_results$blocking_detail <- sapply(blocking_info, function(x) {
+  if (length(x$pairs) == 0) "none" else paste(x$pairs, collapse = ", ")
+})
+
+cat("Blocking pairs for each matching:\n")
+print(matching_results[, c("matching_id", "pairs", "blocking_pairs",
+                            "blocking_detail")])
+```
+
+
+## Static publication-ready figure
+
+```{r}
+#| label: fig-hedonic-stability
+#| fig-cap: "Figure 1. All 15 perfect matchings of 6 players evaluated for stability and welfare. Bars show total welfare (sum of utilities across all players); colour indicates stability status. Nash stable matchings are a subset of individually stable matchings. Okabe-Ito palette."
+#| dev: [png, pdf]
+#| fig-width: 9
+#| fig-height: 5
+#| dpi: 300
+
+plot_df <- matching_results |>
+  mutate(stability = case_when(
+    nash_stable ~ "Nash stable",
+    ind_stable ~ "Individually stable only",
+    TRUE ~ "Unstable"
+  )) |>
+  mutate(stability = factor(stability,
+    levels = c("Nash stable", "Individually stable only", "Unstable"))) |>
+  arrange(desc(total_welfare)) |>
+  mutate(pairs = factor(pairs, levels = pairs))
+
+p_stability <- ggplot(plot_df,
+       aes(x = pairs, y = total_welfare, fill = stability)) +
+  geom_col(width = 0.7) +
+  geom_text(aes(label = blocking_pairs), vjust = -0.3, size = 3) +
+  scale_fill_manual(values = c("Nash stable" = okabe_ito[3],
+                                "Individually stable only" = okabe_ito[1],
+                                "Unstable" = okabe_ito[8])) +
+  labs(
+    title = "Hedonic coalition formation: stability of all matchings",
+    subtitle = "6-player roommate problem; numbers above bars = blocking pair count",
+    x = "Matching (pairs)",
+    y = "Total welfare (sum of utilities)",
+    fill = "Stability"
+  ) +
+  theme_publication() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+
+p_stability
+```
+
+
+## Interactive figure
+
+```{r}
+#| label: fig-hedonic-interactive
+
+plot_df_interactive <- plot_df |>
+  mutate(text = sprintf(
+    "Matching: %s\nTotal welfare: %d\nStability: %s\nBlocking pairs: %d\nDetails: %s",
+    pairs, total_welfare, stability, blocking_pairs, blocking_detail
+  ))
+
+p_int <- ggplot(plot_df_interactive,
+       aes(x = reorder(pairs, -total_welfare), y = total_welfare,
+           fill = stability, text = text)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(values = c("Nash stable" = okabe_ito[3],
+                                "Individually stable only" = okabe_ito[1],
+                                "Unstable" = okabe_ito[8])) +
+  labs(
+    title = "Hedonic game: welfare and stability",
+    x = "Matching", y = "Total welfare", fill = "Stability"
+  ) +
+  theme_publication() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7))
+
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
+
+
+## Interpretation
+
+The analysis of our 6-player roommate problem reveals several fundamental insights about hedonic coalition formation. First, not all matchings are created equal — the 15 possible perfect matchings span a wide range of total welfare, and the stability properties of a matching are not perfectly correlated with its welfare. It is possible for a high-welfare matching to be unstable (because some player pair has a strong mutual incentive to deviate) and for a lower-welfare matching to be stable (because no deviation is mutually beneficial). This disconnect between efficiency and stability is a pervasive theme in game theory, from the Prisoner's Dilemma to public goods provision, and hedonic games provide a clean setting for studying it.
+
+The distinction between Nash stability and individual stability is particularly illuminating. Nash stability asks only whether any single player wants to move, treating the receiving coalition as powerless to refuse. Individual stability adds a consent requirement: the receiving coalition's members must weakly prefer the new arrangement. In our roommate setting, this means that a player cannot simply force their way into a pair — the other person must at least not object. This consent requirement makes individual stability easier to satisfy than Nash stability (every Nash stable partition is individually stable, but not vice versa), and in practice it is individual stability that is more relevant for voluntary association settings where people can refuse to associate with others.
+
+The blocking pair analysis connects our hedonic framework to classical matching theory. A blocking pair $(i, j)$ exists when both $i$ and $j$ prefer each other to their current partners — this is exactly the instability condition from the stable roommates problem of Irving (1985). When the number of blocking pairs is zero, the matching is stable in the classical sense. Our analysis shows how blocking pairs are distributed across matchings: some matchings have many blocking pairs (they are far from stable), while others have few or none. The structure of the preference profile determines which category each matching falls into.
+
+A key theoretical result, due to Bogomolnaia and Jackson (2002), is that Nash stable partitions are guaranteed to exist when players' preferences satisfy certain structural conditions — for instance, when preferences are additively separable (each player assigns a value to each potential partner, and the value of a coalition is the sum of pairwise values) and symmetric. When these conditions fail, stable partitions may not exist, and the deviation dynamics can cycle: player A wants to leave their current group for group X, but this triggers player B to leave group X for group Y, which triggers player C to leave group Y for group A's original group, and so on. Our preference profile was constructed to have at least one stable matching, but small perturbations to the preferences can eliminate all stable outcomes, demonstrating the fragility of stability in hedonic games.
+
+The computational aspects of hedonic games are also worth noting. With 6 players, we can enumerate all 15 perfect matchings and check stability exhaustively. But the number of partitions grows super-exponentially with the number of players: for $n$ players, the number of partitions is the Bell number $B_n$, which grows faster than any exponential. Even restricting to perfect matchings, the count is $(2k-1)!! = (2k-1)(2k-3) \cdots 3 \cdot 1$ for $2k$ players. For $n = 20$ (10 pairs), this is already $654{,}729{,}075$ matchings. Finding stable partitions in large hedonic games is computationally hard in general — several stability concepts lead to NP-complete or coNP-complete decision problems. This computational intractability motivates the development of heuristic algorithms, special-case polynomial algorithms (such as Irving's algorithm for stable roommates), and structural restrictions on preferences that guarantee tractability.
+
+
+## Extensions & related tutorials
+
+- [The core and stability in cooperative games](../core-stability/) — the core as a stability concept for transferable utility games, contrasted with hedonic stability.
+- [Shapley value and fair division](../shapley-value/) — axiomatically fair allocation of coalition worth, complementing the formation question.
+- [Voting power indices](../voting-power-indices/) — coalition formation in voting contexts with weighted players.
+- [Rubinstein alternating offers bargaining](../rubinstein-alternating-offers/) — non-cooperative foundations for coalition bargaining.
+- [Climate coalition formation](../../case-studies/climate-coalition-formation/) — applying coalition stability concepts to international environmental agreements.
+
+
+## References
+
+::: {#refs}
+:::

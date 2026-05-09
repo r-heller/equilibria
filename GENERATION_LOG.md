@@ -39,3 +39,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-09 | 5.20 | Batch 5: 6 third articles (group A) | reserve-prices, reference-dependence, level-k, penalty-kicks, climate-coalition, ABM-markets |
 | 2026-05-09 | 5.21 | Batch 5: 6 third articles (group B) | trust-game, network-PG, mental-accounting, adversarial-ML, RDD-strategic, cheap-talk |
 | 2026-05-09 | 5.22 | Batch 5: 6 third articles (group C) | voting-paradoxes, plotly-dashboards, power-law-networks, eigenvalue-repeated, selten-THP, blockchain |
+| 2026-05-09 | 5.23 | Batch 6: foundations + auction-theory ×2 | backward-induction-centipede, all-pay-auction-lobbying |
+| 2026-05-09 | 5.24 | Batch 6: 6 articles (group A) | ggplot2-annotations, structural-estimation, MLE-game-estimation, docker-environments, S4-classes, openai-gym-RL |
+| 2026-05-09 | 5.25 | Batch 6: 6 articles (group B) | gradient-descent-NE, SHAP-values, fair-division, matching-pennies-exp, combinatorial-auctions, AI-alignment |
+| 2026-05-09 | 5.26 | Batch 6: 6 articles (group C) | replicator-mutator, coalition-formation, information-design, hyperbolic-discounting, ambiguity-Ellsberg, OPEC-cartel |
