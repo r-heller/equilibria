@@ -1,21 +1,21 @@
 ---
-title: "Difference-in-differences with strategic agents"
-description: "Applying the difference-in-differences estimator to settings where treatment alters a strategic equilibrium, demonstrating how agents' endogenous responses can violate the parallel trends assumption and bias causal estimates."
+title: "Difference-in-differences for strategic policy evaluation"
+description: "Apply difference-in-differences methods to evaluate policy changes in strategic environments. Address parallel trends when agents respond strategically, anticipation effects, and staggered treatment with strategic spillovers."
 author: "Raban Heller"
 date: 2026-05-08
 date-modified: 2026-05-08
 categories:
   - causal-inference
   - difference-in-differences
-  - strategic-interaction
-  - parallel-trends
-keywords: ["difference-in-differences", "DiD", "causal inference", "parallel trends", "strategic interaction", "equilibrium shift", "antitrust", "policy evaluation"]
-labels: ["causal-inference", "econometrics"]
+  - policy evaluation
+  - strategic behaviour
+keywords: ["difference-in-differences", "causal inference", "policy evaluation", "parallel trends", "strategic anticipation", "spillover effects", "synthetic control"]
+labels: ["causal-inference", "did", "policy-evaluation"]
 tier: 1
 bibliography: ../../references.bib
 vgwort: "TODO_VGWORT_causal-inference_difference-in-differences-strategic"
 image: thumbnail.png
-image-alt: "Panel chart showing parallel trends violation when a policy treatment shifts the strategic equilibrium, with correct and biased DiD estimates compared"
+image-alt: "Difference-in-differences plot showing treatment and control group outcomes over time with a policy intervention, strategic anticipation effects visible before treatment, rendered using the Okabe-Ito palette."
 citation:
   type: webpage
   url: https://r-heller.github.io/equilibria/tutorials/causal-inference/difference-in-differences-strategic/
@@ -29,7 +29,6 @@ has_shiny_app: false
 ```{r}
 #| label: setup
 #| include: false
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -46,262 +45,232 @@ theme_publication <- function(base_size = 12) {
 }
 ```
 
-## Introduction & motivation
+## Introduction and motivation
 
-Difference-in-differences (DiD) is one of the most widely used methods for estimating causal effects of policy interventions using observational data. The basic logic is elegant: compare the change in outcomes over time for a treated group with the change for an untreated control group, and attribute the difference to the treatment. The identifying assumption --- parallel trends --- requires that, in the absence of treatment, both groups would have followed the same trajectory. Under this assumption, the DiD estimator isolates the causal effect of the policy.
+Difference-in-differences (DiD) is one of the most widely used methods for causal inference in observational settings. The design compares the change in outcomes over time between a treatment group (exposed to a policy intervention) and a control group (not exposed), under the assumption that both groups would have followed parallel trends in the absence of treatment. This method has been applied to evaluate minimum wage policies, environmental regulations, healthcare reforms, and countless other interventions. However, a critical challenge arises when the agents affected by the policy are strategic: their anticipatory and adaptive responses can violate the identifying assumptions of the DiD design, leading to biased estimates of the treatment effect.
 
-However, a fundamental challenge arises when the agents being studied are strategic. In many economically important settings, a policy change does not simply shift outcomes mechanically; it alters the *game* that agents play, causing them to adjust their strategies in response. Consider antitrust enforcement: when a regulatory agency increases merger scrutiny in one industry (the treated group), firms in that industry do not passively absorb the shock. They strategically adapt --- restructuring deals to avoid scrutiny, shifting to alternative growth strategies, or engaging in anticipatory behaviour before the policy takes effect. Crucially, firms in untreated industries may also respond strategically if the policy signals a broader regulatory shift, contaminating the control group.
+Strategic behaviour threatens the DiD framework in several distinct ways. First, forward-looking agents may anticipate a policy change and adjust their behaviour before the policy takes effect -- a phenomenon known as anticipation effects. If firms expect a new environmental regulation, they may begin reducing emissions before the regulation is implemented, or alternatively, they may accelerate polluting activities to "stock up" before the constraint binds. Either response creates pre-treatment changes in the treatment group that violate the parallel trends assumption. Standard DiD estimates would then confound the true treatment effect with these anticipatory adjustments, either overstating or understating the policy's causal impact.
 
-This strategic adaptation can violate the parallel trends assumption in subtle ways. If treatment changes the equilibrium of a game, the treated group's post-treatment trajectory reflects not just the direct effect of the policy but also the indirect effect of equilibrium adjustment. If the control group also partially adjusts (through spillovers, anticipation, or signalling), the bias is compounded. Standard DiD is designed for settings where treatment effects are additive and stable; it is not designed for settings where treatment fundamentally reshapes the strategic landscape.
+Second, strategic spillovers can contaminate the control group. In many policy settings, the treatment and control groups interact through markets, networks, or geographic proximity. When a tax policy change applies to firms in one region, firms in neighbouring regions may adjust their behaviour in response -- for example, by absorbing displaced demand or adjusting prices to compete with treated firms. These general equilibrium effects mean that the control group's outcomes are not truly counterfactual: they reflect indirect effects of the treatment. The stable unit treatment value assumption (SUTVA), which underlies most causal inference methods, is violated when strategic interactions create interdependencies between treated and untreated units.
 
-In this tutorial, we formalise a simple Cournot duopoly game where a policy intervention (e.g., a tax or regulation) changes the cost structure for treated firms, compute the pre- and post-treatment equilibria, simulate panel data under both the standard (no strategic adaptation) and strategic scenarios, and show how DiD estimates diverge from the true causal effect when agents strategically re-optimise.
+Third, staggered treatment adoption introduces additional complexity when agents choose when to adopt a policy or enter a market. If the timing of treatment is endogenous -- determined by agents' strategic calculations about the optimal time to comply -- then naive two-way fixed effects (TWFE) regression can produce severely biased estimates. Recent methodological advances by Callaway and Sant'Anna, Sun and Abraham, and others have developed alternative estimators for staggered DiD settings, but these methods still assume that the timing of treatment is independent of potential outcomes, an assumption that strategic behaviour directly threatens.
+
+The game-theoretic perspective provides a structured way to model these threats and develop remedies. By modelling agents as strategic players who optimize over both their actions and the timing of those actions, we can characterize the conditions under which DiD remains valid and design robustness checks that account for strategic responses. For example, if we can model the anticipation structure -- how far in advance agents adjust their behaviour -- we can modify the DiD design to use pre-anticipation periods as the baseline. Similarly, if we can model the network of strategic interactions, we can adjust for spillover effects or identify subsets of control units that are sufficiently isolated from treatment effects.
+
+In this tutorial, we simulate a policy evaluation scenario with strategic anticipation and spillover effects, implement a standard DiD estimator and a corrected estimator that accounts for anticipation, and visualize the bias that strategic behaviour introduces. The simulation demonstrates both the problem and the solution, providing a practical template for applied researchers working in strategic environments.
 
 ## Mathematical formulation
 
-Consider two markets, each containing a duopoly with firms playing Cournot competition. Market $T$ (treated) receives a policy intervention at time $t_0$; market $C$ (control) does not.
-
-In the Cournot model, firm $j$ in market $m$ chooses quantity $q_{mj}$ to maximise profit:
+Let $Y_{it}$ denote the outcome for unit $i$ at time $t$. Under the standard DiD model:
 
 $$
-\pi_{mj} = (a - Q_m) q_{mj} - c_{mj} q_{mj}
+Y_{it} = \alpha_i + \lambda_t + \tau \cdot D_{it} + \varepsilon_{it}
 $$
 
-where $a$ is the demand intercept, $Q_m = q_{m1} + q_{m2}$ is total output in market $m$, and $c_{mj}$ is marginal cost. The Nash equilibrium quantities are:
+where $\alpha_i$ are unit fixed effects, $\lambda_t$ are time fixed effects, $D_{it}$ is the treatment indicator, and $\tau$ is the average treatment effect on the treated (ATT).
+
+With strategic anticipation beginning $a$ periods before treatment at $T^*$:
 
 $$
-q_{mj}^* = \frac{a - 2c_{mj} + c_{m,-j}}{3}
+Y_{it} = \alpha_i + \lambda_t + \tau \cdot D_{it} + \sum_{s=1}^{a} \delta_s \cdot \mathbf{1}[t = T^* - s, \, \text{treated}_i] + \varepsilon_{it}
 $$
 
-and equilibrium total output is:
+where $\delta_s$ captures the anticipation effect $s$ periods before treatment. Strategic spillovers on control units are modelled as:
 
 $$
-Q_m^* = \frac{2a - c_{m1} - c_{m2}}{3}
+Y_{it}^{\text{control}} = \alpha_i + \lambda_t + \phi \cdot \bar{D}_{\mathcal{N}(i),t} + \varepsilon_{it}
 $$
 
-**Pre-treatment** ($t < t_0$): Both markets have identical cost structures $c_{mj} = c_0$ for all firms. Equilibrium output in each market is $Q^{\text{pre}} = \frac{2(a - c_0)}{3}$.
-
-**Post-treatment** ($t \geq t_0$): The policy raises costs for both firms in market $T$ by $\delta$ (e.g., a regulatory compliance cost), so $c_{Tj} = c_0 + \delta$. Market $C$ is unaffected.
-
-The true causal effect on total output is:
+where $\bar{D}_{\mathcal{N}(i),t}$ is the fraction of unit $i$'s strategic neighbours that are treated. The naive DiD estimator is:
 
 $$
-\tau = Q_T^{\text{post}} - Q_T^{\text{pre}} = \frac{2(a - c_0 - \delta)}{3} - \frac{2(a - c_0)}{3} = -\frac{2\delta}{3}
+\hat{\tau}_{\text{naive}} = (\bar{Y}_{\text{treat,post}} - \bar{Y}_{\text{treat,pre}}) - (\bar{Y}_{\text{ctrl,post}} - \bar{Y}_{\text{ctrl,pre}})
 $$
 
-**Standard DiD** computes:
-
-$$
-\hat{\tau}_{\text{DiD}} = (\bar{Y}_{T,\text{post}} - \bar{Y}_{T,\text{pre}}) - (\bar{Y}_{C,\text{post}} - \bar{Y}_{C,\text{pre}})
-$$
-
-Under parallel trends (control output is constant), DiD correctly estimates $\tau$. But if the control group *also* adjusts --- for example, if firms in market $C$ anticipate that the policy will expand to their market and pre-emptively restructure --- then $\bar{Y}_{C,\text{post}} - \bar{Y}_{C,\text{pre}} \neq 0$, and the DiD estimate is biased:
-
-$$
-\text{Bias} = \hat{\tau}_{\text{DiD}} - \tau = -(\bar{Y}_{C,\text{post}} - \bar{Y}_{C,\text{pre}})
-$$
-
-We can also model *asymmetric strategic response* within the treated market: if the policy only affects one firm (say firm 1), the rival (firm 2) *increases* output in response (strategic substitutes in Cournot). The total effect is:
-
-$$
-\Delta q_1^* = -\frac{2\delta}{3}, \qquad \Delta q_2^* = +\frac{\delta}{3}
-$$
-
-The net market-level effect is $-\delta/3$, but the firm-level DiD would estimate $-2\delta/3$ for the treated firm --- the *correct* direct effect but missing the strategic spillover on the rival.
+This is biased when anticipation or spillovers are present. The bias equals $\delta_{\text{anticipation}} + \phi_{\text{spillover}}$.
 
 ## R implementation
 
-We simulate panel data for treated and control markets across 20 time periods, with treatment at period 10. We compare DiD estimates under three scenarios: no strategic response, symmetric strategic adaptation, and spillover to the control group.
-
 ```{r}
-#| label: did-simulation
+#| label: compute-did
+set.seed(42)
 
-set.seed(2026)
-
-# Parameters
-a <- 100        # demand intercept
-c0 <- 30        # baseline marginal cost
-delta <- 15     # treatment effect (cost increase)
+# Simulation parameters
+n_treat <- 50
+n_control <- 50
+n_total <- n_treat + n_control
 T_periods <- 20
-t0 <- 10        # treatment begins
-n_firms <- 50   # firms per group for simulation
-sigma <- 3      # noise sd
+T_star <- 11  # treatment begins at period 11
+anticipation_periods <- 3
+
+# Generate unit fixed effects
+alpha_i <- c(rnorm(n_treat, mean = 5, sd = 1),
+             rnorm(n_control, mean = 5, sd = 1))
+
+# Time effects (common trend)
+lambda_t <- 0.3 * (1:T_periods) + 0.5 * sin(2 * pi * (1:T_periods) / 10)
+
+# True treatment effect
+tau_true <- 2.5
+
+# Anticipation effects (strategic agents adjust before treatment)
+anticipation_effect <- function(s) {
+  0.4 * tau_true * exp(-0.8 * s)  # decaying anticipation
+}
+
+# Spillover effect on control group
+phi_spillover <- 0.3
 
 # Generate panel data
-generate_panel <- function(scenario) {
-  periods <- 1:T_periods
-  treated <- tibble(
-    period = periods,
-    group = "Treated",
-    # Pre-treatment: equilibrium output + trend + noise
-    base_output = 2 * (a - c0) / 3 + 0.5 * periods  # slight upward trend
+panel_df <- expand.grid(unit = 1:n_total, time = 1:T_periods) %>%
+  mutate(
+    treated = unit <= n_treat,
+    post = time >= T_star,
+    D = treated & post,
+    # Base outcome
+    Y_base = alpha_i[unit] + lambda_t[time] + rnorm(n(), 0, 0.5),
+    # Anticipation effect for treated units
+    anticipation = case_when(
+      treated & time >= (T_star - anticipation_periods) & time < T_star ~
+        anticipation_effect(T_star - time),
+      TRUE ~ 0
+    ),
+    # Spillover effect on control units
+    spillover = ifelse(!treated & post, phi_spillover * tau_true, 0),
+    # Observed outcome
+    Y = Y_base + tau_true * D + anticipation + spillover
   )
-  control <- tibble(
-    period = periods,
-    group = "Control",
-    base_output = 2 * (a - c0) / 3 + 0.5 * periods
-  )
 
-  # Apply treatment effects
-  if (scenario == "no_strategic") {
-    # Mechanical effect only: treated drops, control unchanged
-    treated <- treated %>%
-      mutate(output = base_output + ifelse(period >= t0, -2 * delta / 3, 0))
-    control <- control %>%
-      mutate(output = base_output)
+# Naive DiD estimate
+did_naive <- panel_df %>%
+  group_by(treated, post) %>%
+  summarise(mean_Y = mean(Y), .groups = "drop") %>%
+  pivot_wider(names_from = post, values_from = mean_Y, names_prefix = "post_")
 
-  } else if (scenario == "strategic") {
-    # Treated firms re-optimise; control also partially adjusts (anticipation)
-    treated <- treated %>%
-      mutate(output = base_output + ifelse(period >= t0, -2 * delta / 3, 0))
-    # Control firms anticipate regulation spreading: reduce output slightly
-    control <- control %>%
-      mutate(output = base_output + ifelse(period >= t0, -delta / 6, 0) +
-               ifelse(period == t0 - 1, -delta / 12, 0))  # anticipation
+tau_naive <- (did_naive$post_TRUE[did_naive$treated == TRUE] -
+              did_naive$post_FALSE[did_naive$treated == TRUE]) -
+             (did_naive$post_TRUE[did_naive$treated == FALSE] -
+              did_naive$post_FALSE[did_naive$treated == FALSE])
 
-  } else if (scenario == "spillover") {
-    # Strong spillover: control firms react substantially
-    treated <- treated %>%
-      mutate(output = base_output + ifelse(period >= t0, -2 * delta / 3, 0))
-    control <- control %>%
-      mutate(output = base_output + ifelse(period >= t0, -delta / 3, 0))
-  }
+# Corrected DiD: exclude anticipation periods from pre-treatment
+panel_corrected <- panel_df %>%
+  filter(!(treated & time >= (T_star - anticipation_periods) & time < T_star))
 
-  # Add noise (simulate multiple firms)
-  panel <- bind_rows(treated, control) %>%
-    crossing(firm_id = 1:n_firms) %>%
-    mutate(output = output + rnorm(n(), 0, sigma)) %>%
-    mutate(scenario = scenario)
+did_corrected <- panel_corrected %>%
+  group_by(treated, post) %>%
+  summarise(mean_Y = mean(Y), .groups = "drop") %>%
+  pivot_wider(names_from = post, values_from = mean_Y, names_prefix = "post_")
 
-  panel
-}
+tau_corrected <- (did_corrected$post_TRUE[did_corrected$treated == TRUE] -
+                  did_corrected$post_FALSE[did_corrected$treated == TRUE]) -
+                 (did_corrected$post_TRUE[did_corrected$treated == FALSE] -
+                  did_corrected$post_FALSE[did_corrected$treated == FALSE])
 
-scenarios <- c("no_strategic", "strategic", "spillover")
-all_data <- bind_rows(lapply(scenarios, generate_panel))
+# Spillover-adjusted DiD
+tau_spillover_adj <- tau_naive + phi_spillover * tau_true
 
-# Compute DiD estimates
-compute_did <- function(data) {
-  means <- data %>%
-    mutate(post = period >= t0) %>%
-    group_by(group, post) %>%
-    summarise(mean_output = mean(output), .groups = "drop") %>%
-    pivot_wider(names_from = c(group, post), values_from = mean_output)
+# Group-time means for plotting
+trends_df <- panel_df %>%
+  group_by(treated, time) %>%
+  summarise(mean_Y = mean(Y), .groups = "drop") %>%
+  mutate(group = ifelse(treated, "Treatment", "Control"))
 
-  did_est <- (means$Treated_TRUE - means$Treated_FALSE) -
-             (means$Control_TRUE - means$Control_FALSE)
-  did_est
-}
-
-true_effect <- -2 * delta / 3
-
-cat("=== Difference-in-Differences Estimation ===\n\n")
-cat(sprintf("  True causal effect (tau): %.2f\n\n", true_effect))
-
-for (s in scenarios) {
-  est <- compute_did(all_data %>% filter(scenario == s))
-  bias <- est - true_effect
-  cat(sprintf("  %-18s | DiD estimate: %6.2f | Bias: %+6.2f\n",
-              s, est, bias))
-}
-
-# Aggregate data for plotting (market-level means)
-plot_data <- all_data %>%
-  group_by(scenario, group, period) %>%
-  summarise(mean_output = mean(output), .groups = "drop") %>%
-  mutate(scenario_label = case_when(
-    scenario == "no_strategic" ~ "A. No strategic response",
-    scenario == "strategic"    ~ "B. Strategic adaptation",
-    scenario == "spillover"    ~ "C. Control spillover"
-  ))
+cat(sprintf("True ATT: %.3f\n", tau_true))
+cat(sprintf("Naive DiD estimate: %.3f (bias: %.3f)\n", tau_naive, tau_naive - tau_true))
+cat(sprintf("Anticipation-corrected DiD: %.3f (bias: %.3f)\n",
+            tau_corrected, tau_corrected - tau_true))
+cat(sprintf("Spillover-adjusted DiD: %.3f (bias: %.3f)\n",
+            tau_spillover_adj, tau_spillover_adj - tau_true))
 ```
 
 ## Static publication-ready figure
 
-The three-panel figure compares market-level output trajectories for treated and control groups across scenarios. The vertical dashed line marks the treatment date. Divergence in the control group's trajectory after treatment signals a parallel trends violation.
-
 ```{r}
-#| label: fig-did-static
-#| fig-cap: "Figure 1. Difference-in-differences under strategic behaviour. Panel A: standard case with no strategic adaptation (DiD unbiased). Panel B: control group partially anticipates treatment, causing mild bias. Panel C: strong spillover to the control group causes substantial DiD bias. Dashed vertical line marks treatment onset."
+#| label: fig-did-trends
+#| fig-cap: "Difference-in-differences analysis with strategic anticipation effects. The treatment group shows a visible upward shift before the policy intervention at period 11, reflecting forward-looking strategic adjustments. The shaded region marks the anticipation window where strategic agents adjust behaviour before official treatment. The dashed vertical line marks the treatment period, and the counterfactual trend for the treatment group is shown as a dotted line. Rendered using the Okabe-Ito palette."
 #| dev: [png, pdf]
+#| dpi: 300
 #| fig-width: 10
 #| fig-height: 5
-#| dpi: 300
 
-# Add counterfactual line for treated group
-counterfactual <- plot_data %>%
-  filter(group == "Control") %>%
-  mutate(group = "Treated (counterfactual)")
+# Construct counterfactual for treatment group
+cf_trend <- trends_df %>%
+  filter(group == "Treatment", time < (T_star - anticipation_periods))
 
-p_did <- ggplot(plot_data,
-                aes(x = period, y = mean_output, colour = group,
-                    text = paste0("Group: ", group,
-                                  "\nPeriod: ", period,
-                                  "\nOutput: ", round(mean_output, 1)))) +
-  geom_vline(xintercept = t0 - 0.5, linetype = "dashed", colour = "grey50", linewidth = 0.5) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 1.3, alpha = 0.7) +
-  scale_colour_manual(values = okabe_ito[c(5, 1)]) +
-  facet_wrap(~ scenario_label, ncol = 3) +
-  labs(
-    title = "Parallel trends and strategic adaptation",
-    subtitle = "Market-level output (N = 50 firms per group, 20 periods)",
-    x = "Period",
-    y = "Mean market output",
-    colour = "Group"
-  ) +
-  theme_publication() +
-  theme(strip.text = element_text(face = "bold", size = 10))
+trend_model <- lm(mean_Y ~ time, data = cf_trend)
+cf_all <- data.frame(time = 1:T_periods) %>%
+  mutate(mean_Y = predict(trend_model, newdata = .),
+         group = "Counterfactual")
 
-p_did
+p_static <- ggplot(trends_df, aes(x = time, y = mean_Y, color = group)) +
+  annotate("rect", xmin = T_star - anticipation_periods, xmax = T_star,
+           ymin = -Inf, ymax = Inf, fill = okabe_ito[1], alpha = 0.1) +
+  geom_vline(xintercept = T_star, linetype = "dashed", color = okabe_ito[8]) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2) +
+  geom_line(data = cf_all %>% filter(time >= T_star - anticipation_periods),
+            aes(x = time, y = mean_Y),
+            linetype = "dotted", color = okabe_ito[6], linewidth = 0.8) +
+  annotate("text", x = T_star + 0.3, y = max(trends_df$mean_Y) * 0.75,
+           label = "Treatment\nbegins", hjust = 0, size = 3, color = okabe_ito[8]) +
+  annotate("text", x = T_star - 1.5, y = min(trends_df$mean_Y) + 0.3,
+           label = "Anticipation\nwindow", size = 3, color = okabe_ito[1]) +
+  scale_color_manual(values = c("Treatment" = okabe_ito[5],
+                                "Control" = okabe_ito[1])) +
+  scale_x_continuous(breaks = seq(2, 20, 2)) +
+  labs(title = "DiD with strategic anticipation effects",
+       subtitle = sprintf("True ATT = %.1f | Naive DiD = %.2f | Corrected DiD = %.2f",
+                          tau_true, tau_naive, tau_corrected),
+       x = "Time period", y = "Mean outcome", color = "Group") +
+  theme_publication()
+
+print(p_static)
 ```
 
 ## Interactive figure
 
-Hover over the data points to compare exact output levels across treated and control groups in each scenario. The divergence between groups after the treatment period reveals the magnitude of the DiD estimate.
-
 ```{r}
 #| label: fig-did-interactive
+#| fig-cap: "Interactive DiD plot. Hover over data points to see group means, time periods, and the treatment status for each observation."
 
-p_interact <- ggplot(plot_data,
-                     aes(x = period, y = mean_output, colour = group,
-                         text = paste0("Scenario: ", scenario_label,
-                                       "\nGroup: ", group,
-                                       "\nPeriod: ", period,
-                                       "\nOutput: ", round(mean_output, 2)))) +
-  geom_vline(xintercept = t0 - 0.5, linetype = "dashed", colour = "grey50") +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 1.5) +
-  scale_colour_manual(values = okabe_ito[c(5, 1)]) +
-  facet_wrap(~ scenario_label, ncol = 3) +
-  labs(title = "DiD with strategic agents: interactive exploration",
-       x = "Period", y = "Mean output", colour = "Group") +
+p_int <- ggplot(trends_df, aes(x = time, y = mean_Y, color = group,
+    text = sprintf("Period: %d\nGroup: %s\nMean outcome: %.3f\nPost-treatment: %s",
+                   time, group, mean_Y, ifelse(time >= T_star, "Yes", "No")))) +
+  geom_vline(xintercept = T_star, linetype = "dashed", color = okabe_ito[8]) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("Treatment" = okabe_ito[5],
+                                "Control" = okabe_ito[1])) +
+  labs(title = "DiD with strategic anticipation",
+       x = "Time period", y = "Mean outcome", color = "Group") +
   theme_publication()
 
-ggplotly(p_interact, tooltip = "text") %>%
-  config(displaylogo = FALSE) %>%
-  layout(legend = list(orientation = "h", y = -0.15))
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
 ```
 
 ## Interpretation
 
-The simulation results demonstrate a fundamental tension between causal inference methodology and strategic behaviour. In the baseline scenario (Panel A), where treatment affects only the treated group and the control group follows a parallel trajectory, the standard DiD estimator recovers the true causal effect almost exactly (bias near zero, driven only by sampling noise). This is the textbook case: parallel trends hold, and DiD is unbiased.
+The simulation results starkly illustrate how strategic behaviour can distort causal inference when analysts naively apply difference-in-differences without accounting for the strategic environment. The three estimates -- naive DiD, anticipation-corrected DiD, and spillover-adjusted DiD -- each tell a different story, and understanding their divergences is crucial for applied researchers working in strategic settings.
 
-In the strategic adaptation scenario (Panel B), the control group's output dips slightly before and after treatment due to anticipatory adjustment. Firms in the control market, observing the regulatory change in the treated market, rationally infer that similar regulation may be coming and begin pre-emptive restructuring. This violates parallel trends in a way that is easy to miss in practice: the pre-treatment trends appear nearly parallel if one does not look closely at the periods just before treatment. The resulting DiD estimate is modestly biased --- understating the true effect because the control group's decline is subtracted from the treated group's decline.
+The naive DiD estimator is biased because it conflates two distinct sources of contamination. On the treatment group side, strategic anticipation means that agents in the treatment group begin adjusting their behaviour before the policy officially takes effect. In our simulation, agents adjust up to three periods before treatment, with the anticipation effect decaying exponentially as the distance from the treatment date increases. This pre-treatment shift raises the pre-treatment mean for the treatment group, which reduces the measured pre-post difference and causes the naive DiD to underestimate the true treatment effect. The intuition is straightforward: if agents have already partially adjusted before the policy, the measured change at the time of implementation captures only the residual adjustment, not the full treatment effect.
 
-In the spillover scenario (Panel C), the bias is severe. When control-group firms substantially reduce output in response to the treatment (perhaps because of competitive interdependencies between markets, or because the policy has general-equilibrium effects), the parallel trends assumption fails catastrophically. The DiD estimator captures only the *differential* decline between treated and control, missing the substantial common decline that affects both groups.
+On the control group side, strategic spillovers contaminate the counterfactual. When treated firms change their behaviour -- say, by reducing output in response to a new regulation -- untreated competitors may expand to fill the gap. This raises the post-treatment outcomes for the control group, inflating the pre-post difference for controls and further biasing the DiD estimate. The direction of this bias depends on the sign of the spillover: positive spillovers (where treatment benefits the control group) cause downward bias in the DiD estimate, while negative spillovers cause upward bias. In our simulation, the spillover is positive, contributing to the underestimation of the treatment effect.
 
-These findings have important practical implications for applied researchers. First, the standard tests for parallel pre-trends --- checking whether treated and control groups moved together before treatment --- are necessary but insufficient in strategic settings, because strategic anticipation may be concentrated in the few periods just before the policy change. Second, researchers should think carefully about whether the treatment could generate spillovers to the control group through strategic channels (competition, signalling, anticipation). Third, structural estimation --- explicitly modelling the game that agents play --- may be necessary to recover the true causal effect in environments where treatment changes the equilibrium rather than simply shifting an outcome.
+The anticipation-corrected estimator addresses the first source of bias by excluding the anticipation window from the pre-treatment period. By using only the pre-anticipation observations as the baseline, this estimator recovers a pre-treatment mean that is uncontaminated by strategic adjustment. The improvement is substantial in our simulation, reducing the bias from the naive estimate considerably. However, this correction requires the analyst to know (or estimate) the length of the anticipation window, which in practice depends on how far in advance agents learn about the policy and how quickly they can adjust. Event study designs, which estimate treatment effects separately for each lead and lag period, provide a diagnostic tool for detecting anticipation: statistically significant pre-treatment coefficients suggest that agents are adjusting before the policy takes effect.
 
-One promising approach is to combine DiD with a structural model of the game. The researcher specifies the agents' objective functions and the equilibrium concept, uses pre-treatment data to estimate the structural parameters, and then simulates counterfactual outcomes under the treatment. This "structural DiD" approach is more demanding in terms of modelling assumptions but can correctly account for equilibrium effects that reduced-form DiD misses.
+The spillover adjustment addresses the second source of bias but requires knowledge of the spillover parameter. In practice, this parameter must be estimated from auxiliary data or from structural models of the strategic environment. Alternatively, researchers can seek control groups that are geographically or economically isolated from the treatment group, reducing the scope for strategic spillovers. Synthetic control methods offer another approach: by constructing a synthetic control unit as a weighted combination of untreated units, the analyst can potentially dilute spillover effects, although this is not guaranteed if all potential controls are affected.
 
-## Extensions & related tutorials
+The broader lesson is that causal inference and game theory are not separate enterprises -- they are deeply intertwined whenever the agents whose behaviour we study are strategic. The parallel trends assumption, the cornerstone of DiD identification, is a statement about counterfactual outcomes that can be violated by strategic behaviour in predictable ways. By modelling the strategic environment explicitly, researchers can anticipate these violations, design appropriate corrections, and produce more credible causal estimates. The combination of game-theoretic modelling and causal inference methods represents a frontier in applied microeconomics that promises to improve policy evaluation in settings where strategic behaviour is the norm rather than the exception.
 
-The intersection of causal inference and strategic behaviour is a rich and underexplored area. The issues raised here apply not only to DiD but to any quasi-experimental method that assumes stable potential outcomes in the presence of strategic interaction.
+## Extensions and related tutorials
 
-- [Tragedy of the commons](../../case-studies/tragedy-of-the-commons/) --- evaluating policy interventions (quotas, monitoring) in strategic resource extraction settings where DiD logic applies
-- [Nash equilibrium existence proof](../../history-of-gt-mathematics/nash-equilibrium-original-proof/) --- the equilibrium concept underlying the strategic adaptation modelled in this tutorial
-- [Instrumental variables and game theory](../../causal-inference/instrumental-variables-game-theory/) --- alternative causal identification strategies for strategic settings
-- [Public goods experiment](../../experimental-economics/public-goods-experiment/) --- experimental designs that sidestep observational identification challenges in strategic environments
-- [Nudge theory and libertarian paternalism](../../behavioral-economics/nudge-libertarian-paternalism/) --- evaluating the causal effect of default-choice interventions using DiD in practice
+- [Algorithmic fairness as a multi-stakeholder game](../../ethics-applications/algorithmic-fairness-games/) -- evaluating fairness interventions using causal methods.
+- [Bayesian games and incomplete information](../../bayesian-methods/bayesian-games-incomplete-information/) -- modelling strategic anticipation through Bayesian belief updating.
+- [Prospect theory and reference-dependent preferences in games](../../behavioral-economics/prospect-theory-reference-dependence/) -- how behavioural biases affect strategic responses to policy changes.
+- [Regression discontinuity in strategic settings](../../causal-inference/regression-discontinuity-strategic/) -- an alternative causal design for strategic environments.
+- [Synthetic control methods](../../causal-inference/synthetic-control/) -- constructing counterfactuals when spillovers contaminate natural control groups.
 
 ## References
 

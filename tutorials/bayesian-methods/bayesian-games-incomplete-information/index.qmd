@@ -1,21 +1,21 @@
 ---
-title: "Bayesian games — strategic interaction under incomplete information"
-description: "Formalise games of incomplete information in R, compute Bayes-Nash equilibria for type-dependent strategies, and visualize how private information shapes equilibrium behaviour."
+title: "Bayesian games and incomplete information"
+description: "Implement Bayesian Nash equilibrium for games with private information. Covers type spaces, belief updating, interim expected payoffs, and BNE computation for auction and entry games with comparison to complete-information NE."
 author: "Raban Heller"
 date: 2026-05-08
 date-modified: 2026-05-08
 categories:
   - bayesian-methods
-  - bayesian-games
-  - incomplete-information
-  - bayes-nash
-keywords: ["Bayesian game", "incomplete information", "Bayes-Nash equilibrium", "types", "beliefs", "Harsanyi"]
-labels: ["bayesian-gt", "equilibrium-concepts"]
+  - Bayesian Nash equilibrium
+  - incomplete information
+  - auction theory
+keywords: ["Bayesian Nash equilibrium", "incomplete information", "type spaces", "belief updating", "interim payoffs", "first-price auction", "entry game"]
+labels: ["bayesian-methods", "bne", "incomplete-information"]
 tier: 1
 bibliography: ../../references.bib
 vgwort: "TODO_VGWORT_bayesian-methods_bayesian-games-incomplete-information"
 image: thumbnail.png
-image-alt: "Type-contingent equilibrium strategies in a Bayesian game"
+image-alt: "Plot of Bayesian Nash equilibrium bidding strategies in a first-price sealed-bid auction for different numbers of bidders, showing how competition increases bids toward true valuations, rendered using the Okabe-Ito palette."
 citation:
   type: webpage
   url: https://r-heller.github.io/equilibria/tutorials/bayesian-methods/bayesian-games-incomplete-information/
@@ -45,163 +45,200 @@ theme_publication <- function(base_size = 12) {
 }
 ```
 
+## Introduction and motivation
 
-## Introduction & motivation
+Games of incomplete information pervade economic, political, and social life. In a first-price sealed-bid auction, each bidder knows their own valuation for the object but not the valuations of competing bidders. In a market entry game, a potential entrant is uncertain about the incumbent's cost structure. In international diplomacy, each nation has private information about its military capabilities and resolve. The common thread is that players must choose strategies under uncertainty about the fundamental characteristics -- or types -- of other players. Bayesian game theory, formalized by John Harsanyi in a trio of papers published between 1967 and 1968, provides the framework for analysing these situations rigorously.
 
-In many strategic situations, players hold **private information** — a firm does not know a competitor's costs, a buyer does not know a seller's reservation price, a country does not know an adversary's resolve. John @harsanyi_1973 showed how to handle this by introducing **types**: each player's private information is summarised as a "type" drawn from a commonly known probability distribution. A **Bayesian game** combines the strategic structure of a normal-form game with this type uncertainty, and the solution concept is the **Bayes-Nash equilibrium** (BNE): a strategy profile where each type of each player best-responds given their beliefs about others' types. Harsanyi's framework unified the treatment of incomplete information in game theory and earned him the 1994 Nobel Prize alongside Nash and Selten. This tutorial formalises Bayesian games, implements BNE computation for discrete-type and continuous-type games, and demonstrates how private information changes equilibrium behaviour relative to complete-information benchmarks — with applications to pricing under cost uncertainty and entry deterrence with unknown strength.
+Harsanyi's key insight was to transform games of incomplete information into games of imperfect information by introducing a fictitious player called Nature, who selects each player's type from a commonly known prior distribution. This transformation allows analysts to apply the standard machinery of Nash equilibrium, extended to strategy functions that map types to actions. The resulting solution concept -- Bayesian Nash equilibrium (BNE) -- requires each player's strategy to maximize their interim expected payoff (expected over the other players' types, conditional on their own type), taking the other players' strategies as given. The "interim" qualifier is crucial: it means that a player chooses their strategy after learning their own type but before learning the types of others.
 
+The concept of type spaces deserves careful attention because it encodes both the private information structure and the players' beliefs about each other's information. In the simplest formulation, each player's type is drawn independently from a commonly known distribution. This independent private values (IPV) model is the workhorse of auction theory and many applications. More complex models allow for correlated types (where one player's type provides information about another's), interdependent values (where a player's payoff depends on other players' types, not just their own), and higher-order beliefs (beliefs about beliefs about beliefs, and so on). The richness of the type space determines the complexity of the BNE and the potential for strategic revelation of information.
+
+First-price sealed-bid auctions provide the canonical application of Bayesian game theory. In this setting, bidders simultaneously submit bids, and the highest bidder wins the object and pays their bid. The key strategic tension is the trade-off between bidding high (to increase the probability of winning) and bidding low (to increase the surplus conditional on winning). The BNE bidding strategy depends on the number of bidders and the distribution of valuations. For the case of uniformly distributed valuations on [0,1] with n bidders, the symmetric BNE has each bidder bidding a fraction (n-1)/n of their valuation. As the number of bidders increases, competition intensifies and bids converge to true valuations -- a result that connects to the revenue equivalence theorem and the Bertrand limit in oligopoly theory.
+
+Market entry games provide another important application. Consider a potential entrant deciding whether to enter a market, uncertain about the incumbent's cost type. If the incumbent has low costs, entry is unprofitable because the incumbent can sustain low prices. If the incumbent has high costs, entry is profitable. The entrant's optimal strategy depends on their prior beliefs about the incumbent's type and on the incumbent's equilibrium behaviour. In a BNE, the incumbent's strategy may involve signaling (choosing prices that reveal or conceal cost information) and the entrant's strategy involves Bayesian updating of beliefs based on observed actions. The resulting equilibria can be pooling (all incumbent types behave identically), separating (each type behaves distinctly), or partially separating.
+
+Comparing BNE predictions with complete-information Nash equilibrium predictions highlights the strategic value of private information. Under complete information, equilibrium outcomes depend directly on the realized type profile. Under incomplete information, equilibrium strategies must be optimal in expectation over the type distribution, leading to smoother and often more conservative behaviour. The expected payoff comparison between the two regimes quantifies the strategic cost of uncertainty -- or, equivalently, the value of intelligence or espionage. This tutorial implements both the auction and entry game applications, computes BNE strategies analytically and numerically, and provides visualizations that build intuition for strategic behaviour under uncertainty.
 
 ## Mathematical formulation
 
-A **Bayesian game** $G = (N, \{A_i\}, \{\Theta_i\}, \{u_i\}, \{p_i\})$ consists of:
+A Bayesian game is defined by $\mathcal{G} = \langle N, (A_i), (\Theta_i), (u_i), (p_i) \rangle$ where $N$ is the set of players, $A_i$ is player $i$'s action set, $\Theta_i$ is the type space, $u_i: A \times \Theta \to \mathbb{R}$ is the payoff function, and $p_i(\theta_{-i}|\theta_i)$ encodes beliefs.
 
-- Players $N = \{1, \ldots, n\}$
-- Action sets $A_i$ for each player
-- Type spaces $\Theta_i$ with common prior $p(\theta)$
-- Utility functions $u_i(a, \theta)$ depending on the action profile and type profile
-
-A (pure) strategy is a function $s_i: \Theta_i \to A_i$. A **Bayes-Nash equilibrium** is a strategy profile $s^*$ such that for all $i$, all $\theta_i \in \Theta_i$:
+A strategy is a function $\sigma_i: \Theta_i \to A_i$. The interim expected payoff for player $i$ with type $\theta_i$ is:
 
 $$
-s_i^*(\theta_i) \in \arg\max_{a_i \in A_i} E_{\theta_{-i}}[u_i(a_i, s_{-i}^*(\theta_{-i}), \theta_i, \theta_{-i}) \mid \theta_i]
+U_i(\sigma_i, \sigma_{-i} | \theta_i) = \sum_{\theta_{-i}} p_i(\theta_{-i}|\theta_i) \cdot u_i(\sigma_i(\theta_i), \sigma_{-i}(\theta_{-i}), \theta_i, \theta_{-i})
 $$
 
-Each type maximises expected utility given their beliefs about others' types and strategies.
+A Bayesian Nash equilibrium is a strategy profile $\sigma^*$ such that for all $i$ and all $\theta_i$:
 
+$$
+\sigma_i^*(\theta_i) \in \arg\max_{a_i \in A_i} U_i(a_i, \sigma_{-i}^* | \theta_i)
+$$
+
+For a first-price auction with $n$ bidders and valuations $v_i \sim U[0,1]$ (IPV), the symmetric BNE bidding strategy is:
+
+$$
+b^*(v) = \frac{n-1}{n} \cdot v
+$$
+
+The expected payment in equilibrium is $E[b^*(v) | \text{win}] = \frac{n-1}{n+1}$, and the seller's expected revenue is $\frac{n-1}{n+1}$.
 
 ## R implementation
 
 ```{r}
-#| label: bayesian-game-example
+#| label: compute-bne
+set.seed(42)
 
-# --- Example: Cournot duopoly with cost uncertainty ---
-# Firm 1 knows its cost c1; Firm 2's cost c2 is either Low or High
-# Inverse demand: P(Q) = a - Q, Q = q1 + q2
+# --- First-price auction BNE ---
+# Symmetric BNE: b(v) = ((n-1)/n) * v for v ~ U[0,1]
 
-a <- 10  # demand intercept
+n_bidders_range <- 2:8
+valuations <- seq(0, 1, by = 0.01)
 
-# Firm 1: c1 = 2 (known)
-c1 <- 2
+# BNE bidding strategies for different numbers of bidders
+auction_df <- expand.grid(v = valuations, n = n_bidders_range) %>%
+  mutate(
+    bid_bne = ((n - 1) / n) * v,
+    shading = v - bid_bne,  # bid shading amount
+    n_label = sprintf("n = %d bidders", n)
+  )
 
-# Firm 2: c2_L = 1 (prob 0.5), c2_H = 4 (prob 0.5)
-c2_L <- 1; c2_H <- 4; prob_L <- 0.5
+# Expected revenue for seller
+revenue_df <- data.frame(
+  n = n_bidders_range,
+  expected_revenue = (n_bidders_range - 1) / (n_bidders_range + 1),
+  expected_price = (n_bidders_range - 1) / (n_bidders_range + 1)
+)
 
-# BNE: Each type of Firm 2 best-responds; Firm 1 best-responds to expected behaviour
-# Firm 1 BR: q1 = (a - c1 - E[q2]) / 2
-# Firm 2 type L BR: q2_L = (a - c2_L - q1) / 2
-# Firm 2 type H BR: q2_H = (a - c2_H - q1) / 2
-# E[q2] = prob_L * q2_L + (1-prob_L) * q2_H
+# --- Entry game BNE ---
+# Incumbent type: low cost (prob p) or high cost (prob 1-p)
+# Entrant payoff: enter vs stay out
+# If incumbent low cost: entry payoff = -2
+# If incumbent high cost: entry payoff = 3
+# Stay out payoff: 0
 
-# Solve system:
-# q1 = (a - c1 - prob_L * q2_L - (1-prob_L) * q2_H) / 2
-# q2_L = (a - c2_L - q1) / 2
-# q2_H = (a - c2_H - q1) / 2
+prior_probs <- seq(0.01, 0.99, by = 0.01)  # P(incumbent = low cost)
+entry_payoff_low <- -2
+entry_payoff_high <- 3
 
-# Substituting:
-# q2_L = (a - c2_L)/2 - q1/2
-# q2_H = (a - c2_H)/2 - q1/2
-# E[q2] = prob_L*(a-c2_L)/2 + (1-prob_L)*(a-c2_H)/2 - q1/2
-# q1 = (a - c1)/2 - E[q2]/2
-# q1 = (a-c1)/2 - [prob_L*(a-c2_L)/2 + (1-prob_L)*(a-c2_H)/2 - q1/2]/2
+# Entrant's expected payoff from entry
+entry_expected <- prior_probs * entry_payoff_low + (1 - prior_probs) * entry_payoff_high
 
-E_c2 <- prob_L * c2_L + (1 - prob_L) * c2_H
-# Simplified: standard Cournot with Firm 1 facing E[c2] adjustment
-# q1 = (a - c1 - (a - E_c2)/2 + q1/4) ... solving the 3-equation system
+# BNE: enter if expected payoff >= 0
+# Threshold: p* such that p*(-2) + (1-p*)(3) = 0 => p* = 3/5 = 0.6
+p_threshold <- entry_payoff_high / (entry_payoff_high - entry_payoff_low)
 
-# Direct solve via linear system: Ax = b
-# q1 + 0.5*prob_L*q2_L + 0.5*(1-prob_L)*q2_H = (a-c1)/2
-# 0.5*q1 + q2_L = (a-c2_L)/2
-# 0.5*q1 + q2_H = (a-c2_H)/2
+entry_df <- data.frame(
+  prior_low = prior_probs,
+  expected_payoff = entry_expected,
+  enter = entry_expected >= 0
+)
 
-A_mat <- matrix(c(1, prob_L/2, (1-prob_L)/2,
-                   0.5, 1, 0,
-                   0.5, 0, 1), nrow = 3, byrow = TRUE)
-b_vec <- c((a - c1)/2, (a - c2_L)/2, (a - c2_H)/2)
-sol <- solve(A_mat, b_vec)
+cat("=== First-Price Auction BNE ===\n\n")
+cat("Symmetric BNE: b(v) = ((n-1)/n) * v\n\n")
+cat(sprintf("%-12s | %-14s | %-14s | %-12s\n",
+            "Bidders (n)", "Bid at v=0.8", "Bid shading", "E[Revenue]"))
+cat(paste(rep("-", 60), collapse = ""), "\n")
+for (n in n_bidders_range) {
+  cat(sprintf("%-12d | %-14.4f | %-14.4f | %-12.4f\n",
+              n, (n-1)/n * 0.8, 0.8/n,
+              (n-1)/(n+1)))
+}
 
-q1_star <- sol[1]; q2_L_star <- sol[2]; q2_H_star <- sol[3]
-
-cat("=== Cournot Duopoly with Cost Uncertainty ===\n")
-cat(sprintf("Firm 1 (c1=%.0f): q1* = %.3f\n", c1, q1_star))
-cat(sprintf("Firm 2 Low cost (c2=%.0f): q2_L* = %.3f\n", c2_L, q2_L_star))
-cat(sprintf("Firm 2 High cost (c2=%.0f): q2_H* = %.3f\n", c2_H, q2_H_star))
-cat(sprintf("\nComplete-info benchmark (c2=E[c2]=%.1f):\n", E_c2))
-q1_ci <- (a - 2*c1 + E_c2) / 3
-q2_ci <- (a - 2*E_c2 + c1) / 3
-cat(sprintf("  q1 = %.3f, q2 = %.3f\n", q1_ci, q2_ci))
-cat("(Incomplete information changes quantities: low-cost type produces more, high-cost less)\n")
+cat(sprintf("\n=== Entry Game BNE ===\n\n"))
+cat(sprintf("Entry threshold: P(low cost) <= %.2f\n", p_threshold))
+cat(sprintf("Expected payoff at threshold: %.4f\n",
+            p_threshold * entry_payoff_low + (1 - p_threshold) * entry_payoff_high))
+cat(sprintf("Entry region: prior P(low cost) in [0, %.2f]\n", p_threshold))
+cat(sprintf("Stay-out region: prior P(low cost) in (%.2f, 1]\n", p_threshold))
 ```
-
 
 ## Static publication-ready figure
 
 ```{r}
-#| label: fig-bayesian-cournot
-#| fig-cap: "Figure 1. Cournot equilibrium outputs under complete vs incomplete information. Under incomplete information, Firm 2's low-cost type produces more and high-cost type produces less than the complete-information benchmark. Firm 1, facing type uncertainty, adjusts output to the expected competitor. The information gap creates efficiency losses compared to the full-information case. Okabe-Ito palette."
+#| label: fig-bne-bidding
+#| fig-cap: "Bayesian Nash equilibrium bidding strategies in a first-price sealed-bid auction. Each line shows the equilibrium bid as a function of the bidder's private valuation for different numbers of competing bidders. As competition increases, bid shading decreases and bids approach true valuations. The 45-degree line represents truthful bidding (second-price auction equivalent). Rendered using the Okabe-Ito palette."
 #| dev: [png, pdf]
-#| fig-width: 7
-#| fig-height: 5
 #| dpi: 300
-output_df <- tibble(
-  scenario = c("Complete info", "BNE: Firm 1", "BNE: Firm 2 (Low)", "BNE: Firm 2 (High)"),
-  q = c(q1_ci, q1_star, q2_L_star, q2_H_star),
-  player = c("Benchmark", "Firm 1", "Firm 2", "Firm 2"),
-  type = c("Complete info", "Uncertain", "Low cost", "High cost")
-) |> mutate(scenario = factor(scenario, levels = scenario))
+#| fig-width: 9
+#| fig-height: 5
 
-ggplot(output_df, aes(x = scenario, y = q, fill = type)) +
-  geom_col(width = 0.6) +
-  geom_text(aes(label = round(q, 2)), vjust = -0.3, size = 3.5) +
-  scale_fill_manual(values = c("Complete info" = okabe_ito[8], "Uncertain" = okabe_ito[5],
-                                "Low cost" = okabe_ito[3], "High cost" = okabe_ito[6]),
-                     name = "Type") +
-  labs(title = "Cournot outputs: complete vs incomplete information",
-       subtitle = "Bayesian game with cost uncertainty (P(low)=0.5)",
-       x = NULL, y = "Quantity produced") +
+n_subset <- c(2, 3, 4, 6, 8)
+plot_df <- auction_df %>% filter(n %in% n_subset)
+
+p_static <- ggplot(plot_df, aes(x = v, y = bid_bne,
+                                 color = factor(n), group = n)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted",
+              color = okabe_ito[8], linewidth = 0.5) +
+  geom_line(linewidth = 1.0) +
+  scale_color_manual(
+    values = okabe_ito[c(1, 2, 3, 5, 6)],
+    labels = sprintf("n = %d", n_subset)
+  ) +
+  annotate("text", x = 0.92, y = 0.96, label = "Truthful\nbidding",
+           size = 3, color = okabe_ito[8], hjust = 1) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(title = "BNE bidding strategies in first-price auctions",
+       subtitle = "Bid shading decreases as the number of competing bidders increases",
+       x = "Private valuation (v)",
+       y = "Equilibrium bid b*(v)",
+       color = "Number of bidders") +
   theme_publication()
-```
 
+print(p_static)
+```
 
 ## Interactive figure
 
 ```{r}
-#| label: fig-bne-sensitivity
-prob_seq <- seq(0.01, 0.99, 0.02)
-bne_data <- lapply(prob_seq, function(p) {
-  A_m <- matrix(c(1, p/2, (1-p)/2, 0.5, 1, 0, 0.5, 0, 1), nrow = 3, byrow = TRUE)
-  b_v <- c((a-c1)/2, (a-c2_L)/2, (a-c2_H)/2)
-  s <- solve(A_m, b_v)
-  tibble(prob_low = p, q1 = s[1], q2_L = s[2], q2_H = s[3])
-}) |> bind_rows() |>
-  pivot_longer(-prob_low, names_to = "player", values_to = "quantity") |>
-  mutate(text = paste0("P(low cost) = ", round(prob_low, 2), "\n", player, " = ", round(quantity, 3)))
+#| label: fig-bne-interactive
+#| fig-cap: "Interactive BNE bidding strategies. Hover to see the exact valuation, equilibrium bid, bid shading amount, and number of bidders for each point on the strategy curve."
 
-p_sens <- ggplot(bne_data, aes(x = prob_low, y = quantity, color = player, text = text)) +
-  geom_line(linewidth = 1) +
-  scale_color_manual(values = c(q1 = okabe_ito[5], q2_L = okabe_ito[3], q2_H = okabe_ito[6]),
-                      labels = c("Firm 1", "Firm 2 (Low)", "Firm 2 (High)"), name = "Player/Type") +
-  labs(title = "BNE quantities vs prior belief about cost type",
-       subtitle = "As P(low cost) increases, Firm 1 expects tougher competition → produces less",
-       x = "P(Firm 2 has low cost)", y = "Equilibrium quantity") +
+p_int <- ggplot(plot_df, aes(x = v, y = bid_bne,
+    color = factor(n), group = n,
+    text = sprintf("Valuation: %.2f\nBid: %.3f\nShading: %.3f\nBidders: %d",
+                   v, bid_bne, shading, n))) +
+  geom_line(linewidth = 0.7) +
+  scale_color_manual(
+    values = okabe_ito[c(1, 2, 3, 5, 6)],
+    labels = sprintf("n = %d", n_subset)
+  ) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(title = "BNE bidding strategies",
+       x = "Private valuation", y = "Equilibrium bid",
+       color = "Bidders") +
   theme_publication()
-ggplotly(p_sens, tooltip = "text") |>
-  config(displaylogo = FALSE, modeBarButtonsToRemove = c("select2d", "lasso2d"))
-```
 
+ggplotly(p_int, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
+```
 
 ## Interpretation
 
-Bayesian games reveal how private information fundamentally reshapes strategic interaction. In the Cournot example, Firm 2's private cost information creates a separation of types: the low-cost type produces aggressively (leveraging its cost advantage) while the high-cost type retreats. Firm 1, unable to observe Firm 2's type, must respond to an expected competitor — producing a compromise quantity. The sensitivity analysis shows that beliefs matter: as Firm 1 becomes more convinced that Firm 2 has low costs, it reduces its own output (expecting tougher competition), while the low-cost type expands and the high-cost type's output barely changes. @harsanyi_1973's framework transformed this from an intractable problem ("how do you play a game when you don't know your opponent's payoffs?") into a standard optimisation problem with beliefs. The key insight is that incomplete information does not make games unsolvable — it makes them richer, with strategies contingent on private types and equilibria reflecting the interplay of information and incentives.
+The computation and visualization of Bayesian Nash equilibria in the first-price auction and entry game settings illuminate several fundamental principles of strategic behaviour under incomplete information. These results, while derived from stylized models, carry deep insights that apply broadly to economic analysis, mechanism design, and institutional choice.
 
+The first-price auction results demonstrate the central trade-off in bidding under uncertainty: the tension between winning probability and profit conditional on winning. The BNE bidding strategy b*(v) = ((n-1)/n)v is a linear function of the bidder's valuation, with the slope determined by the number of competitors. The slope (n-1)/n represents the fraction of value that a bidder is willing to pay, and the complement 1/n represents the bid shading -- the margin the bidder retains as expected profit. As the number of bidders increases, each bidder shades their bid less because the probability of winning with any given bid decreases, making the marginal benefit of a higher bid (increased winning probability) outweigh the marginal cost (reduced surplus). In the limit as n approaches infinity, the BNE bid converges to the true valuation, and bidder surplus vanishes -- a result analogous to perfect competition.
 
-## Extensions & related tutorials
+The revenue comparison across different numbers of bidders provides practical guidance for auction designers. The seller's expected revenue of (n-1)/(n+1) increases in the number of bidders but at a decreasing rate. Going from 2 to 3 bidders increases revenue substantially, while going from 7 to 8 bidders adds very little. This has direct implications for auction design: the seller should invest in attracting additional bidders only to the point where the marginal cost of an additional bidder exceeds the marginal revenue gain. The revenue equivalence theorem guarantees that this revenue formula also applies to second-price (Vickrey) auctions and English auctions under the same IPV assumptions, so the number-of-bidders effect is a robust feature of competitive bidding environments.
 
-- [Mixed-strategy Nash equilibrium](../../foundations/nash-equilibrium-mixed/) — the complete-information foundation.
-- [First-price sealed-bid auction](../../auction-theory-deep-dive/first-price-sealed-bid/) — BNE in auction settings.
-- [Vickrey auction and DSIC](../../mechanism-design/vickrey-second-price-auction/) — mechanism design with private values.
-- [Cuban Missile Crisis as signaling game](../../real-world-data-applications/cuban-missile-crisis-signaling-game/) — applied incomplete information.
-- [Signaling games and PBE](../../foundations/signaling-games-pbe/) — extending to sequential incomplete-info games.
+The entry game analysis reveals how beliefs about an opponent's type drive strategic decisions at the extensive margin. The entry threshold p* = 0.6 means that the potential entrant will enter the market if and only if their prior belief that the incumbent has low costs is below 60%. This threshold has a clean economic interpretation: it balances the expected gain from entering against a high-cost incumbent with the expected loss from entering against a low-cost incumbent, weighted by the respective probabilities. The threshold is determined entirely by the payoff structure and the prior distribution, not by the entrant's risk preferences (under expected utility with linear utility).
 
+The comparison between BNE and complete-information NE is instructive. Under complete information, the entrant knows the incumbent's type and makes the correct entry decision with certainty -- entering against high-cost incumbents and staying out against low-cost ones. Under incomplete information, the BNE involves entry errors: the entrant sometimes enters against low-cost incumbents (incurring losses) and sometimes stays out against high-cost incumbents (forgoing profits). The expected cost of these errors is the value of information -- the maximum amount the entrant would pay to learn the incumbent's type before making the entry decision. This value of information can be computed as the difference in expected payoffs between the complete-information and incomplete-information equilibria and provides a principled measure of the strategic cost of uncertainty.
+
+The Bayesian game framework also highlights the importance of the common prior assumption. In our models, all players share the same prior distribution over types. This assumption is crucial for the existence and uniqueness of BNE and has been the subject of intense debate in game theory. If players have different priors (perhaps due to different information sources or cognitive biases), the analysis becomes substantially more complex, and the predictions can differ markedly. Relaxing the common prior assumption connects Bayesian game theory to the literature on heterogeneous beliefs, speculative trade, and epistemic game theory -- areas where the foundations of strategic reasoning under uncertainty continue to be refined.
+
+## Extensions and related tutorials
+
+- [Mutual information in signaling games](../../information-theory/mutual-information-signaling/) -- quantifying information transmission when types are privately known.
+- [Mechanism design and revelation principle](../../mechanism-design/revelation-principle/) -- designing games where truthful type reporting is incentive-compatible.
+- [Prospect theory and reference-dependent preferences in games](../../behavioral-economics/prospect-theory-reference-dependence/) -- how behavioural biases interact with Bayesian reasoning.
+- [Auction theory deep dive: revenue equivalence](../../auction-theory-deep-dive/revenue-equivalence/) -- formal treatment of revenue equivalence across auction formats.
+- [Difference-in-differences for strategic policy evaluation](../../causal-inference/difference-in-differences-strategic/) -- empirical methods for identifying strategic behaviour in field data.
 
 ## References
 

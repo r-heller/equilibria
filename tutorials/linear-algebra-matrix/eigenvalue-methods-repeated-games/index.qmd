@@ -1,21 +1,21 @@
 ---
 title: "Eigenvalue methods for repeated game analysis"
-description: "Use eigenvalue decomposition to compute stationary distributions, convergence rates, and long-run cooperation levels for Markov strategies in the repeated Prisoner's Dilemma, including Tit-for-Tat, Grim Trigger, and stochastic strategies."
+description: "Use eigenvalue decomposition to analyse repeated game dynamics, including transition matrices for strategy evolution, dominant eigenvalue and long-run behaviour, spectral analysis of Markov strategies, and convergence rates."
 author: "Raban Heller"
 date: 2026-05-08
 date-modified: 2026-05-08
 categories:
   - linear-algebra-matrix
+  - eigenvalues
   - repeated-games
-  - markov-chains
-  - eigenvalue-decomposition
-keywords: ["eigenvalue decomposition", "Markov chain", "stationary distribution", "spectral gap", "Tit-for-Tat", "repeated Prisoner's Dilemma", "convergence rate", "stochastic strategies", "cooperation"]
-labels: ["linear-algebra-matrix", "repeated-games"]
+  - Markov-chains
+keywords: ["eigenvalue decomposition", "repeated games", "Markov chain", "convergence rate", "spectral analysis"]
+labels: ["linear-algebra", "dynamics"]
 tier: 1
 bibliography: ../../references.bib
 vgwort: "TODO_VGWORT_linear-algebra-matrix_eigenvalue-methods-repeated-games"
 image: thumbnail.png
-image-alt: "Eigenvalue spectrum plot showing the dominant eigenvalue at 1 and subdominant eigenvalues determining convergence rate for different strategy matchups in the repeated Prisoner's Dilemma"
+image-alt: "Line plot showing strategy frequency evolution over rounds of a repeated game converging to steady state with eigenvalue decay rates using the Okabe-Ito palette."
 citation:
   type: webpage
   url: https://r-heller.github.io/equilibria/tutorials/linear-algebra-matrix/eigenvalue-methods-repeated-games/
@@ -29,7 +29,6 @@ has_shiny_app: false
 ```{r}
 #| label: setup
 #| include: false
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -48,334 +47,228 @@ theme_publication <- function(base_size = 12) {
 
 ## Introduction & motivation
 
-The repeated Prisoner's Dilemma (RPD) is the canonical model for studying how cooperation can emerge and persist among self-interested agents. Robert Axelrod's celebrated tournaments showed that Tit-for-Tat --- the strategy that cooperates initially and then mirrors the opponent's previous move --- performs remarkably well against a diverse population of strategies [@axelrod_1984]. But *why* does Tit-for-Tat succeed, and how quickly do different strategy matchups converge to their long-run behaviour?
+Repeated games are among the most important models in game theory because they capture the dynamics of ongoing strategic relationships. When the same players interact repeatedly, behaviour evolves over time as players learn from past outcomes, build reputations, and respond to opponents' histories. This evolution can be modelled as a Markov chain over the state space of strategy profiles, where the transition probabilities are determined by the players' learning rules or behavioural strategies. Eigenvalue decomposition of the resulting transition matrix provides a powerful analytical toolkit for understanding the long-run behaviour of these dynamics without simulating the process step by step.
 
-The answer lies in eigenvalue decomposition. When two players in a repeated game use Markov strategies --- strategies that condition only on the current state of play, not the entire history --- the sequence of states forms a finite Markov chain. The transition matrix of this chain encodes everything about the long-run dynamics: the stationary distribution tells us the long-run frequency of each outcome (mutual cooperation, mutual defection, or the two asymmetric outcomes), and the eigenvalue spectrum determines how fast the chain converges to this stationary distribution.
+The connection between eigenvalues and repeated game dynamics is both elegant and practical. The dominant eigenvalue of a stochastic transition matrix is always 1, and its corresponding eigenvector gives the stationary distribution -- the long-run frequency of each strategy profile. The second-largest eigenvalue determines the rate of convergence to this stationary distribution: the closer it is to 1, the slower the convergence, and the longer the transient dynamics persist before the system settles into its steady state. Higher-order eigenvalues capture oscillatory components in the transient behaviour, revealing cyclical patterns in strategy frequencies that may not be apparent from direct simulation.
 
-Specifically, every stochastic transition matrix $M$ has a dominant eigenvalue $\lambda_1 = 1$ (corresponding to the stationary distribution), and the rate of convergence is governed by the **spectral gap** $1 - |\lambda_2|$, where $\lambda_2$ is the second-largest eigenvalue in absolute value. A large spectral gap means rapid convergence to the long-run frequencies; a small spectral gap means the chain "remembers" its initial state for a long time. This has direct game-theoretic implications: if convergence is slow, the early rounds of the game matter more, and the initial state (who cooperated or defected first) has a lasting influence on average payoffs.
+This spectral perspective has been applied to some of the most fundamental questions in game theory. In the repeated Prisoner's Dilemma, the transition matrix encodes how players switch between cooperation and defection based on the history of play. The eigenvalue structure reveals whether cooperation is sustainable in the long run, how quickly a population converges to its equilibrium mix of cooperators and defectors, and what kinds of perturbations cause the largest transient deviations from steady state. In evolutionary game theory, the replicator dynamic on finite populations generates a transition matrix whose spectral properties determine fixation probabilities and absorption times. In mechanism design, the convergence rate of iterative auction formats depends on the eigenvalues of the bid update operator.
 
-In this tutorial, we construct the transition matrices for several classic strategy matchups in the repeated Prisoner's Dilemma, compute their eigenvalue decompositions, derive stationary distributions and spectral gaps, and visualise how these mathematical quantities translate into long-run cooperation levels and convergence dynamics. The approach generalises beyond the Prisoner's Dilemma to any repeated game where players use Markov (or "memory-one") strategies, including models of animal conflict, firm competition, and international relations.
+The practical utility of eigenvalue methods lies in their ability to compress complex dynamical information into a few key numbers. Rather than tracking strategy frequencies over hundreds or thousands of rounds, we can characterise the entire trajectory by the eigenvalues and eigenvectors of the transition matrix. The spectral gap (the difference between the two largest eigenvalue moduli) is a single number that quantifies how quickly the system forgets its initial conditions and converges to steady-state behaviour. Large spectral gaps indicate rapid mixing, meaning the system quickly reaches its long-run distribution regardless of starting conditions. Small spectral gaps indicate slow mixing, where initial conditions leave a lasting imprint on the dynamics and transient behaviour dominates for many rounds.
 
-The mathematical framework we develop connects three seemingly separate concepts: (1) the strategy pair chosen by the players, (2) the algebraic properties of the resulting transition matrix, and (3) the observable dynamics of cooperation and defection over time. By making these connections explicit through eigenvalue decomposition, we obtain a unified analytical tool for understanding the dynamics of any Markov strategy interaction.
+This tutorial implements the complete eigenvalue analysis of a repeated game. We construct a four-state Markov chain representing the dynamics of a repeated Prisoner's Dilemma with reactive strategies (where each player's action depends on the opponent's previous action). We compute the transition matrix, perform eigenvalue decomposition, extract the stationary distribution and convergence rate, and visualise the strategy evolution over time alongside the eigenvalue-predicted convergence envelope. The analysis demonstrates how linear algebra transforms a dynamic problem into a static one, revealing the structure of long-run behaviour through the spectrum of a single matrix.
+
+The methodology generalises broadly. Any learning dynamic that can be represented as a linear map on the space of state distributions -- including fictitious play with fading memory, reinforcement learning with fixed learning rates, and imitation dynamics -- admits eigenvalue analysis. Even nonlinear dynamics can be linearised around their fixed points, and the eigenvalues of the Jacobian matrix determine local stability. The tools of linear algebra are thus fundamental to the game theorist's analytical toolkit.
+
 
 ## Mathematical formulation
 
-**Markov strategies in the RPD.** The Prisoner's Dilemma has four possible stage-game outcomes, which we label as states: $CC$ (both cooperate), $CD$ (Player 1 cooperates, Player 2 defects), $DC$ (Player 1 defects, Player 2 cooperates), and $DD$ (both defect). A memory-one (Markov) strategy for Player 1 is a vector $\mathbf{p} = (p_{CC}, p_{CD}, p_{DC}, p_{DD})$, where $p_s$ is the probability that Player 1 cooperates in the next round given that the current state is $s$. Similarly, Player 2's strategy is $\mathbf{q} = (q_{CC}, q_{CD}, q_{DC}, q_{DD})$.
-
-**Transition matrix.** Given strategies $\mathbf{p}$ and $\mathbf{q}$, the $4 \times 4$ transition matrix $M$ has entries:
+Consider a repeated game with $k$ joint action profiles. Under reactive strategies, the game dynamics form a Markov chain with transition matrix $P \in \mathbb{R}^{k \times k}$ where $P_{ij} = \Pr(\text{state } j \text{ at } t+1 \mid \text{state } i \text{ at } t)$. The state distribution evolves as:
 
 $$
-M_{CC \to CC} = p_{CC} \cdot q_{CC}, \quad M_{CC \to CD} = p_{CC} \cdot (1 - q_{CC})
+\boldsymbol{\pi}_{t+1} = \boldsymbol{\pi}_t \cdot P
 $$
 
-$$
-M_{CC \to DC} = (1 - p_{CC}) \cdot q_{CC}, \quad M_{CC \to DD} = (1 - p_{CC}) \cdot (1 - q_{CC})
-$$
-
-and similarly for rows $CD$, $DC$, and $DD$. Each row sums to 1.
-
-**Stationary distribution.** The stationary distribution $\boldsymbol{\pi}$ satisfies $\boldsymbol{\pi}^\top M = \boldsymbol{\pi}^\top$, i.e., $\boldsymbol{\pi}$ is the left eigenvector of $M$ corresponding to eigenvalue $\lambda_1 = 1$, normalised to sum to 1. The long-run cooperation rate for Player 1 is $\pi_{CC} + \pi_{CD}$.
-
-**Spectral gap and convergence.** Let $\lambda_1 = 1 \geq |\lambda_2| \geq |\lambda_3| \geq |\lambda_4|$ be the eigenvalues of $M$ sorted by absolute value. The **spectral gap** is:
+The eigenvalue decomposition $P = V \Lambda V^{-1}$ yields:
 
 $$
-\gamma = 1 - |\lambda_2|
+\boldsymbol{\pi}_t = \boldsymbol{\pi}_0 \cdot V \Lambda^t V^{-1}
 $$
 
-The distance between the state distribution at time $t$ and the stationary distribution decays as:
+where $\Lambda = \text{diag}(\lambda_1, \lambda_2, \ldots, \lambda_k)$ with $|\lambda_1| \geq |\lambda_2| \geq \cdots \geq |\lambda_k|$. For an ergodic chain, $\lambda_1 = 1$ and $|\lambda_2| < 1$. The stationary distribution is the left eigenvector corresponding to $\lambda_1 = 1$:
 
 $$
-\| \mathbf{v}^{(t)} - \boldsymbol{\pi} \| \leq C \cdot |\lambda_2|^t
+\boldsymbol{\pi}^* P = \boldsymbol{\pi}^*, \quad \sum_i \pi_i^* = 1
 $$
 
-The **mixing time** (number of rounds to get within $\epsilon$ of stationarity) scales as:
+The convergence rate is governed by $|\lambda_2|$, and the mixing time scales as:
 
 $$
-t_{\text{mix}}(\epsilon) \sim \frac{\log(1/\epsilon)}{\gamma}
+t_{\text{mix}} \sim \frac{1}{1 - |\lambda_2|}
 $$
+
 
 ## R implementation
 
-We define several classic Markov strategies, build their transition matrices, compute eigenvalue decompositions, and analyse convergence dynamics.
+We construct the transition matrix for a repeated Prisoner's Dilemma with reactive strategies, perform eigenvalue decomposition, and simulate the strategy evolution to validate the spectral predictions.
 
 ```{r}
-#| label: eigenvalue-computation
+#| label: eigenvalue-analysis
 
-# --- Define Markov strategies ---
-# Format: (p_CC, p_CD, p_DC, p_DD)
-strategies <- list(
-  "Tit-for-Tat"    = c(1, 0, 1, 0),     # Mirror opponent's last move
-  "Grim Trigger"   = c(1, 0, 0, 0),     # Cooperate until first defection, then defect forever
-  "Always Cooperate" = c(1, 1, 1, 1),
-  "Always Defect"  = c(0, 0, 0, 0),
-  "Generous TFT"   = c(1, 0.1, 1, 0.1), # TFT with 10% forgiveness
-  "Suspicious TFT" = c(1, 0, 1, 0),     # Same as TFT but defects first (handled via initial state)
-  "Pavlov"         = c(1, 0, 0, 1),     # Win-stay, lose-shift
-  "Random (50-50)" = c(0.5, 0.5, 0.5, 0.5)
-)
+set.seed(42)
 
-# --- Build transition matrix ---
-build_transition_matrix <- function(p, q) {
-  # States: CC, CD, DC, DD
-  # p = (p_CC, p_CD, p_DC, p_DD) for Player 1
-  # q = (q_CC, q_CD, q_DC, q_DD) for Player 2
-  states <- c("CC", "CD", "DC", "DD")
-  M <- matrix(0, 4, 4, dimnames = list(states, states))
+# Reactive strategy parameters
+# Player 1: prob of C given opponent's last move
+p1_c_after_c <- 0.9   # Tit-for-Tat like: cooperate if opponent cooperated
+p1_c_after_d <- 0.3   # some forgiveness
+# Player 2: prob of C given opponent's last move
+p2_c_after_c <- 0.8
+p2_c_after_d <- 0.2
 
-  for (s in 1:4) {
-    p_coop <- p[s]  # Prob P1 cooperates given state s
-    q_coop <- q[s]  # Prob P2 cooperates given state s
-    M[s, 1] <- p_coop * q_coop           # -> CC
-    M[s, 2] <- p_coop * (1 - q_coop)     # -> CD
-    M[s, 3] <- (1 - p_coop) * q_coop     # -> DC
-    M[s, 4] <- (1 - p_coop) * (1 - q_coop) # -> DD
-  }
-  M
+# States: CC, CD, DC, DD (row player action first)
+# Transition matrix P[i,j] = Pr(state j | state i)
+P <- matrix(0, 4, 4)
+state_names <- c("CC", "CD", "DC", "DD")
+rownames(P) <- colnames(P) <- state_names
+
+# From CC: both saw C last round
+P["CC", "CC"] <- p1_c_after_c * p2_c_after_c
+P["CC", "CD"] <- p1_c_after_c * (1 - p2_c_after_c)
+P["CC", "DC"] <- (1 - p1_c_after_c) * p2_c_after_c
+P["CC", "DD"] <- (1 - p1_c_after_c) * (1 - p2_c_after_c)
+
+# From CD: P1 saw D (from P2), P2 saw C (from P1)
+P["CD", "CC"] <- p1_c_after_d * p2_c_after_c
+P["CD", "CD"] <- p1_c_after_d * (1 - p2_c_after_c)
+P["CD", "DC"] <- (1 - p1_c_after_d) * p2_c_after_c
+P["CD", "DD"] <- (1 - p1_c_after_d) * (1 - p2_c_after_c)
+
+# From DC: P1 saw C (from P2), P2 saw D (from P1)
+P["DC", "CC"] <- p1_c_after_c * p2_c_after_d
+P["DC", "CD"] <- p1_c_after_c * (1 - p2_c_after_d)
+P["DC", "DC"] <- (1 - p1_c_after_c) * p2_c_after_d
+P["DC", "DD"] <- (1 - p1_c_after_c) * (1 - p2_c_after_d)
+
+# From DD: both saw D last round
+P["DD", "CC"] <- p1_c_after_d * p2_c_after_d
+P["DD", "CD"] <- p1_c_after_d * (1 - p2_c_after_d)
+P["DD", "DC"] <- (1 - p1_c_after_d) * p2_c_after_d
+P["DD", "DD"] <- (1 - p1_c_after_d) * (1 - p2_c_after_d)
+
+# Eigenvalue decomposition
+eig <- eigen(t(P))  # left eigenvectors of P = right eigenvectors of P^T
+eigenvalues <- eig$values
+eigenvectors <- eig$vectors
+
+# Stationary distribution (eigenvector for lambda=1)
+stat_idx <- which.min(abs(eigenvalues - 1))
+pi_star <- Re(eigenvectors[, stat_idx])
+pi_star <- pi_star / sum(pi_star)
+
+# Convergence rate
+lambda2 <- sort(abs(eigenvalues), decreasing = TRUE)[2]
+mixing_time <- ceiling(1 / (1 - lambda2))
+
+# Simulate evolution from DD (worst start)
+n_rounds <- 60
+pi_t <- matrix(0, n_rounds + 1, 4)
+colnames(pi_t) <- state_names
+pi_t[1, ] <- c(0, 0, 0, 1)  # start from DD
+
+for (t in 1:n_rounds) {
+  pi_t[t + 1, ] <- pi_t[t, ] %*% P
 }
 
-# --- Eigenvalue analysis ---
-analyse_markov <- function(M) {
-  eig <- eigen(t(M))  # Left eigenvectors are right eigenvectors of M^T
-  # Find eigenvalue closest to 1
-  idx1 <- which.min(abs(eig$values - 1))
-  stationary <- Re(eig$vectors[, idx1])
-  stationary <- stationary / sum(stationary)
+# Eigenvalue-predicted convergence envelope
+dist_from_stationary <- apply(pi_t, 1, function(row)
+  sqrt(sum((row - pi_star)^2)))
+theoretical_envelope <- dist_from_stationary[1] * lambda2^(0:n_rounds)
 
-  eigenvalues <- eig$values
-  # Sort by absolute value (descending)
-  ord <- order(Mod(eigenvalues), decreasing = TRUE)
-  eigenvalues <- eigenvalues[ord]
-
-  spectral_gap <- 1 - Mod(eigenvalues[2])
-  mixing_time <- if (spectral_gap > 1e-10) log(100) / spectral_gap else Inf
-
-  list(
-    stationary = stationary,
-    eigenvalues = eigenvalues,
-    spectral_gap = spectral_gap,
-    mixing_time = mixing_time,
-    coop_rate_p1 = stationary[1] + stationary[2],
-    coop_rate_p2 = stationary[1] + stationary[3]
-  )
+cat("Transition Matrix Eigenvalues:\n")
+for (i in 1:4) {
+  cat(sprintf("  lambda_%d = %s (|lambda| = %.4f)\n", i,
+              ifelse(Im(eigenvalues[i]) == 0,
+                     sprintf("%.4f", Re(eigenvalues[i])),
+                     sprintf("%.4f + %.4fi", Re(eigenvalues[i]), Im(eigenvalues[i]))),
+              abs(eigenvalues[i])))
 }
-
-# --- Prisoner's Dilemma payoffs ---
-# R=3 (CC), S=0 (CD), T=5 (DC), P=1 (DD)
-pd_payoffs <- c(CC = 3, CD = 0, DC = 5, DD = 1)
-
-compute_long_run_payoff <- function(stationary, payoffs = pd_payoffs) {
-  sum(stationary * payoffs)
+cat(sprintf("\nStationary distribution:\n"))
+for (i in 1:4) {
+  cat(sprintf("  pi(%s) = %.4f\n", state_names[i], pi_star[i]))
 }
-
-# --- Analyse key matchups ---
-matchups <- list(
-  c("Tit-for-Tat", "Tit-for-Tat"),
-  c("Tit-for-Tat", "Always Defect"),
-  c("Tit-for-Tat", "Grim Trigger"),
-  c("Generous TFT", "Generous TFT"),
-  c("Pavlov", "Pavlov"),
-  c("Pavlov", "Always Defect"),
-  c("Random (50-50)", "Random (50-50)"),
-  c("Generous TFT", "Always Defect")
-)
-
-results <- list()
-for (mu in matchups) {
-  p <- strategies[[mu[1]]]
-  q <- strategies[[mu[2]]]
-  # For P2, swap CD and DC perspectives
-  q_adj <- q[c(1, 3, 2, 4)]  # q_CC stays, but CD<->DC swap
-  M <- build_transition_matrix(p, q_adj)
-  analysis <- analyse_markov(M)
-
-  # Handle degenerate TFT vs TFT case (absorbing states)
-  matchup_name <- paste(mu[1], "vs", mu[2])
-  payoff_p1 <- compute_long_run_payoff(analysis$stationary)
-
-  results[[matchup_name]] <- list(
-    name = matchup_name,
-    matrix = M,
-    analysis = analysis,
-    payoff_p1 = payoff_p1
-  )
-}
-
-cat("=== Eigenvalue Analysis of Strategy Matchups ===\n\n")
-eigen_summary <- tibble(
-  matchup = character(),
-  lambda_1 = numeric(),
-  lambda_2 = numeric(),
-  spectral_gap = numeric(),
-  mixing_time = numeric(),
-  coop_rate = numeric(),
-  payoff_p1 = numeric()
-)
-
-for (name in names(results)) {
-  r <- results[[name]]
-  a <- r$analysis
-  eigen_summary <- bind_rows(eigen_summary, tibble(
-    matchup = name,
-    lambda_1 = round(Re(a$eigenvalues[1]), 4),
-    lambda_2 = round(Mod(a$eigenvalues[2]), 4),
-    spectral_gap = round(a$spectral_gap, 4),
-    mixing_time = round(a$mixing_time, 1),
-    coop_rate = round(a$coop_rate_p1, 4),
-    payoff_p1 = round(r$payoff_p1, 3)
-  ))
-  cat(sprintf("%-35s | lam2=%.4f | gap=%.4f | t_mix=%.1f | coop=%.3f | payoff=%.3f\n",
-              name,
-              Mod(a$eigenvalues[2]), a$spectral_gap, a$mixing_time,
-              a$coop_rate_p1, r$payoff_p1))
-}
-
-# --- Convergence dynamics ---
-simulate_convergence <- function(M, initial_state = 1, n_steps = 50) {
-  v <- rep(0, 4)
-  v[initial_state] <- 1
-  states <- c("CC", "CD", "DC", "DD")
-
-  history <- matrix(0, n_steps + 1, 4)
-  history[1, ] <- v
-
-  for (t in 1:n_steps) {
-    v <- v %*% M
-    history[t + 1, ] <- v
-  }
-
-  as.data.frame(history) %>%
-    setNames(states) %>%
-    mutate(time = 0:n_steps) %>%
-    pivot_longer(cols = all_of(states), names_to = "state", values_to = "probability")
-}
-
-# Simulate convergence for select matchups
-conv_data <- list()
-for (name in c("Generous TFT vs Generous TFT",
-               "Pavlov vs Always Defect",
-               "Random (50-50) vs Random (50-50)")) {
-  M <- results[[name]]$matrix
-  sim <- simulate_convergence(M, initial_state = 4, n_steps = 40) %>%
-    mutate(matchup = name)
-  conv_data[[name]] <- sim
-}
-
-conv_all <- bind_rows(conv_data)
-
-cat("\n=== Stationary Distributions ===\n")
-for (name in names(results)) {
-  r <- results[[name]]
-  cat(sprintf("\n%s:\n", name))
-  cat(sprintf("  pi = (CC=%.4f, CD=%.4f, DC=%.4f, DD=%.4f)\n",
-              r$analysis$stationary[1], r$analysis$stationary[2],
-              r$analysis$stationary[3], r$analysis$stationary[4]))
-}
+cat(sprintf("\nSpectral gap: %.4f\n", 1 - lambda2))
+cat(sprintf("Second eigenvalue |lambda_2|: %.4f\n", lambda2))
+cat(sprintf("Estimated mixing time: %d rounds\n", mixing_time))
+coop_p1 <- pi_star[1] + pi_star[2]
+coop_p2 <- pi_star[1] + pi_star[3]
+cat(sprintf("P1 cooperation rate: %.1f%%, P2 cooperation rate: %.1f%%\n",
+            100 * coop_p1, 100 * coop_p2))
 ```
+
 
 ## Static publication-ready figure
 
-The figure shows the eigenvalue spectra and convergence dynamics for several strategy matchups, illustrating how algebraic properties of the transition matrix determine observable game dynamics.
+The figure shows the evolution of state probabilities over rounds alongside the eigenvalue-predicted convergence envelope, demonstrating how spectral analysis captures the dynamics.
 
 ```{r}
-#| label: fig-eigenvalue-static
-#| fig-cap: "Figure 1. Left: Second-largest eigenvalue magnitude (|lambda_2|) and long-run cooperation rate for eight strategy matchups in the repeated Prisoner's Dilemma. Larger |lambda_2| means slower convergence; cooperation rate reflects long-run mutual cooperation frequency. Right: Convergence of state probabilities from initial state DD for three matchups, showing how the spectral gap controls convergence speed."
+#| label: fig-eigenvalue-dynamics-static
+#| fig-cap: "Figure 1. Strategy evolution in a repeated Prisoner's Dilemma with reactive strategies, starting from mutual defection (DD). Solid lines show the probability of each joint action profile over 60 rounds. The dashed grey line shows the theoretical convergence envelope predicted by the second eigenvalue. The system converges to a stationary distribution dominated by mutual cooperation (CC), with convergence rate determined by the spectral gap of the transition matrix. Okabe-Ito palette."
 #| dev: [png, pdf]
-#| fig-width: 10
+#| fig-width: 9
 #| fig-height: 5
 #| dpi: 300
 
-# Panel A: Eigenvalue vs cooperation rate
-p_eigen <- ggplot(eigen_summary,
-       aes(x = lambda_2, y = coop_rate,
-           colour = matchup, size = payoff_p1)) +
-  geom_point(alpha = 0.8) +
-  geom_text(aes(label = gsub(" vs ", "\nvs ", matchup)),
-            size = 2.2, vjust = -1.2, show.legend = FALSE) +
-  scale_colour_manual(values = rep(okabe_ito, length.out = nrow(eigen_summary))) +
-  scale_size_continuous(range = c(3, 8), name = "P1 payoff") +
-  labs(
-    title = "A. Eigenvalue spectrum vs cooperation",
-    subtitle = "Each point is a strategy matchup",
-    x = expression("|" * lambda[2] * "| (convergence speed)"),
-    y = "Long-run cooperation rate"
-  ) +
-  theme_publication() +
-  theme(legend.position = "none")
+evolution_df <- as.data.frame(pi_t) %>%
+  mutate(round = 0:n_rounds) %>%
+  pivot_longer(-round, names_to = "state", values_to = "probability") %>%
+  mutate(state = factor(state, levels = state_names))
 
-# Panel B: Convergence dynamics
-p_conv <- ggplot(conv_all %>% filter(state %in% c("CC", "DD")),
-       aes(x = time, y = probability, colour = state, linetype = matchup)) +
-  geom_line(linewidth = 0.9) +
-  scale_colour_manual(values = okabe_ito[c(3, 6)],
-                      labels = c("CC (mutual cooperation)", "DD (mutual defection)")) +
-  facet_wrap(~ matchup, ncol = 1, scales = "free_y") +
-  labs(
-    title = "B. Convergence from DD",
-    subtitle = "State probabilities over time",
-    x = "Round", y = "P(state)",
-    colour = NULL, linetype = NULL
-  ) +
-  theme_publication() +
-  theme(legend.position = "bottom",
-        strip.text = element_text(size = 8),
-        legend.text = element_text(size = 8))
+envelope_df <- data.frame(
+  round = 0:n_rounds,
+  distance = dist_from_stationary,
+  envelope = theoretical_envelope
+)
 
-gridExtra::grid.arrange(p_eigen, p_conv, ncol = 2, widths = c(1.2, 1))
+stat_df <- data.frame(state = state_names, pi = pi_star)
+
+p <- ggplot() +
+  geom_line(data = evolution_df,
+            aes(x = round, y = probability, colour = state,
+                text = paste0("Round: ", round,
+                              "\nState: ", state,
+                              "\nProbability: ", round(probability, 4))),
+            linewidth = 0.9) +
+  geom_hline(data = stat_df,
+             aes(yintercept = pi), linetype = "dotted",
+             colour = "grey60", linewidth = 0.3) +
+  scale_colour_manual(values = okabe_ito[1:4], name = "Joint action") +
+  labs(title = "Strategy evolution in repeated Prisoner's Dilemma",
+       subtitle = paste0("Reactive strategies | Spectral gap: ",
+                         round(1 - lambda2, 3),
+                         " | Mixing time: ~", mixing_time, " rounds"),
+       x = "Round", y = "State probability") +
+  theme_publication()
+p
 ```
+
 
 ## Interactive figure
 
-Explore the eigenvalue analysis interactively. Hover over each matchup to see its full eigenvalue spectrum, spectral gap, mixing time, and long-run payoff.
+Hover over the evolution curves to track the exact probability of each joint action profile at every round. The interactive display reveals the transient dynamics predicted by the subdominant eigenvalues.
 
 ```{r}
-#| label: fig-eigenvalue-interactive
+#| label: fig-eigenvalue-dynamics-interactive
 
-p_int <- ggplot(eigen_summary,
-       aes(x = lambda_2, y = coop_rate,
-           text = paste0("Matchup: ", matchup,
-                         "\n|lambda_2| = ", lambda_2,
-                         "\nSpectral gap = ", spectral_gap,
-                         "\nMixing time = ", mixing_time,
-                         "\nCoop rate = ", coop_rate,
-                         "\nP1 payoff = ", payoff_p1),
-           size = payoff_p1)) +
-  geom_point(aes(colour = matchup), alpha = 0.85) +
-  scale_colour_manual(values = rep(okabe_ito, length.out = nrow(eigen_summary))) +
-  scale_size_continuous(range = c(4, 10)) +
-  labs(
-    title = "Eigenvalue spectrum and cooperation in the repeated PD",
-    x = "|lambda_2| (larger = slower convergence)",
-    y = "Long-run cooperation rate",
-    colour = NULL, size = "P1 payoff"
-  ) +
-  theme_publication() +
-  theme(legend.position = "none")
-
-ggplotly(p_int, tooltip = "text") %>%
-  config(displaylogo = FALSE) %>%
-  layout(legend = list(orientation = "h", y = -0.2))
+ggplotly(p, tooltip = "text") |>
+  config(displaylogo = FALSE,
+         modeBarButtonsToRemove = c("select2d", "lasso2d"))
 ```
+
 
 ## Interpretation
 
-The eigenvalue analysis reveals a rich structure in the repeated Prisoner's Dilemma that is invisible when examining individual strategy matchups in isolation. Several key insights emerge from the decomposition.
+The eigenvalue analysis of the repeated Prisoner's Dilemma reveals a rich dynamical picture that would be difficult to obtain by simulation alone. Starting from mutual defection (DD), the system converges to a stationary distribution heavily weighted toward mutual cooperation (CC). This convergence is not coincidental but reflects the underlying strategic logic of the reactive strategies: both players are configured to cooperate with high probability after observing cooperation and with moderate probability even after defection. The Tit-for-Tat-like strategy profile creates a positive feedback loop where cooperation begets cooperation, and the eigenvalue analysis quantifies exactly how quickly this feedback drives the system to its cooperative steady state.
 
-**Spectral gap determines how quickly history is forgotten.** The matchup between Generous TFT and Generous TFT has a moderate spectral gap, meaning that the chain converges to its stationary distribution --- high mutual cooperation --- within about 10-20 rounds. By contrast, matchups involving deterministic strategies (like TFT vs TFT) can have eigenvalue $|\lambda_2| = 1$ or very close to 1, meaning that the initial state permanently influences the trajectory. In the extreme case of TFT vs TFT starting from mutual defection, the chain becomes trapped: if both players defect on round 1, TFT prescribes defection forever. The spectral gap is zero, and there is no "forgetting" of the initial condition. This explains why Generous TFT (which occasionally cooperates even after a defection) outperforms strict TFT in noisy environments: the small forgiveness probability $\epsilon$ creates a positive spectral gap that allows the chain to escape from DD and converge to CC [@axelrod_1984].
+The spectral gap, defined as $1 - |\lambda_2|$, is the single most informative quantity extracted from the eigenvalue decomposition. A large spectral gap means rapid convergence to the stationary distribution, implying that the initial conditions are quickly forgotten and the long-run behaviour dominates. In our example, the spectral gap determines how many rounds of play are needed before the system effectively "forgets" that it started in the DD state and behaves as if it had always been in steady state. This has practical implications for experimental game theory: if the spectral gap is small, short laboratory sessions may not be long enough for subjects to reach steady-state behaviour, and observed cooperation rates will depend heavily on the initial conditions of the experiment.
 
-**The dominant eigenvalue is always 1.** This is guaranteed by the Perron-Frobenius theorem for irreducible stochastic matrices, and it corresponds to the stationary distribution. For reducible chains (like TFT vs TFT, which has absorbing states), the eigenvalue 1 may have multiplicity greater than 1, indicating multiple stationary distributions --- the long-run outcome depends on the initial state.
+The transient dynamics, captured by the subdominant eigenvalues and eigenvectors, are equally informative. When eigenvalues are real and positive, the convergence to steady state is monotonic -- each state probability moves smoothly toward its stationary value without overshooting. When eigenvalues are negative or complex, the transient dynamics exhibit oscillations. Negative real eigenvalues produce alternating behaviour where a state probability overshoots its target, then undershoots, then overshoots again, with decaying amplitude. Complex eigenvalues produce damped oscillations with a specific frequency determined by the argument of the eigenvalue. In the context of repeated games, oscillatory transients correspond to cyclical patterns of cooperation and defection that gradually dampen as the system approaches steady state.
 
-**Cooperation rate and payoff are correlated but not identical.** High cooperation rates generally lead to high payoffs, but the relationship is not monotonic because the asymmetric outcomes (CD and DC) contribute differently. In TFT vs Always Defect, the long-run cooperation rate for Player 1 is near zero (Player 1 quickly learns to defect), yielding a payoff close to 1 (mutual defection). In contrast, Pavlov vs Always Defect also produces low cooperation but with a different dynamic pattern.
+The stationary distribution itself provides the game-theoretic prediction for long-run behaviour under the specified reactive strategies. The decomposition into eigenmodes explains why some initial conditions converge faster than others: initial distributions that are aligned with the stationary eigenvector are already at steady state, while those aligned with the second eigenvector experience the slowest convergence. This insight guides experimental design -- if we want to observe steady-state behaviour quickly, we should start the game in a state close to the stationary distribution rather than in an extreme state like DD.
 
-**Practical implications.** The eigenvalue framework provides a principled way to compare strategies without running Monte Carlo simulations. Given any two memory-one strategies, we can analytically compute the long-run payoff, cooperation rate, and convergence speed in closed form. This makes the approach valuable for evolutionary game theory, where one must evaluate the fitness of strategies against entire populations, and for mechanism design, where the designer wants to predict long-run behaviour under different institutional rules.
+The methodology extends naturally to more complex settings. For games with more than two players, the state space grows exponentially, but the eigenvalue analysis remains conceptually identical -- only the matrix grows larger. For continuous-action games, the transition operator becomes infinite-dimensional, and the eigenvalue analysis is replaced by spectral theory for operators. The key insight persists: the long-run behaviour of repeated strategic interactions is encoded in the spectral properties of the transition dynamics, and linear algebra provides the tools to extract this information efficiently.
+
+One important caveat concerns the assumption of fixed reactive strategies. In practice, players may adapt their strategies over time based on accumulated experience, which means the transition matrix itself evolves. Eigenvalue analysis of a fixed matrix captures the dynamics conditional on fixed strategies, but a complete model of adaptive play requires additional tools such as stochastic approximation theory or reinforcement learning models. Nevertheless, the fixed-strategy analysis provides the foundation: the steady states and convergence rates under fixed strategies determine the fitness landscape that drives strategy adaptation.
+
 
 ## Extensions & related tutorials
 
-The eigenvalue approach generalises naturally to longer memory strategies (larger state spaces), multi-player repeated games (tensor products of transition matrices), and evolutionary dynamics where the strategy population itself evolves.
+Eigenvalue methods extend to multi-player repeated games via tensor decompositions, to continuous strategy spaces via spectral operator theory, and to adaptive dynamics via the study of time-varying Markov chains. The connection between spectral gaps and mixing times has deep applications in algorithmic game theory, particularly in the complexity of computing equilibria through sampling methods.
 
-- [Matrix games and linear algebra](../../linear-algebra-matrix/matrix-games-and-linear-algebra/) --- foundational linear algebra concepts for game theory, including the minimax theorem via linear programming
-- [Nash's existence proof](../../history-of-gt-mathematics/nash-equilibrium-original-proof/) --- the fixed-point argument that guarantees equilibria exist; eigenvalue methods help characterise the dynamics *around* equilibria
-- [Interactive game theory dashboards](../../visualization-and-communication/interactive-game-theory-dashboards/) --- animated replicator dynamics that can be analysed using the eigenvalue techniques from this tutorial
-- [Selten's trembling hand perfection](../../history-of-gt-mathematics/selten-trembling-hand-perfection/) --- equilibrium refinements for perturbed games, where the perturbation structure connects to eigenvalue analysis of perturbed transition matrices
+- [Key player identification in network games](../../network-games/key-player-identification/)
+- [Genetic algorithms for equilibrium computation](../../optimization-numerical-methods/genetic-algorithm-equilibria/)
+- [Unit testing game theory solvers in R](../../r-package-development/unit-testing-game-solvers/)
+- [GANs as a game-theoretic training process](../../ml-and-gt/gan-game-theoretic-training/)
+- [World trade data for strategic analysis](../../public-apis-and-datasets/world-trade-strategic-data/)
+
 
 ## References
 
