@@ -47,3 +47,7 @@ One line per Claude Code turn. Append-only.
 | 2026-05-09 | 5.28 | Batch 7: 6 articles (group A) | synthetic-control, MPC-crypto, VCM, Zermelo-chess, max-entropy-CE, Markov-dynamics |
 | 2026-05-09 | 5.29 | Batch 7: 6 articles (group B) | community-detection, mechanism-design-ML, fairness-game, trolley-problem, World-Bank, Rcpp-solvers |
 | 2026-05-09 | 5.30 | Batch 7: 6 articles (group C) | preregistration, replicator-sim, hypothesis-testing, Shiny-apps, EU-foundations, El-Farol |
+| 2026-05-09 | 5.31 | Batch 8: foundations + network-games ×2 | revelation-principle, braess-paradox-routing |
+| 2026-05-09 | 5.32 | Batch 8: 6 articles (group A) | VAR-strategic, spectrum-auction, interior-point, THP-refinement, war-of-attrition-sealed, English-auction |
+| 2026-05-09 | 5.33 | Batch 8: 6 articles (group B) | Savage-SEU, spatial-evolution, matching-markets, common-value-estimation, endowment-effect, spectrum-policy |
+| 2026-05-09 | 5.34 | Batch 8: 6 articles (group C) + refs | Shapley-Shubik, beauty-contest, network-interdiction, Fehr-Schmidt, rational-inattention, no-regret-learning |
