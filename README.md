@@ -6,8 +6,8 @@ Comprehensive tutorials on game theory, decision-making, simulation, AI/ML, and 
 
 ## Scope
 
-- **2436 tutorial articles** across 32 topic areas
-- **80 interactive Shiny applications**
+- Comprehensive coverage across 32 topic areas
+- Interactive Shiny applications paired with selected tutorials
 - R primary, Python via `reticulate` for advanced topics
 - Publication-ready static figures + interactive visualizations in every article
 
