@@ -11,10 +11,6 @@ Comprehensive tutorials on game theory, decision-making, simulation, AI/ML, and 
 - R primary, Python via `reticulate` for advanced topics
 - Publication-ready static figures + interactive visualizations in every article
 
-## Sister site
-
-[**#tutorials**](https://cttir.github.io/tutorials/) — same author, same architecture, complementary scope.
-
 ## Build
 
 ```bash
