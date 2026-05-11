@@ -5,39 +5,48 @@
 (function() {
   'use strict';
 
+  // 32 distinct colours: Okabe-Ito (colourblind-safe) for the eight core
+  // GT topics, then d3.schemeTableau10 + schemeSet3 for the rest.
+  // Accessibility note: only the first 8 entries are Okabe-Ito-grade
+  // colourblind-safe. The remaining 24 sacrifice that property for
+  // 1:1 topic distinctness — documented in PROJECT_CONCEPT.md.
   const TOPIC_COLORS = {
-    'foundations': '#0072B2',
-    'classical-games': '#E69F00',
-    'evolutionary-gt': '#009E73',
-    'cooperative-gt': '#56B4E9',
-    'mechanism-design': '#D55E00',
-    'behavioral-gt': '#CC79A7',
-    'simulations': '#F0E442',
-    'network-games': '#999999',
-    'case-studies': '#0072B2',
-    'ml-and-gt': '#E69F00',
-    'auction-theory-deep-dive': '#009E73',
-    'decision-theory': '#56B4E9',
-    'history-of-gt-mathematics': '#D55E00',
-    'cryptography-and-gt': '#CC79A7',
-    'experimental-economics': '#F0E442',
-    'real-world-data-applications': '#999999',
-    'ethics-and-game-theory': '#0072B2',
-    'ethics-applications': '#E69F00',
-    'public-apis-and-datasets': '#009E73',
-    'ai-ml-foundations-and-applications': '#56B4E9',
-    'statistical-foundations': '#D55E00',
-    'bayesian-methods': '#CC79A7',
-    'optimization-numerical-methods': '#F0E442',
-    'causal-inference': '#999999',
-    'time-series-econometrics': '#0072B2',
-    'linear-algebra-matrix': '#E69F00',
-    'information-theory': '#009E73',
-    'network-science': '#56B4E9',
-    'behavioral-economics': '#D55E00',
-    'visualization-and-communication': '#CC79A7',
-    'r-package-development': '#F0E442',
-    'reproducibility-open-science': '#999999'
+    // Okabe-Ito 8 — core GT topics
+    'foundations':              '#0072B2', // blue
+    'classical-games':          '#E69F00', // orange
+    'evolutionary-gt':          '#009E73', // bluish-green
+    'cooperative-gt':           '#56B4E9', // sky-blue
+    'mechanism-design':         '#D55E00', // vermillion
+    'behavioral-gt':            '#CC79A7', // reddish-purple
+    'simulations':              '#F0E442', // yellow
+    'network-games':            '#999999', // grey
+    // Tableau10 — applied + theoretical extensions
+    'case-studies':             '#4E79A7',
+    'ml-and-gt':                '#F28E2B',
+    'auction-theory-deep-dive': '#E15759',
+    'decision-theory':          '#76B7B2',
+    'history-of-gt-mathematics':'#59A14F',
+    'cryptography-and-gt':      '#EDC948',
+    'experimental-economics':   '#B07AA1',
+    'real-world-data-applications':'#FF9DA7',
+    'ethics-and-game-theory':   '#9C755F',
+    'ethics-applications':      '#BAB0AC',
+    // Set3 — methods + datasets + dev/ops topics
+    'public-apis-and-datasets':           '#8DD3C7',
+    'ai-ml-foundations-and-applications': '#FFFFB3',
+    'statistical-foundations':            '#BEBADA',
+    'bayesian-methods':                   '#FB8072',
+    'optimization-numerical-methods':     '#80B1D3',
+    'causal-inference':                   '#FDB462',
+    'time-series-econometrics':           '#B3DE69',
+    'linear-algebra-matrix':              '#FCCDE5',
+    'information-theory':                 '#D9D9D9',
+    'network-science':                    '#BC80BD',
+    'behavioral-economics':               '#CCEBC5',
+    'visualization-and-communication':    '#FFED6F',
+    // Custom — to keep 32 unique
+    'r-package-development':              '#A55194',
+    'reproducibility-open-science':       '#637939'
   };
 
   async function init() {
