@@ -1,24 +1,32 @@
-# PLAN.md — #equilibria audit/2026-05-11
+# PLAN.md — #equilibria audit/2026-05-11 (re-baselined)
 
-Phase 1 fix plan, derived from `AUDIT.md` + user decisions on the 10 open
-questions. One bullet = one commit, in the listed order. Phase 2 starts
-only on explicit "proceed" from the user.
+Phase 1 fix plan, derived from `AUDIT.md` (re-baselined against
+`origin/main@d0e90ab`, 182 articles + 79 bib entries). Phase 2 starts on
+explicit "proceed".
 
-## Decision log (Phase 0 → Phase 1)
+**Workflow override (2026-05-11):** user opted out of the audit prompt's
+PR-review contract. Commits land on `main` directly and are pushed after
+each commit. The `audit/2026-05-11` branch can be deleted after Phase 4.
+
+## Decision log
 
 | # | Question | Decision |
 |---|---|---|
 | 1 | Deploy target | gh-pages branch via `quarto publish gh-pages` |
 | 2 | Jurisdiction | DE — keep Impressum, Datenschutz, VG Wort gate |
 | 3 | Contact email | Keep `58561665+r-heller@users.noreply.github.com` |
-| 4 | Unverified counts | Strip everywhere — no "planned" hedging |
+| 4 | Unverified counts | **Replace with live counts read from `artifacts/tutorials.csv`** (revised after re-baseline; the corpus has real numbers now) |
 | 5 | Build scripts language | Stay in R; document divergence in `PROJECT_CONCEPT.md` |
 | 6 | Search backend | Add Pagefind + `scripts/build_pagefind.sh` |
 | 7 | Sister-site link | Remove from README.md + about.qmd; not in navbar/footer |
 | 8 | VG Wort gate | Keep current scope; defer per-article pixel enforcement |
-| 9 | `decision-tree.json` | Pre-render hook runs `R/build_decision_tree.R` |
+| 9 | `decision-tree.json` | **Drop pre-render hook plan**; commit the JSON directly (post-rebaseline decision: see Q1 below). `artifacts-rebuild.yml` regenerates on tutorial changes — extend it to cover this artefact too |
 | 10 | Topic-colour palette | Extend Okabe-Ito 8 with d3.schemeTableau10 + Set3 to 32 distinct entries |
 | 10b | Char-count threshold | Keep 2500 (already exceeds VG Wort 1800/2000) |
+| **Q1 (new)** | **artifacts/ ownership** | **`artifacts-rebuild.yml` stays authoritative — no pre-render hook** |
+| **Q2 (new)** | **Normalization commit shape** | **One bulk commit per concern** (categories[0] in one commit, tag-style in another) — default; user didn't pick a specific shape |
+| **Q3 (new)** | **Counts policy** | **Replace with live counts** (see #4 above) |
+| **Workflow** | **Branch policy** | **Commit on main, push after each commit** (overrides audit prompt's Phase 4 PR rule) |
 
 ---
 
@@ -50,17 +58,21 @@ only on explicit "proceed" from the user.
 - **Acceptance:** rendered page covers Art. 13 DSGVO disclosures; remaining content is `TODO_DATENSCHUTZ_*:` markers.
 - **Rollback:** restore previous one-line placeholder.
 
-#### S0-5 — Strip all unverified counts site-wide
-- **Files:** `index.qmd`, `about.qmd`, `README.md`, `shiny/index.qmd`, every `tutorials/*/index.qmd` (32 files).
+#### S0-5 — Replace fabricated counts with live counts from `artifacts/tutorials.csv`
+- **Files:** `index.qmd`, `about.qmd`, `README.md`, `shiny/index.qmd`, every `tutorials/*/index.qmd` (32 files), small render-time JS snippet (probably in `_includes/before-body.html` or a new `_includes/live-counts.html`).
 - **Change:**
-  - Remove `**2436 PAGES · 32 TOPIC AREAS**` lead block from `index.qmd`.
-  - Remove every `::: {.topic-card-label} N TUTORIALS :::` block (32 instances in `index.qmd` topic cards + 32 in section index pages).
-  - Remove `**80 INTERACTIVE APPS · 8 DOMAINS**` and `::: {.topic-card-label} 80 APPS :::` and per-app `TIER 1 · GT CORE` labels (these last are status tags, not counts — keep `TIER 1` etc. only if they carry real meaning; remove if speculative).
-  - Update `README.md`: drop the "2436 tutorial articles / 80 interactive Shiny applications" bullets.
-  - Update `about.qmd` "Scope" section accordingly.
-  - Replace removed lead blocks with a shorter, count-free tagline.
-- **Acceptance:** `git grep -E "(2436|150 TUTORIALS|120 TUTORIALS|80 APPS|80 INTERACTIVE)"` returns nothing in tracked content; render shows no numeric claims.
-- **Rollback:** restore from `git show HEAD~1`.
+  - `index.qmd` lead: replace `**2436 PAGES · 32 TOPIC AREAS**` with a count-free tagline; add a tiny script that fetches `artifacts/tutorials.csv` and injects "N TUTORIALS · 32 TOPIC AREAS" into a `<span id="live-total-count">` after DOMContentLoaded. Fallback when fetch fails: hide the span (no numeric claim).
+  - Each topic card `::: {.topic-card-label} N TUTORIALS :::`: replace `N` with a `<span data-topic-count="<slug>"></span>` element; same JS counts rows per `topic` column in the CSV.
+  - Repeat in `shiny/index.qmd` for the apps panel (counts the rows under `shiny-tutorial` topic).
+  - `README.md`: drop the "2436 / 80" hard-coded bullets; replace with a sentence describing the project shape without numbers (README is static; live counts don't help on GitHub).
+  - `about.qmd` Scope: same treatment as README.
+  - Per-topic `tutorials/*/index.qmd` "150 TUTORIALS" label: replace with `<span data-topic-count="<this-topic-slug>"></span>` + small CSS hint that hides the chip if count is empty/0.
+- **Acceptance:**
+  - `git grep -E "(2436|150 TUTORIALS|120 TUTORIALS|180 TUTORIALS|80 APPS|80 INTERACTIVE)"` returns nothing in tracked content.
+  - After local render, `_site/index.html` shows live counts that match `wc -l < artifacts/tutorials.csv - 1`.
+  - Fetch-failure path: counts hidden, page still renders without console errors.
+- **Rollback:** restore from `git show HEAD~1`; remove the JS include.
+- **Note:** requires the topic-slug normalization fix (S1-12) to land **first**, otherwise per-topic counts for the 8 divergent articles will report 0.
 
 #### S0-6 — Pin Quarto version
 - **Files:** `_quarto.yml`, every workflow that uses `quarto-dev/quarto-actions/setup@v2`.
@@ -102,11 +114,8 @@ only on explicit "proceed" from the user.
 - **Acceptance:** workflow runs on PR; produces Lighthouse summary in PR comment.
 - **Rollback:** delete the workflow.
 
-#### S1-6 — Pre-render hook for build_artifacts + build_decision_tree
-- **Files:** `_quarto.yml` (add `project.pre-render:`).
-- **Change:** add `pre-render: - Rscript R/build_artifacts.R - Rscript R/build_decision_tree.R`. This guarantees `artifacts/{graph.json,tutorials.csv,cooccurrence.csv,decision-tree.json}` are fresh every render. Means `R/build_decision_tree.R` must produce `artifacts/decision-tree.json` — verify the script does this (audit deferred until Phase 2 implementation).
-- **Acceptance:** `quarto render` no longer requires a separate Rscript invocation to populate `artifacts/`.
-- **Rollback:** remove the `pre-render:` block.
+#### S1-6 — ~~Pre-render hook~~ **DROPPED** (re-baseline decision)
+- Rationale: `artifacts-rebuild.yml` is already working and producing committed `artifacts/{graph.json,tutorials.csv,cooccurrence.csv}` on every merge to `main`. A pre-render hook would dirty the working tree on every render and conflict with the workflow. Replaced by S1-15 (commit a one-shot `decision-tree.json` and extend `artifacts-rebuild.yml` to keep it fresh).
 
 #### S1-7 — Add Pagefind step + `scripts/build_pagefind.sh`
 - **Files:** new `scripts/build_pagefind.sh`; update `publish.yml` (from S0-1) to invoke it after `quarto render`; add `pagefind` query button to `_quarto.yml` navbar or a `_includes/pagefind-init.html`.
@@ -131,6 +140,30 @@ only on explicit "proceed" from the user.
 - **Change:** generalise the grep from `TODO_IMPRESSUM` / `TODO_DATENSCHUTZ` to `TODO_IMPRESSUM_*` / `TODO_DATENSCHUTZ_*` so the gate fires until every structured field is filled in (per S0-3 / S0-4).
 - **Acceptance:** gate hard-fails today (because the skeleton has unfilled fields); passes once user populates every marker.
 - **Rollback:** restore the simpler greps.
+
+#### S1-12 — Normalize `categories[0]` on 8 divergent articles **(NEW, post-rebaseline)**
+- **Files:** the 8 article `index.qmd` files identified in AUDIT.md §4.1.
+- **Change:** rewrite `categories:` first entry from display-name form (e.g. `AI/ML Foundations`, `Bayesian Methods`, `Behavioral Economics`, `Decision Theory`, `Ethics & Game Theory`, `Ethics & Applications`, `Evolutionary Game Theory`, `Mechanism Design`, `Network Science`, `Public APIs & Datasets`, `R Package Development`) to its kebab-case slug matching the directory name. One bulk commit.
+- **Acceptance:** `awk` over the corpus shows the kebab-case slug count goes from 174 → 182, the Title-Case display-name count drops to 0. `artifacts-rebuild.yml` will produce a follow-up commit that updates `tutorials.csv` `topic` column accordingly.
+- **Rollback:** restore from `git show HEAD~1`.
+- **Sequencing:** must precede S0-5 (live counts) or per-topic counts will be wrong for these 8 articles.
+
+#### S1-13 — Normalize tag-style across all `categories[1:]` and `labels` **(NEW)**
+- **Files:** every `tutorials/**/*.qmd` with `categories` or `labels` arrays (≈182 articles).
+- **Change:** apply a single convention — all lowercase kebab-case (spaces → `-`, ampersands → `and`, slashes → `-`). One bulk commit, scripted via a small `R/normalize_tags.R` (kept in-repo). Acronyms (GANs, SHAP, GSP) lowercased to `gans`, `shap`, `gsp`. Document the convention in `PROJECT_CONCEPT.md` (S1-11).
+- **Acceptance:** `R/normalize_tags.R --check` (idempotent re-run) makes no changes. Front-matter validator (S1-3) enforces kebab-case going forward.
+- **Rollback:** revert the bulk commit + drop `R/normalize_tags.R`.
+
+#### S1-14 — Identify + resolve the `draft: true` article **(NEW)**
+- **Files:** TBD (one article).
+- **Change:** locate the article (`grep -l "draft: true" tutorials -r`), decide whether to promote (`draft: false`) or remove. Single small commit.
+- **Acceptance:** `grep -l "draft: true" tutorials -r` returns nothing.
+
+#### S1-15 — Generate + commit `artifacts/decision-tree.json` **(NEW)**
+- **Files:** `R/build_decision_tree.R` (verified to produce the expected JSON shape — if not, fix it), `artifacts/decision-tree.json` (new tracked file), `.github/workflows/artifacts-rebuild.yml` (extend to also run `Rscript R/build_decision_tree.R`).
+- **Change:** run `R/build_decision_tree.R` once locally to produce `artifacts/decision-tree.json`; commit. Extend the workflow so future changes to `R/build_decision_tree.R` re-emit the JSON.
+- **Acceptance:** `decision-tree/decision-assistant.qmd` and `decision-tree/decision-tree.qmd` render their wizard/chart instead of the fallback "data not available" message. Verify by fetching `_site/decision-tree/decision-assistant.html` after render.
+- **Rollback:** delete the JSON + revert workflow change.
 
 #### S1-11 — Add `PROJECT_CONCEPT.md` documenting deviations
 - **Files:** new `PROJECT_CONCEPT.md`.
@@ -163,12 +196,14 @@ These come from `AUDIT.md` §10 S2/S3 plus pre-existing PLAN.md open questions.
 |---|---|---|---|
 | `quarto publish gh-pages` token scope insufficient | M | Pages stays 404 | Use `peaceiris/actions-gh-pages@v4` with `GITHUB_TOKEN` instead; smoke-test deploy on a throwaway branch first |
 | Pagefind binary unavailable on CI runner | L | Search degraded | `npx pagefind` is npm-installable; cache via setup-node action; fall back to Lunr if step fails |
-| Pre-render hook breaks local renders without R toolchain installed | M | Contributors blocked | Document R prereqs in CONTRIBUTING.md; let the hook silently skip if Rscript missing |
+| Live-count JS fetch fails on first load | M | Topic cards show empty chips | Hide the chip via CSS when `data-topic-count` empty; degrade silently |
 | Impressum TODO markers ship to prod by accident | L | Legal exposure | `vgwort-gate.yml` hard-fails on any `TODO_IMPRESSUM_*` / `TODO_DATENSCHUTZ_*` |
 | Tableau10/Set3 colours fail colourblind-safety audit | M | A11y regression on overview graph | Document in PROJECT_CONCEPT.md; consider grouping topics into 8 Okabe-Ito families if a11y testing fails Phase 3 Lighthouse |
-| `artifacts-rebuild.yml` + new pre-render hook create commit loops | M | CI noise / merge conflicts | Resolve in S1-9: pick one source of truth before merging |
+| S1-12 categories[0] rewrite breaks Quarto listing facets mid-render | L | One render fails | Verify by rendering one affected topic section after the bulk commit; revert if facet count goes weird |
+| S1-13 tag normalization changes URLs of category landing pages | M | Permalinks break for any external references | Quarto's default category URLs are derived from the *display* tag; check render output for slug-collisions before pushing |
 | Quarto version drift between local + CI | L | Render-output divergence | Pin in `_quarto.yml` + every workflow (S0-6) |
 | User cannot supply real Impressum data soon | M | Deploy delayed indefinitely | Phase 1 ships the structured skeleton; deploy is gated on user data fill, not on Claude |
+| Direct-to-main workflow lets a bad commit ship without review | M | Render breaks on main | After each commit, run `quarto render` (or at least `quarto check`) locally before push; revert with `git revert` not `git reset` |
 
 ---
 
