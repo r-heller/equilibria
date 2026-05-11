@@ -1,145 +1,195 @@
-# build_artifacts.R — generates graph.json, tutorials.csv, cooccurrence.csv
-# from frontmatter of all .qmd files under tutorials/ and shiny/tutorials/.
-# Called by CI workflow artifacts-rebuild.yml on merge to main.
+# build_artifacts.R — generates artifacts/{graph.json, tutorials.csv,
+# cooccurrence.csv} from frontmatter of every tutorial under tutorials/
+# and shiny/tutorials/.
+#
+# graph.json shape matches the CTTIR/tutorials overview-page contract:
+#   {
+#     nodes: [{id, title, url, topic, tags, labels, date, year, summary}],
+#     edges: [{source, target, weight}],
+#     topics: [{id, label, color, blurb, order, count}],
+#     tags:   [<unique tag strings>],
+#     labels: [<unique label strings>],
+#   }
+#
+# topics[] is sourced from _data/topics.yml (single source of truth).
+# Nodes are id'd by "<topic-slug>/<article-slug>" so URLs survive renames.
 
 suppressPackageStartupMessages({
   library(yaml)
   library(jsonlite)
-  library(tools)
 })
 
-#' Extract frontmatter from a .qmd file
-#' @param filepath Path to .qmd
-#' @return A list with frontmatter fields, or NULL
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
+
+load_topics <- function(path = "_data/topics.yml") {
+  cfg <- yaml::read_yaml(path)
+  lapply(cfg$topics, function(t) {
+    list(
+      id    = t$slug,
+      label = t$display,
+      color = t$color,
+      blurb = t$blurb,
+      order = as.integer(t$order)
+    )
+  })
+}
+
 extract_frontmatter <- function(filepath) {
   lines <- readLines(filepath, warn = FALSE)
   if (length(lines) < 3 || lines[1] != "---") return(NULL)
-
   end <- which(lines[-1] == "---")[1] + 1
   if (is.na(end)) return(NULL)
-
   fm <- tryCatch(
     yaml::yaml.load(paste(lines[2:(end - 1)], collapse = "\n")),
     error = function(e) NULL
   )
-
   if (!is.null(fm)) {
     fm$.filepath <- filepath
-    # Derive URL from filepath
-    fm$.url <- gsub("^\\./", "", filepath)
-    fm$.url <- gsub("/index\\.qmd$", "/", fm$.url)
-    fm$.url <- gsub("\\.qmd$", ".html", fm$.url)
+    # Build id: <topic-dir>/<slug-dir>  (e.g. "bayesian-methods/global-games")
+    parts <- strsplit(filepath, "/", fixed = TRUE)[[1]]
+    if (length(parts) >= 4) {
+      fm$.id  <- paste(parts[length(parts) - 2], parts[length(parts) - 1], sep = "/")
+      fm$.url <- sub("/index\\.qmd$", "/", filepath)
+      fm$.url <- sub("\\.qmd$", ".html", fm$.url)
+    }
   }
-
   fm
 }
 
-#' Build all artifacts from tutorial frontmatter
-#' @param output_dir Directory to write artifacts (default "artifacts")
 build_artifacts <- function(output_dir = "artifacts") {
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-  # Find all tutorial .qmd files
+  topics <- load_topics()
+  topic_ids <- vapply(topics, function(t) t$id, character(1))
+
   files <- list.files(
     c("tutorials", "shiny/tutorials"),
     pattern = "\\.qmd$", recursive = TRUE, full.names = TRUE
   )
+  files <- files[!grepl("/_template/", files, fixed = TRUE)]
+  files <- files[grepl("/[^/]+/[^/]+/index\\.qmd$", files)]
 
-  # Exclude bare section index pages (tutorials/<section>/index.qmd with no article content)
-  # but keep article index pages (tutorials/<section>/<slug>/index.qmd)
-  article_files <- files[grepl("/[^/]+/[^/]+/", files)]
-
-  if (length(article_files) == 0) {
-    message("No articles found. Writing empty artifacts.")
-    writeLines("{\"nodes\":[],\"edges\":[]}", file.path(output_dir, "graph.json"))
+  if (length(files) == 0) {
+    writeLines("{\"nodes\":[],\"edges\":[],\"topics\":[],\"tags\":[],\"labels\":[]}",
+               file.path(output_dir, "graph.json"))
     writeLines("id,title,url,topic,tags,labels,date", file.path(output_dir, "tutorials.csv"))
     writeLines("tag1,tag2,count", file.path(output_dir, "cooccurrence.csv"))
     return(invisible(NULL))
   }
 
-  fms <- lapply(article_files, extract_frontmatter)
-  fms <- Filter(Negate(is.null), fms)
+  fms <- lapply(files, extract_frontmatter)
+  fms <- Filter(function(x) !is.null(x) && !is.null(x$.id), fms)
 
-  # Build tutorials.csv
-  rows <- lapply(seq_along(fms), function(i) {
-    fm <- fms[[i]]
+  # Nodes
+  nodes <- lapply(fms, function(fm) {
+    cats   <- fm$categories %||% list()
+    topic  <- if (length(cats) > 0) cats[[1]] else ""
+    tags   <- if (length(cats) > 1) as.list(cats[-1]) else list()
+    labels <- fm$labels %||% list()
+    date   <- as.character(fm$date %||% "")
+    year   <- if (nchar(date) >= 4) suppressWarnings(as.integer(substr(date, 1, 4))) else NA_integer_
+    list(
+      id      = fm$.id,
+      title   = fm$title %||% "",
+      url     = fm$.url %||% "",
+      topic   = topic,
+      tags    = as.list(unlist(tags)),
+      labels  = as.list(unlist(labels)),
+      date    = date,
+      year    = if (is.na(year)) NA else year,
+      summary = fm$description %||% ""
+    )
+  })
+
+  # Edges: shared >= 2 categories (excluding topic[0] which is always shared
+  # within a topic — we want cross-topic structure plus deep within-topic
+  # similarity).
+  edges <- list()
+  if (length(fms) > 1) {
+    for (i in 1:(length(fms) - 1)) {
+      tags_i <- unlist(fms[[i]]$categories %||% character(0))
+      for (j in (i + 1):length(fms)) {
+        tags_j <- unlist(fms[[j]]$categories %||% character(0))
+        shared <- length(intersect(tags_i, tags_j))
+        if (shared >= 2) {
+          edges[[length(edges) + 1]] <- list(
+            source = fms[[i]]$.id,
+            target = fms[[j]]$.id,
+            weight = shared
+          )
+        }
+      }
+    }
+  }
+
+  # Topic counts (real, not advertised)
+  topic_counts <- table(vapply(nodes, function(n) n$topic, character(1)))
+  topics_with_counts <- lapply(topics, function(t) {
+    t$count <- as.integer(topic_counts[t$id] %||% 0L)
+    t
+  })
+
+  # Unique tags + labels (sorted, for chip rendering)
+  all_tags   <- sort(unique(unlist(lapply(nodes, function(n) unlist(n$tags)))))
+  all_labels <- sort(unique(unlist(lapply(nodes, function(n) unlist(n$labels)))))
+
+  graph <- list(
+    nodes  = nodes,
+    edges  = edges,
+    topics = topics_with_counts,
+    tags   = as.list(all_tags),
+    labels = as.list(all_labels)
+  )
+
+  writeLines(
+    jsonlite::toJSON(graph, auto_unbox = TRUE, pretty = TRUE, null = "null", na = "null"),
+    file.path(output_dir, "graph.json")
+  )
+
+  # ---- tutorials.csv (consumed by tutorials.qmd A-Z table + live-counts.html)
+  rows <- lapply(seq_along(nodes), function(i) {
+    n <- nodes[[i]]
     data.frame(
-      id = i,
-      title = fm$title %||% "",
-      url = fm$.url %||% "",
-      topic = if (!is.null(fm$categories)) fm$categories[1] else "",
-      tags = paste(fm$categories %||% character(0), collapse = "; "),
-      labels = paste(fm$labels %||% character(0), collapse = "; "),
-      date = as.character(fm$date %||% ""),
+      id     = i,
+      title  = n$title,
+      url    = n$url,
+      topic  = n$topic,
+      tags   = paste(unlist(n$tags),   collapse = "; "),
+      labels = paste(unlist(n$labels), collapse = "; "),
+      date   = n$date,
       stringsAsFactors = FALSE
     )
   })
   tutorials_df <- do.call(rbind, rows)
   write.csv(tutorials_df, file.path(output_dir, "tutorials.csv"), row.names = FALSE)
 
-  # Build graph.json (nodes + edges based on shared tags)
-  nodes <- lapply(seq_along(fms), function(i) {
-    fm <- fms[[i]]
-    list(
-      id = i,
-      title = fm$title %||% "",
-      url = fm$.url %||% "",
-      topic = if (!is.null(fm$categories)) fm$categories[1] else "",
-      tags = fm$categories %||% list(),
-      labels = fm$labels %||% list()
-    )
-  })
-
-  # Edges: connect tutorials sharing >= 2 tags
-  edges <- list()
-  if (length(fms) > 1) {
-    for (i in 1:(length(fms) - 1)) {
-      tags_i <- fms[[i]]$categories %||% character(0)
-      for (j in (i + 1):length(fms)) {
-        tags_j <- fms[[j]]$categories %||% character(0)
-        shared <- length(intersect(tags_i, tags_j))
-        if (shared >= 2) {
-          edges <- c(edges, list(list(source = i, target = j, weight = shared)))
-        }
-      }
+  # ---- cooccurrence.csv (consumed by heatmap module)
+  pair_counts <- list()
+  for (n in nodes) {
+    ts <- sort(unique(unlist(n$tags)))
+    if (length(ts) < 2) next
+    for (a in 1:(length(ts) - 1)) for (b in (a + 1):length(ts)) {
+      k <- paste(ts[a], ts[b], sep = "\t")
+      pair_counts[[k]] <- (pair_counts[[k]] %||% 0L) + 1L
     }
   }
-
-  graph <- list(nodes = nodes, edges = edges)
-  writeLines(
-    jsonlite::toJSON(graph, auto_unbox = TRUE, pretty = TRUE),
-    file.path(output_dir, "graph.json")
-  )
-
-  # Build cooccurrence.csv
-  all_tags <- unlist(lapply(fms, function(fm) fm$categories %||% character(0)))
-  unique_tags <- sort(unique(all_tags))
-
-  if (length(unique_tags) > 1) {
-    pairs <- expand.grid(tag1 = unique_tags, tag2 = unique_tags, stringsAsFactors = FALSE)
-    pairs <- pairs[pairs$tag1 < pairs$tag2, ]
-
-    pairs$count <- vapply(seq_len(nrow(pairs)), function(k) {
-      sum(vapply(fms, function(fm) {
-        cats <- fm$categories %||% character(0)
-        pairs$tag1[k] %in% cats && pairs$tag2[k] %in% cats
-      }, logical(1)))
-    }, integer(1))
-
-    pairs <- pairs[pairs$count > 0, ]
-    pairs <- pairs[order(-pairs$count), ]
+  if (length(pair_counts) > 0) {
+    pair_df <- do.call(rbind, lapply(names(pair_counts), function(k) {
+      tt <- strsplit(k, "\t", fixed = TRUE)[[1]]
+      data.frame(tag1 = tt[1], tag2 = tt[2], count = pair_counts[[k]], stringsAsFactors = FALSE)
+    }))
+    pair_df <- pair_df[order(-pair_df$count), ]
   } else {
-    pairs <- data.frame(tag1 = character(0), tag2 = character(0), count = integer(0))
+    pair_df <- data.frame(tag1 = character(0), tag2 = character(0), count = integer(0))
   }
+  write.csv(pair_df, file.path(output_dir, "cooccurrence.csv"), row.names = FALSE)
 
-  write.csv(pairs, file.path(output_dir, "cooccurrence.csv"), row.names = FALSE)
-
-  message("Artifacts built: ", length(nodes), " nodes, ", length(edges), " edges, ",
-          nrow(pairs), " tag co-occurrences.")
-  invisible(list(graph = graph, tutorials = tutorials_df, cooccurrence = pairs))
+  message(sprintf(
+    "Artifacts: %d nodes, %d edges, %d topics, %d tags, %d labels.",
+    length(nodes), length(edges), length(topics_with_counts),
+    length(all_tags), length(all_labels)
+  ))
+  invisible(NULL)
 }
 
-# Run when called directly
-if (sys.nframe() == 0) {
-  build_artifacts()
-}
+if (sys.nframe() == 0) build_artifacts()
