@@ -1,0 +1,134 @@
+---
+title: "Cheatsheets — #equilibria"
+description: "Quick-reference cards for the formal apparatus most often invoked across the tutorials: equilibrium concepts, payoff conventions, common solution methods."
+toc: true
+toc-depth: 2
+page-layout: full
+---
+
+```{=html}
+<div class="hero">
+  <div class="kicker">QUICK REFERENCE</div>
+  <h1>Cheatsheets</h1>
+  <p class="lead">Compact, one-page references for the apparatus you reach for most often: equilibrium concepts, payoff notation, common solvers, R idioms.</p>
+</div>
+```
+
+## Equilibrium concepts at a glance
+
+::: {.card-grid}
+
+::: {.card}
+### Pure-strategy Nash equilibrium
+A profile $s^* = (s_1^*, \dots, s_n^*)$ where no unilateral deviation pays:
+$$u_i(s_i^*, s_{-i}^*) \ge u_i(s_i, s_{-i}^*) \quad \forall i, \; \forall s_i \in S_i.$$
+Existence not guaranteed in pure strategies for finite games.
+:::
+
+::: {.card}
+### Mixed-strategy Nash equilibrium
+Each player randomises over $S_i$ via a distribution $\sigma_i$ such that every pure strategy in the support of $\sigma_i^*$ yields the same expected payoff. Existence guaranteed for any finite normal-form game (Nash 1951).
+:::
+
+::: {.card}
+### Subgame-perfect equilibrium
+A Nash equilibrium of the full game whose restriction to *every* subgame is also a Nash equilibrium. Found by backward induction in finite extensive-form games with perfect information.
+:::
+
+::: {.card}
+### Bayesian Nash equilibrium
+For games of incomplete information: each player's strategy maps from their type $\theta_i$ to actions, and best-responds in expectation given beliefs over other players' types.
+:::
+
+::: {.card}
+### Perfect Bayesian equilibrium
+Refines subgame-perfection for extensive-form games of incomplete information: requires both sequential rationality at every information set and beliefs consistent with the strategy profile via Bayes' rule wherever possible.
+:::
+
+::: {.card}
+### Correlated equilibrium
+A probability distribution over the joint action space such that, conditional on the recommendation a player receives, deviating is not profitable. Superset of Nash; computationally easier (LP, not fixed-point).
+:::
+
+:::
+
+## Payoff notation conventions
+
+| Symbol      | Meaning                                                        |
+|-------------|----------------------------------------------------------------|
+| $N$         | Set of players, $\|N\|=n$                                      |
+| $S_i$       | Pure strategy set of player $i$                                |
+| $\Delta(S_i)$ | Mixed strategies = probability simplex over $S_i$            |
+| $u_i$       | Utility/payoff function for player $i$                          |
+| $s, s_i$    | Strategy profile, individual strategy                          |
+| $s_{-i}$    | Profile of everyone except $i$                                 |
+| $\sigma$    | Mixed strategy profile                                          |
+| $v(S)$      | Characteristic function (coalition value) in cooperative games  |
+| $\phi_i$    | Shapley value of player $i$                                    |
+| $\theta_i$  | Player $i$'s type (incomplete information)                     |
+
+## Solution-method picker
+
+| If the game is…                                       | Reach for…                                                                 |
+|-------------------------------------------------------|----------------------------------------------------------------------------|
+| Finite, normal-form, complete information             | Iterated elimination → pure NE; LP for zero-sum                            |
+| 2×2 finite                                            | Best-response correspondences; mixed-NE indifference equations             |
+| Sequential, perfect information                       | Backward induction                                                          |
+| Sequential, imperfect information                     | Sequential equilibrium / PBE                                                |
+| Incomplete information                                | Type space + Bayesian NE; for designer-set rules, mechanism design          |
+| Repeated, finite horizon                              | Last-stage NE then back-induct                                              |
+| Repeated, infinite horizon                            | Folk theorem; trigger strategies; abreu-pearce-stacchetti                   |
+| Cooperative (TU)                                      | Shapley value, core, nucleolus                                              |
+| Cooperative (NTU)                                     | Nash bargaining solution                                                    |
+| Evolutionary                                          | Replicator dynamics, ESS                                                    |
+| Strategic learning agents                             | Fictitious play, no-regret, multi-agent RL                                  |
+
+For an interactive walk-through, see the [Decision Assistant](decision-tree/decision-assistant.qmd).
+
+## Common R idioms
+
+```{.r}
+# Best response in a 2-player bimatrix game
+best_response <- function(payoffs, opp_strategy) {
+  # payoffs: own payoff matrix (rows = own actions, cols = opp actions)
+  # opp_strategy: probability vector over opp actions
+  expected <- payoffs %*% opp_strategy
+  which(expected == max(expected))
+}
+```
+
+```{.r}
+# Mixed-strategy NE in 2×2 via indifference
+# Solve p such that opp is indifferent
+solve_2x2_mixed <- function(A, B) {
+  # A: row player's payoff matrix; B: column player's
+  p <- (B[2,2] - B[2,1]) / (B[1,1] - B[1,2] - B[2,1] + B[2,2])
+  q <- (A[2,2] - A[1,2]) / (A[1,1] - A[2,1] - A[1,2] + A[2,2])
+  list(p = p, q = q)
+}
+```
+
+```{.r}
+# Shapley value of an n-player TU game via the permutation formula
+shapley <- function(v, n) {
+  # v: characteristic function as a named list indexed by coalition strings
+  sapply(1:n, function(i) {
+    others <- setdiff(1:n, i)
+    sum(sapply(0:length(others), function(k) {
+      sets <- combn(others, k, simplify = FALSE)
+      sapply(sets, function(S) {
+        S_key   <- paste(sort(S),     collapse = ",")
+        Si_key  <- paste(sort(c(S, i)), collapse = ",")
+        w <- factorial(k) * factorial(n - k - 1) / factorial(n)
+        w * ((v[[Si_key]] %||% 0) - (v[[S_key]] %||% 0))
+      }) |> unlist() |> sum()
+    }))
+  })
+}
+```
+
+## See also
+
+- [Glossary](appendices/glossary.qmd) — formal definitions, alphabetised.
+- [Common errors](appendices/common-errors.qmd) — frequently miscalled traps in setting up and reading games.
+- [Decision Assistant](decision-tree/decision-assistant.qmd) — interactive picker for the right model + solution concept.
