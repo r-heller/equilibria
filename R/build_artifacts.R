@@ -149,16 +149,25 @@ build_artifacts <- function(output_dir = "artifacts") {
     t
   })
 
-  # Unique tags + labels (sorted, for chip rendering)
-  all_tags   <- sort(unique(unlist(lapply(nodes, function(n) unlist(n$tags)))))
-  all_labels <- sort(unique(unlist(lapply(nodes, function(n) unlist(n$labels)))))
+  # Unique tags + labels as objects {id, label, count}, sorted count-desc.
+  # legend.js reads .id/.label/.count for chip rendering — plain strings
+  # would surface as "undefined" chips.
+  tag_counts <- table(unlist(lapply(nodes, function(n) unlist(n$tags))))
+  tag_objs <- lapply(names(sort(tag_counts, decreasing = TRUE)), function(t) {
+    list(id = t, label = t, count = as.integer(tag_counts[t]))
+  })
+
+  label_counts <- table(unlist(lapply(nodes, function(n) unlist(n$labels))))
+  label_objs <- lapply(names(sort(label_counts, decreasing = TRUE)), function(l) {
+    list(id = l, label = l, count = as.integer(label_counts[l]))
+  })
 
   graph <- list(
     nodes  = nodes,
     edges  = edges,
     topics = topics_with_counts,
-    tags   = as.list(all_tags),
-    labels = as.list(all_labels)
+    tags   = tag_objs,
+    labels = label_objs
   )
 
   writeLines(
@@ -207,7 +216,7 @@ build_artifacts <- function(output_dir = "artifacts") {
   message(sprintf(
     "Artifacts: %d nodes, %d edges, %d topics, %d tags, %d labels.",
     length(nodes), length(edges), length(topics_with_counts),
-    length(all_tags), length(all_labels)
+    length(tag_objs), length(label_objs)
   ))
   invisible(NULL)
 }
