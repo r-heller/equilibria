@@ -101,21 +101,41 @@ build_artifacts <- function(output_dir = "artifacts") {
     )
   })
 
-  # Edges: shared >= 2 categories (excluding topic[0] which is always shared
-  # within a topic — we want cross-topic structure plus deep within-topic
-  # similarity).
+  # Edges: any shared tag (categories[1:]) or shared label produces an
+  # edge. Weight = total count of shared items. This gives a dense
+  # graph that clusters well via force-atlas2 — articles in the same
+  # topic share their topic-slug tag, articles using the same method
+  # share their method tag/label, etc. Topics[0] is the topic slug and
+  # is excluded from "shared tag" counting because every article in a
+  # topic shares it.
   edges <- list()
   if (length(fms) > 1) {
+    # Pre-extract tag + label sets per article (faster than re-doing per pair)
+    sets <- lapply(fms, function(fm) {
+      cats <- unlist(fm$categories %||% character(0))
+      tags <- if (length(cats) > 1) cats[-1] else character(0)
+      labels <- unlist(fm$labels %||% character(0))
+      list(
+        topic = if (length(cats) > 0) cats[[1]] else "",
+        tags = unique(tags),
+        labels = unique(labels)
+      )
+    })
     for (i in 1:(length(fms) - 1)) {
-      tags_i <- unlist(fms[[i]]$categories %||% character(0))
+      si <- sets[[i]]
       for (j in (i + 1):length(fms)) {
-        tags_j <- unlist(fms[[j]]$categories %||% character(0))
-        shared <- length(intersect(tags_i, tags_j))
-        if (shared >= 2) {
+        sj <- sets[[j]]
+        shared_tags   <- length(intersect(si$tags,   sj$tags))
+        shared_labels <- length(intersect(si$labels, sj$labels))
+        same_topic    <- as.integer(si$topic == sj$topic && nzchar(si$topic))
+        # Heuristic weight: tags weighted higher than labels; same-topic
+        # gives a small constant boost so clusters cohere visually.
+        weight <- 2L * shared_tags + 1L * shared_labels + same_topic
+        if (shared_tags + shared_labels >= 1) {
           edges[[length(edges) + 1]] <- list(
             source = fms[[i]]$.id,
             target = fms[[j]]$.id,
-            weight = shared
+            weight = weight
           )
         }
       }
