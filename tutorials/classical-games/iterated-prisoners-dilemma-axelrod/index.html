@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="prisoner’s dilemma, iterated, Axelrod, tit-for-tat, cooperation, tournament">
+<meta name="description" content="Replicate Robert Axelrod’s classic 1980 computer tournaments for the iterated Prisoner’s Dilemma in R, with round-robin scoring, strategy comparison, and evolutionary dynamics.">
+<title>The iterated Prisoner’s Dilemma — Axelrod’s tournaments – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-0e749b838db2118feaca109dcdf294be.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#evolutionary-dynamics" id="toc-evolutionary-dynamics" class="nav-link" data-scroll-target="#evolutionary-dynamics">Evolutionary dynamics</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">The iterated Prisoner’s Dilemma — Axelrod’s tournaments</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">classical-games</div>
+    <div class="quarto-category">prisoners-dilemma</div>
+    <div class="quarto-category">iterated-games</div>
+    <div class="quarto-category">axelrod</div>
+    <div class="quarto-category">cooperation</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Replicate Robert Axelrod’s classic 1980 computer tournaments for the iterated Prisoner’s Dilemma in R, with round-robin scoring, strategy comparison, and evolutionary dynamics.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>prisoner’s dilemma, iterated, Axelrod, tit-for-tat, cooperation, tournament</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>In 1980, political scientist Robert Axelrod invited game theorists to submit strategies for a computer tournament of the iterated Prisoner’s Dilemma (IPD). Each strategy played 200 rounds against every other strategy, and the one with the highest total score won. The surprise result was that the simplest strategy entered — <strong>Tit-for-Tat</strong>, submitted by Anatol Rapoport — won both the first tournament (14 entries) and a second, larger tournament (63 entries). Tit-for-Tat cooperates on the first move, then copies whatever the opponent did on the previous move. <span class="citation" data-cites="axelrod_1984">Axelrod (<a href="#ref-axelrod_1984" role="doc-biblioref">1984</a>)</span> distilled the lessons from these tournaments into four properties shared by successful strategies: be <strong>nice</strong> (never defect first), be <strong>retaliatory</strong> (punish defection immediately), be <strong>forgiving</strong> (return to cooperation after the opponent does), and be <strong>clear</strong> (behave predictably so opponents can adapt). These findings had a profound impact on evolutionary biology, international relations, and the study of cooperation more broadly. This article replicates Axelrod’s tournament in pure R, implements seven classic strategies, runs a full round-robin, and visualizes the results — then extends the analysis with evolutionary population dynamics to see which strategies survive in the long run.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>The stage game is the standard Prisoner’s Dilemma with payoff matrix:</p>
+<p><span class="math display">\[
+\begin{array}{c|cc}
+&amp; C &amp; D \\ \hline
+C &amp; R, R &amp; S, T \\
+D &amp; T, S &amp; P, P
+\end{array}
+\]</span></p>
+<p>where <span class="math inline">\(T &gt; R &gt; P &gt; S\)</span> and <span class="math inline">\(2R &gt; T + S\)</span>. Axelrod used <span class="math inline">\(T = 5, R = 3, P = 1, S = 0\)</span>. In the iterated version, two strategies play <span class="math inline">\(n\)</span> rounds (Axelrod used <span class="math inline">\(n = 200\)</span>). A strategy is a function mapping the history of play to an action <span class="math inline">\(\{C, D\}\)</span>. The total payoff is the sum of stage-game payoffs across all rounds. In a round-robin tournament with <span class="math inline">\(k\)</span> strategies, each pair plays the IPD, and strategies are ranked by their average score per round across all opponents. The IPD’s key theoretical insight is that cooperation can be sustained as a subgame-perfect equilibrium of the infinitely repeated game via the <strong>folk theorem</strong>, provided the discount factor is sufficiently high — equivalently, provided the expected number of future rounds is large enough for the shadow of the future to outweigh the short-term gain from defection.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<p>We implement seven strategies and a round-robin tournament engine entirely in base R. Each strategy is a function that takes the game history and returns “C” or “D”.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Payoff parameters (Axelrod's values) ---</span></span>
+<span><span class="va">T_pay</span> <span class="op">&lt;-</span> <span class="fl">5</span>; <span class="va">R_pay</span> <span class="op">&lt;-</span> <span class="fl">3</span>; <span class="va">P_pay</span> <span class="op">&lt;-</span> <span class="fl">1</span>; <span class="va">S_pay</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span></span>
+<span><span class="va">payoff</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_move</span>, <span class="va">opp_move</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">my_move</span> <span class="op">==</span> <span class="st">"C"</span> <span class="op">&amp;&amp;</span> <span class="va">opp_move</span> <span class="op">==</span> <span class="st">"C"</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">R_pay</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">my_move</span> <span class="op">==</span> <span class="st">"C"</span> <span class="op">&amp;&amp;</span> <span class="va">opp_move</span> <span class="op">==</span> <span class="st">"D"</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">S_pay</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">my_move</span> <span class="op">==</span> <span class="st">"D"</span> <span class="op">&amp;&amp;</span> <span class="va">opp_move</span> <span class="op">==</span> <span class="st">"C"</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">T_pay</span><span class="op">)</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">P_pay</span><span class="op">)</span>  <span class="co"># D vs D</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Strategy definitions ---</span></span>
+<span><span class="va">strategies</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>  TIT_FOR_TAT <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">round</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="st">"C"</span> <span class="kw">else</span> <span class="va">opp_hist</span><span class="op">[</span><span class="va">round</span> <span class="op">-</span> <span class="fl">1</span><span class="op">]</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  ALWAYS_COOPERATE <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="st">"C"</span>,</span>
+<span>  ALWAYS_DEFECT <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="st">"D"</span>,</span>
+<span>  RANDOM <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"C"</span>,<span class="st">"D"</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  GRUDGER <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">round</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="st">"C"</span></span>
+<span>    <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/any.html">any</a></span><span class="op">(</span><span class="va">opp_hist</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">round</span><span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">]</span> <span class="op">==</span> <span class="st">"D"</span><span class="op">)</span><span class="op">)</span> <span class="st">"D"</span></span>
+<span>    <span class="kw">else</span> <span class="st">"C"</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  PAVLOV <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">round</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="st">"C"</span></span>
+<span>    <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span><span class="va">my_hist</span><span class="op">[</span><span class="va">round</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span> <span class="op">==</span> <span class="va">opp_hist</span><span class="op">[</span><span class="va">round</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="st">"C"</span></span>
+<span>    <span class="kw">else</span> <span class="st">"D"</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  GENEROUS_TFT <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">my_hist</span>, <span class="va">opp_hist</span>, <span class="va">round</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">round</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="st">"C"</span></span>
+<span>    <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span><span class="va">opp_hist</span><span class="op">[</span><span class="va">round</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span> <span class="op">==</span> <span class="st">"C"</span><span class="op">)</span> <span class="st">"C"</span></span>
+<span>    <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html">runif</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.1</span><span class="op">)</span> <span class="st">"C"</span>  <span class="co"># forgive 10% of defections</span></span>
+<span>    <span class="kw">else</span> <span class="st">"D"</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># --- Play one match of n rounds ---</span></span>
+<span><span class="va">play_match</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">strat1</span>, <span class="va">strat2</span>, <span class="va">n_rounds</span> <span class="op">=</span> <span class="fl">200</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">h1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html">character</a></span><span class="op">(</span><span class="va">n_rounds</span><span class="op">)</span></span>
+<span>  <span class="va">h2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html">character</a></span><span class="op">(</span><span class="va">n_rounds</span><span class="op">)</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">r</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n_rounds</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">h1</span><span class="op">[</span><span class="va">r</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">strat1</span><span class="op">(</span><span class="va">h1</span>, <span class="va">h2</span>, <span class="va">r</span><span class="op">)</span></span>
+<span>    <span class="va">h2</span><span class="op">[</span><span class="va">r</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">strat2</span><span class="op">(</span><span class="va">h2</span>, <span class="va">h1</span>, <span class="va">r</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="va">s1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n_rounds</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu">payoff</span><span class="op">(</span><span class="va">h1</span><span class="op">[</span><span class="va">r</span><span class="op">]</span>, <span class="va">h2</span><span class="op">[</span><span class="va">r</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">s2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n_rounds</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu">payoff</span><span class="op">(</span><span class="va">h2</span><span class="op">[</span><span class="va">r</span><span class="op">]</span>, <span class="va">h1</span><span class="op">[</span><span class="va">r</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>score1 <span class="op">=</span> <span class="va">s1</span>, score2 <span class="op">=</span> <span class="va">s2</span>, history1 <span class="op">=</span> <span class="va">h1</span>, history2 <span class="op">=</span> <span class="va">h2</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Round-robin tournament ---</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">strat_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">strategies</span><span class="op">)</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">strat_names</span><span class="op">)</span></span>
+<span><span class="va">scores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">k</span><span class="op">)</span>, <span class="va">strat_names</span><span class="op">)</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">k</span><span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="op">(</span><span class="va">i</span><span class="op">+</span><span class="fl">1</span><span class="op">)</span><span class="op">:</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">play_match</span><span class="op">(</span><span class="va">strategies</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="va">strategies</span><span class="op">[[</span><span class="va">j</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="va">scores</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">scores</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">+</span> <span class="va">result</span><span class="op">$</span><span class="va">score1</span></span>
+<span>    <span class="va">scores</span><span class="op">[</span><span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">scores</span><span class="op">[</span><span class="va">j</span><span class="op">]</span> <span class="op">+</span> <span class="va">result</span><span class="op">$</span><span class="va">score2</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Average per round per opponent</span></span>
+<span><span class="va">avg_scores</span> <span class="op">&lt;-</span> <span class="va">scores</span> <span class="op">/</span> <span class="op">(</span><span class="op">(</span><span class="va">k</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="fl">200</span><span class="op">)</span></span>
+<span><span class="va">results_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  strategy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">avg_scores</span><span class="op">)</span>,</span>
+<span>  avg_score <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">avg_scores</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">arrange</span><span class="op">(</span><span class="fu">desc</span><span class="op">(</span><span class="va">avg_score</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Tournament results (average score per round per opponent):\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Tournament results (average score per round per opponent):</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="va">results_df</span>, n <span class="op">=</span> <span class="cn">Inf</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 7 × 2
+  strategy         avg_score
+  &lt;chr&gt;                &lt;dbl&gt;
+1 GRUDGER               2.68
+2 GENEROUS_TFT          2.54
+3 TIT_FOR_TAT           2.52
+4 PAVLOV                2.43
+5 ALWAYS_DEFECT         2.39
+6 ALWAYS_COOPERATE      2.27
+7 RANDOM                1.99</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">results_df</span><span class="op">$</span><span class="va">strategy</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">results_df</span><span class="op">$</span><span class="va">strategy</span>,</span>
+<span>                               levels <span class="op">=</span> <span class="va">results_df</span><span class="op">$</span><span class="va">strategy</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html">order</a></span><span class="op">(</span><span class="va">results_df</span><span class="op">$</span><span class="va">avg_score</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_tournament</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">results_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">strategy</span>, y <span class="op">=</span> <span class="va">avg_score</span>, fill <span class="op">=</span> <span class="va">strategy</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_col</span><span class="op">(</span>show.legend <span class="op">=</span> <span class="cn">FALSE</span>, width <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_text</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">avg_score</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>, hjust <span class="op">=</span> <span class="op">-</span><span class="fl">0.1</span>, size <span class="op">=</span> <span class="fl">3.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">coord_flip</span><span class="op">(</span>ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">results_df</span><span class="op">$</span><span class="va">avg_score</span><span class="op">)</span> <span class="op">*</span> <span class="fl">1.15</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Axelrod's IPD Tournament — Strategy Rankings"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Average payoff per round per opponent (200 rounds, Axelrod payoffs: T=5, R=3, P=1, S=0)"</span>,</span>
+<span>    x <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Average score per round"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_tournament</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-tournament-static" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-tournament-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-tournament-static-1.png" class="img-fluid figure-img" width="2100">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-tournament-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Axelrod-style IPD tournament results for seven classic strategies (200 rounds per match). Tit-for-Tat wins with the highest average score per round per opponent. Nice strategies (never defect first) cluster at the top. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">p_int</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">results_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">strategy</span>, y <span class="op">=</span> <span class="va">avg_score</span>, fill <span class="op">=</span> <span class="va">strategy</span>,</span>
+<span>                                 text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="va">strategy</span>, <span class="st">"\nAvg: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">avg_score</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_col</span><span class="op">(</span>show.legend <span class="op">=</span> <span class="cn">FALSE</span>, width <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">coord_flip</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>x <span class="op">=</span> <span class="cn">NULL</span>, y <span class="op">=</span> <span class="st">"Average score per round"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_int</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-tournament-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-tournament-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-6d35332b9307eacd818d" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-6d35332b9307eacd818d">{"x":{"data":[{"orientation":"h","width":0.70000000000000007,"base":0,"x":[1.9883333333333333],"y":[1],"text":"RANDOM<br />Avg: 1.988","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(230,159,0,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"RANDOM","legendgroup":"RANDOM","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.70000000000000018,"base":0,"x":[2.2675000000000001],"y":[2],"text":"ALWAYS_COOPERATE<br />Avg: 2.268","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(86,180,233,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"ALWAYS_COOPERATE","legendgroup":"ALWAYS_COOPERATE","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.70000000000000018,"base":0,"x":[2.3866666666666667],"y":[3],"text":"ALWAYS_DEFECT<br />Avg: 2.387","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(0,158,115,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"ALWAYS_DEFECT","legendgroup":"ALWAYS_DEFECT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.69999999999999973,"base":0,"x":[2.4300000000000002],"y":[4],"text":"PAVLOV<br />Avg: 2.43","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(240,228,66,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"PAVLOV","legendgroup":"PAVLOV","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.69999999999999929,"base":0,"x":[2.5208333333333335],"y":[5],"text":"TIT_FOR_TAT<br />Avg: 2.521","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(0,114,178,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"TIT_FOR_TAT","legendgroup":"TIT_FOR_TAT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.69999999999999929,"base":0,"x":[2.5366666666666666],"y":[6],"text":"GENEROUS_TFT<br />Avg: 2.537","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(213,94,0,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"GENEROUS_TFT","legendgroup":"GENEROUS_TFT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"h","width":0.69999999999999929,"base":0,"x":[2.6783333333333332],"y":[7],"text":"GRUDGER<br />Avg: 2.678","type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(204,121,167,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"GRUDGER","legendgroup":"GRUDGER","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":29.283520132835207,"r":13.283520132835205,"b":45.960979659609805,"l":119.28601079286017},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.13391666666666666,2.8122499999999997],"tickmode":"array","ticktext":["0","1","2"],"tickvals":[0,1,1.9999999999999998],"categoryorder":"array","categoryarray":["0","1","2"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Average score per round","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.40000000000000002,7.5999999999999996],"tickmode":"array","ticktext":["RANDOM","ALWAYS_COOPERATE","ALWAYS_DEFECT","PAVLOV","TIT_FOR_TAT","GENEROUS_TFT","GRUDGER"],"tickvals":[1,2,3,4.0000000000000009,5,6,7],"categoryorder":"array","categoryarray":["RANDOM","ALWAYS_COOPERATE","ALWAYS_DEFECT","PAVLOV","TIT_FOR_TAT","GENEROUS_TFT","GRUDGER"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"3a9818aac72c":{"x":{},"y":{},"fill":{},"text":{},"type":"bar"}},"cur_data":"3a9818aac72c","visdat":{"3a9818aac72c":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-tournament-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="evolutionary-dynamics" class="level2"><h2 class="anchored" data-anchor-id="evolutionary-dynamics">Evolutionary dynamics</h2>
+<p>What happens when strategies compete not just in a tournament but in an evolving population? We simulate a simple replicator dynamic: after each generation, the proportion of each strategy in the population is updated proportionally to its fitness (average score against the current population mix).</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Compute payoff matrix: M[i,j] = strategy i's total score vs strategy j</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">M</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fl">0</span>, nrow <span class="op">=</span> <span class="va">k</span>, ncol <span class="op">=</span> <span class="va">k</span>, dimnames <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="va">strat_names</span>, <span class="va">strat_names</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">i</span> <span class="op">==</span> <span class="va">j</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">play_match</span><span class="op">(</span><span class="va">strategies</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="va">strategies</span><span class="op">[[</span><span class="va">j</span><span class="op">]</span><span class="op">]</span>, n_rounds <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span>
+<span>      <span class="va">M</span><span class="op">[</span><span class="va">i</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">score1</span> <span class="op">/</span> <span class="fl">200</span></span>
+<span>    <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>      <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">play_match</span><span class="op">(</span><span class="va">strategies</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="va">strategies</span><span class="op">[[</span><span class="va">j</span><span class="op">]</span><span class="op">]</span>, n_rounds <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span>
+<span>      <span class="va">M</span><span class="op">[</span><span class="va">i</span>,<span class="va">j</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">score1</span> <span class="op">/</span> <span class="fl">200</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Replicator dynamics</span></span>
+<span><span class="va">n_gen</span> <span class="op">&lt;-</span> <span class="fl">50</span></span>
+<span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fl">0</span>, nrow <span class="op">=</span> <span class="va">n_gen</span> <span class="op">+</span> <span class="fl">1</span>, ncol <span class="op">=</span> <span class="va">k</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html">colnames</a></span><span class="op">(</span><span class="va">pop</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">strat_names</span></span>
+<span><span class="va">pop</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">/</span><span class="va">k</span>, <span class="va">k</span><span class="op">)</span>  <span class="co"># equal initial shares</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">g</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n_gen</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x</span> <span class="op">&lt;-</span> <span class="va">pop</span><span class="op">[</span><span class="va">g</span>, <span class="op">]</span></span>
+<span>  <span class="va">fitness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">M</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">x</span><span class="op">)</span></span>
+<span>  <span class="va">avg_fitness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">x</span> <span class="op">*</span> <span class="va">fitness</span><span class="op">)</span></span>
+<span>  <span class="va">x_new</span> <span class="op">&lt;-</span> <span class="va">x</span> <span class="op">*</span> <span class="va">fitness</span> <span class="op">/</span> <span class="va">avg_fitness</span></span>
+<span>  <span class="va">pop</span><span class="op">[</span><span class="va">g</span> <span class="op">+</span> <span class="fl">1</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="va">x_new</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">x_new</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Plot evolutionary trajectory</span></span>
+<span><span class="va">evo_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html">as.data.frame</a></span><span class="op">(</span><span class="va">pop</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>generation <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="va">n_gen</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span><span class="op">-</span><span class="va">generation</span>, names_to <span class="op">=</span> <span class="st">"strategy"</span>, values_to <span class="op">=</span> <span class="st">"proportion"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_evo</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">evo_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">generation</span>, y <span class="op">=</span> <span class="va">proportion</span>, color <span class="op">=</span> <span class="va">strategy</span>,</span>
+<span>                              text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="va">strategy</span>, <span class="st">"\nGen: "</span>, <span class="va">generation</span>,</span>
+<span>                                           <span class="st">"\nProp: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">proportion</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html">setNames</a></span><span class="op">(</span><span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">]</span>, <span class="va">strat_names</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Evolutionary dynamics of IPD strategies"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Replicator dynamics from equal initial proportions"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Generation"</span>, y <span class="op">=</span> <span class="st">"Population share"</span>, color <span class="op">=</span> <span class="st">"Strategy"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_evo</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-b7ddc9c1b4e9df4237e1" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-b7ddc9c1b4e9df4237e1">{"x":{"data":[{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.13932122330830224,null,0.13819663763287421,null,0.13836929255110558,null,0.1384920022659889,null,0.13857776509810299,null,0.13863703982668082,null,0.13867770451445455,null,0.13870546569678963,null,0.1387243573680699,null,0.13873718700773702,null,0.13874588879307689,null,0.13727403712040406,null,0.13875178647147079,null,0.13875578212432299,null,0.13875848878290342,null,0.13876032231918939,null,0.13876156455516289,null,0.13876240635706852,null,0.13876297695337234,null,0.13876336383317195,null,0.13876362623150235,null,0.13876380426038537,null,0.13634735943581691,null,0.13876392508860907,null,0.13876400712326423,null,0.13876406283911244,null,0.13876410069323106,null,0.13876412642090555,null,0.1387641439129472,null,0.13876415580980592,null,0.13876416390402482,null,0.13876416941295472,null,0.13876417316361614,null,0.13616634651756593,null,0.1387641757180538,null,0.13876417745836941,null,0.13876417864442286,null,0.13876417945300157,null,0.13876418000441873,null,0.13876418038058189,null,0.13876418063727144,null,0.13876418081248762,null,0.13876418093212639,null,0.13876418101384094,null,0.13640409975136955,null,0.13876418106966926,null,0.13681817296629187,null,0.13725770407617946,null,0.13764695409507699,null,0.13795975645636641],"text":["ALWAYS_COOPERATE<br />Gen: 0<br />Prop: 0.1429",null,"ALWAYS_COOPERATE<br />Gen: 1<br />Prop: 0.1393",null,"ALWAYS_COOPERATE<br />Gen: 10<br />Prop: 0.1382",null,"ALWAYS_COOPERATE<br />Gen: 11<br />Prop: 0.1384",null,"ALWAYS_COOPERATE<br />Gen: 12<br />Prop: 0.1385",null,"ALWAYS_COOPERATE<br />Gen: 13<br />Prop: 0.1386",null,"ALWAYS_COOPERATE<br />Gen: 14<br />Prop: 0.1386",null,"ALWAYS_COOPERATE<br />Gen: 15<br />Prop: 0.1387",null,"ALWAYS_COOPERATE<br />Gen: 16<br />Prop: 0.1387",null,"ALWAYS_COOPERATE<br />Gen: 17<br />Prop: 0.1387",null,"ALWAYS_COOPERATE<br />Gen: 18<br />Prop: 0.1387",null,"ALWAYS_COOPERATE<br />Gen: 19<br />Prop: 0.1387",null,"ALWAYS_COOPERATE<br />Gen: 2<br />Prop: 0.1373",null,"ALWAYS_COOPERATE<br />Gen: 20<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 21<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 22<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 23<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 24<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 25<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 26<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 27<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 28<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 29<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 3<br />Prop: 0.1363",null,"ALWAYS_COOPERATE<br />Gen: 30<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 31<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 32<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 33<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 34<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 35<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 36<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 37<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 38<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 39<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 4<br />Prop: 0.1362",null,"ALWAYS_COOPERATE<br />Gen: 40<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 41<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 42<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 43<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 44<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 45<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 46<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 47<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 48<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 49<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 5<br />Prop: 0.1364",null,"ALWAYS_COOPERATE<br />Gen: 50<br />Prop: 0.1388",null,"ALWAYS_COOPERATE<br />Gen: 6<br />Prop: 0.1368",null,"ALWAYS_COOPERATE<br />Gen: 7<br />Prop: 0.1373",null,"ALWAYS_COOPERATE<br />Gen: 8<br />Prop: 0.1376",null,"ALWAYS_COOPERATE<br />Gen: 9<br />Prop: 0.138"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(86,180,233,1)","dash":"solid"},"hoveron":"points","name":"ALWAYS_COOPERATE","legendgroup":"ALWAYS_COOPERATE","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.12853966522632884,null,0.0096436838016354925,null,0.0065292768949012699,null,0.004394710094204367,null,0.0029458780589324256,null,0.001969104696163492,null,0.0013136417486696258,null,0.00087519651060685667,null,0.0005825565974089446,null,0.00038752554779921978,null,0.00025767851546065762,null,0.11082820911596422,null,0.00017128937992608523,null,0.00011384056660673716,null,7.5649371174284661e-05,null,5.0265943933452223e-05,null,3.3397600763571396e-05,null,2.218902531935964e-05,null,1.4741734634140873e-05,null,9.7937804382500659e-06,null,6.50648268285659e-06,null,4.3225317719109999e-06,null,0.091491371561750565,null,2.8716227178475881e-06,null,1.907720308188275e-06,null,1.2673622073401923e-06,null,8.4194928419128872e-07,null,5.5933309582281402e-07,null,3.7158202430285592e-07,null,2.4685310682427223e-07,null,1.6399186639697072e-07,null,1.0894464541867548e-07,null,7.237513417367825e-08,null,0.072415440237574291,null,4.8080924876759715e-08,null,3.1941565862853398e-08,null,2.1219715829061654e-08,null,1.4096876825561664e-08,null,9.3649666047759398e-09,null,6.2214204421886075e-09,null,4.1330709858114082e-09,null,2.7457195286313359e-09,null,1.8240615039986335e-09,null,1.2117772118078811e-09,null,0.055153069721046756,null,8.0501891143861306e-10,null,0.040633162278480267,null,0.029132899252623089,null,0.020448389650156964,null,0.014125032572254143],"text":["ALWAYS_DEFECT<br />Gen: 0<br />Prop: 0.1429",null,"ALWAYS_DEFECT<br />Gen: 1<br />Prop: 0.1285",null,"ALWAYS_DEFECT<br />Gen: 10<br />Prop: 0.0096",null,"ALWAYS_DEFECT<br />Gen: 11<br />Prop: 0.0065",null,"ALWAYS_DEFECT<br />Gen: 12<br />Prop: 0.0044",null,"ALWAYS_DEFECT<br />Gen: 13<br />Prop: 0.0029",null,"ALWAYS_DEFECT<br />Gen: 14<br />Prop: 0.002",null,"ALWAYS_DEFECT<br />Gen: 15<br />Prop: 0.0013",null,"ALWAYS_DEFECT<br />Gen: 16<br />Prop: 9e-04",null,"ALWAYS_DEFECT<br />Gen: 17<br />Prop: 6e-04",null,"ALWAYS_DEFECT<br />Gen: 18<br />Prop: 4e-04",null,"ALWAYS_DEFECT<br />Gen: 19<br />Prop: 3e-04",null,"ALWAYS_DEFECT<br />Gen: 2<br />Prop: 0.1108",null,"ALWAYS_DEFECT<br />Gen: 20<br />Prop: 2e-04",null,"ALWAYS_DEFECT<br />Gen: 21<br />Prop: 1e-04",null,"ALWAYS_DEFECT<br />Gen: 22<br />Prop: 1e-04",null,"ALWAYS_DEFECT<br />Gen: 23<br />Prop: 1e-04",null,"ALWAYS_DEFECT<br />Gen: 24<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 25<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 26<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 27<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 28<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 29<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 3<br />Prop: 0.0915",null,"ALWAYS_DEFECT<br />Gen: 30<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 31<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 32<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 33<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 34<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 35<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 36<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 37<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 38<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 39<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 4<br />Prop: 0.0724",null,"ALWAYS_DEFECT<br />Gen: 40<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 41<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 42<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 43<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 44<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 45<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 46<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 47<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 48<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 49<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 5<br />Prop: 0.0552",null,"ALWAYS_DEFECT<br />Gen: 50<br />Prop: 0",null,"ALWAYS_DEFECT<br />Gen: 6<br />Prop: 0.0406",null,"ALWAYS_DEFECT<br />Gen: 7<br />Prop: 0.0291",null,"ALWAYS_DEFECT<br />Gen: 8<br />Prop: 0.0204",null,"ALWAYS_DEFECT<br />Gen: 9<br />Prop: 0.0141"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"ALWAYS_DEFECT","legendgroup":"ALWAYS_DEFECT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.15182279649284727,null,0.20206702599575191,null,0.20325441287299242,null,0.20407614040847055,null,0.20464036409445585,null,0.20502571277456857,null,0.20528795727284826,null,0.20546600901597273,null,0.20558671941956508,null,0.20566848241997815,null,0.20572383744613407,null,0.16095543394212836,null,0.20576130578984428,null,0.20578666643260321,null,0.20580383363618643,null,0.20581545668157544,null,0.20582332798880187,null,0.2058286600803407,null,0.20583227321173433,null,0.20583472234887859,null,0.20583638304722932,null,0.20583750951811339,null,0.16976900203460868,null,0.20583827388653336,null,0.20583879273450145,null,0.20583914505064452,null,0.20583938437116833,null,0.20583954699414606,null,0.20583965753879985,null,0.20583973270914424,null,0.20583978384284318,null,0.2058398186379776,null,0.20583984232328909,null,0.17779709489651033,null,0.2058398584515477,null,0.20583986943761046,null,0.20583987692346217,null,0.20583988202596393,null,0.20583988550505719,null,0.2058398878780042,null,0.20583988949700519,null,0.20583989060195179,null,0.20583989135629405,null,0.20583989187143548,null,0.18470043066408187,null,0.20583989222333055,null,0.1903274330074041,null,0.19470585163591611,null,0.19798558423164922,null,0.20037062088604413],"text":["GENEROUS_TFT<br />Gen: 0<br />Prop: 0.1429",null,"GENEROUS_TFT<br />Gen: 1<br />Prop: 0.1518",null,"GENEROUS_TFT<br />Gen: 10<br />Prop: 0.2021",null,"GENEROUS_TFT<br />Gen: 11<br />Prop: 0.2033",null,"GENEROUS_TFT<br />Gen: 12<br />Prop: 0.2041",null,"GENEROUS_TFT<br />Gen: 13<br />Prop: 0.2046",null,"GENEROUS_TFT<br />Gen: 14<br />Prop: 0.205",null,"GENEROUS_TFT<br />Gen: 15<br />Prop: 0.2053",null,"GENEROUS_TFT<br />Gen: 16<br />Prop: 0.2055",null,"GENEROUS_TFT<br />Gen: 17<br />Prop: 0.2056",null,"GENEROUS_TFT<br />Gen: 18<br />Prop: 0.2057",null,"GENEROUS_TFT<br />Gen: 19<br />Prop: 0.2057",null,"GENEROUS_TFT<br />Gen: 2<br />Prop: 0.161",null,"GENEROUS_TFT<br />Gen: 20<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 21<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 22<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 23<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 24<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 25<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 26<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 27<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 28<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 29<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 3<br />Prop: 0.1698",null,"GENEROUS_TFT<br />Gen: 30<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 31<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 32<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 33<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 34<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 35<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 36<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 37<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 38<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 39<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 4<br />Prop: 0.1778",null,"GENEROUS_TFT<br />Gen: 40<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 41<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 42<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 43<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 44<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 45<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 46<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 47<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 48<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 49<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 5<br />Prop: 0.1847",null,"GENEROUS_TFT<br />Gen: 50<br />Prop: 0.2058",null,"GENEROUS_TFT<br />Gen: 6<br />Prop: 0.1903",null,"GENEROUS_TFT<br />Gen: 7<br />Prop: 0.1947",null,"GENEROUS_TFT<br />Gen: 8<br />Prop: 0.198",null,"GENEROUS_TFT<br />Gen: 9<br />Prop: 0.2004"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(204,121,167,1)","dash":"solid"},"hoveron":"points","name":"GENEROUS_TFT","legendgroup":"GENEROUS_TFT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.160255065654235,null,0.25470772545083342,null,0.25695238693941785,null,0.25851396428694329,null,0.25959216652084521,null,0.26033281120718776,null,0.26083984084443557,null,0.26118616802942773,null,0.26142239294428454,null,0.26158338140262188,null,0.26169304440179653,null,0.17770296603813523,null,0.26176772965269052,null,0.26181859187724371,null,0.26185323309047531,null,0.2618768304002651,null,0.26189290819075861,null,0.26190386539128496,null,0.26191133489478374,null,0.26191642830393358,null,0.26191990249259861,null,0.26192227292629583,null,0.19435001183133818,null,0.26192389075369465,null,0.26192499525460988,null,0.26192574952747033,null,0.26192626477744485,null,0.26192661685057295,null,0.26192685749249578,null,0.26192702201722129,null,0.26192713453221483,null,0.26192721149960374,null,0.26192726416410472,null,0.20939773862346481,null,0.26192730020883326,null,0.26192732488489157,null,0.261927341782207,null,0.26192735335571954,null,0.26192736128467264,null,0.26192736671801847,null,0.26192737044208425,null,0.26192737299515878,null,0.26192737474582539,null,0.2619273759465266,null,0.22228027357488764,null,0.26192737677020117,null,0.23276287057224074,null,0.24092276907379076,null,0.24704758291116374,null,0.25151613971899883],"text":["GRUDGER<br />Gen: 0<br />Prop: 0.1429",null,"GRUDGER<br />Gen: 1<br />Prop: 0.1603",null,"GRUDGER<br />Gen: 10<br />Prop: 0.2547",null,"GRUDGER<br />Gen: 11<br />Prop: 0.257",null,"GRUDGER<br />Gen: 12<br />Prop: 0.2585",null,"GRUDGER<br />Gen: 13<br />Prop: 0.2596",null,"GRUDGER<br />Gen: 14<br />Prop: 0.2603",null,"GRUDGER<br />Gen: 15<br />Prop: 0.2608",null,"GRUDGER<br />Gen: 16<br />Prop: 0.2612",null,"GRUDGER<br />Gen: 17<br />Prop: 0.2614",null,"GRUDGER<br />Gen: 18<br />Prop: 0.2616",null,"GRUDGER<br />Gen: 19<br />Prop: 0.2617",null,"GRUDGER<br />Gen: 2<br />Prop: 0.1777",null,"GRUDGER<br />Gen: 20<br />Prop: 0.2618",null,"GRUDGER<br />Gen: 21<br />Prop: 0.2618",null,"GRUDGER<br />Gen: 22<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 23<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 24<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 25<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 26<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 27<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 28<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 29<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 3<br />Prop: 0.1944",null,"GRUDGER<br />Gen: 30<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 31<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 32<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 33<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 34<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 35<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 36<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 37<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 38<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 39<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 4<br />Prop: 0.2094",null,"GRUDGER<br />Gen: 40<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 41<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 42<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 43<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 44<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 45<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 46<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 47<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 48<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 49<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 5<br />Prop: 0.2223",null,"GRUDGER<br />Gen: 50<br />Prop: 0.2619",null,"GRUDGER<br />Gen: 6<br />Prop: 0.2328",null,"GRUDGER<br />Gen: 7<br />Prop: 0.2409",null,"GRUDGER<br />Gen: 8<br />Prop: 0.247",null,"GRUDGER<br />Gen: 9<br />Prop: 0.2515"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","name":"GRUDGER","legendgroup":"GRUDGER","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.148592524227042,null,0.18274117485760141,null,0.18358578506960346,null,0.18417276445734804,null,0.1845774425620719,null,0.18485492359077241,null,0.18504449842322532,null,0.18517370940874522,null,0.18526164548305885,null,0.18532143736161785,null,0.18536207244728567,null,0.15457362811136538,null,0.18538968228636973,null,0.18540844136434881,null,0.18542118809620153,null,0.18542985098664197,null,0.18543573980327963,null,0.18543974395725646,null,0.18544246742125856,null,0.1854443203868622,null,0.1854455814939798,null,0.18544644006794359,null,0.16045459749139576,null,0.18544702478467018,null,0.18544742312607254,null,0.18544769458675894,null,0.18544787964097989,null,0.18544800583253065,null,0.18544809191192935,null,0.18544815064789258,null,0.18544819073853483,null,0.18544821811100545,null,0.18544823680555411,null,0.16589083236184066,null,0.18544824957711092,null,0.18544825830478226,null,0.18544826427068781,null,0.18544826834989309,null,0.18544827113982515,null,0.18544827304848382,null,0.18544827435458597,null,0.18544827524858679,null,0.18544827586066681,null,0.18544827627983237,null,0.1706198903023439,null,0.18544827656695528,null,0.17451028018184037,null,0.17756015022045787,null,0.17985903717189752,null,0.1815398601980111],"text":["PAVLOV<br />Gen: 0<br />Prop: 0.1429",null,"PAVLOV<br />Gen: 1<br />Prop: 0.1486",null,"PAVLOV<br />Gen: 10<br />Prop: 0.1827",null,"PAVLOV<br />Gen: 11<br />Prop: 0.1836",null,"PAVLOV<br />Gen: 12<br />Prop: 0.1842",null,"PAVLOV<br />Gen: 13<br />Prop: 0.1846",null,"PAVLOV<br />Gen: 14<br />Prop: 0.1849",null,"PAVLOV<br />Gen: 15<br />Prop: 0.185",null,"PAVLOV<br />Gen: 16<br />Prop: 0.1852",null,"PAVLOV<br />Gen: 17<br />Prop: 0.1853",null,"PAVLOV<br />Gen: 18<br />Prop: 0.1853",null,"PAVLOV<br />Gen: 19<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 2<br />Prop: 0.1546",null,"PAVLOV<br />Gen: 20<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 21<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 22<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 23<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 24<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 25<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 26<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 27<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 28<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 29<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 3<br />Prop: 0.1605",null,"PAVLOV<br />Gen: 30<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 31<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 32<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 33<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 34<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 35<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 36<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 37<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 38<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 39<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 4<br />Prop: 0.1659",null,"PAVLOV<br />Gen: 40<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 41<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 42<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 43<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 44<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 45<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 46<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 47<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 48<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 49<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 5<br />Prop: 0.1706",null,"PAVLOV<br />Gen: 50<br />Prop: 0.1854",null,"PAVLOV<br />Gen: 6<br />Prop: 0.1745",null,"PAVLOV<br />Gen: 7<br />Prop: 0.1776",null,"PAVLOV<br />Gen: 8<br />Prop: 0.1799",null,"PAVLOV<br />Gen: 9<br />Prop: 0.1815"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(213,94,0,1)","dash":"solid"},"hoveron":"points","name":"PAVLOV","legendgroup":"PAVLOV","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.11939421907119184,null,0.008505406538326498,null,0.0059442759776123797,null,0.004138604698198961,null,0.0028738090668883275,null,0.0019918869678720937,null,0.0013788667162655077,null,0.00095368050608151691,null,0.0006592123764237606,null,0.00045548204355440108,null,0.00031462741363979299,null,0.097159805210262185,null,0.00021728988277246682,null,0.00015004662514628267,null,0.00010360353701252488,null,7.1531401935318433e-05,null,4.9385676401865781e-05,null,3.409518594866609e-05,null,2.3538391349526889e-05,null,1.6250053555548588e-05,null,1.121834831711372e-05,null,7.7446247964482135e-06,null,0.076953769311913681,null,5.3465055851186844e-06,null,3.6909522174865041e-06,null,2.548038406241552e-06,null,1.7590287356720471e-06,null,1.2143377608914271e-06,null,8.3831221233452732e-07,null,5.7872454074379799e-07,null,3.9951940390951049e-07,null,2.7580603661881374e-07,null,1.9040116341754197e-07,null,0.059370595185441327,null,1.314423717403535e-07,null,9.0740495780710002e-08,null,6.2642183783914039e-08,null,4.324467301516537e-08,null,2.9853711860151775e-08,null,2.060933837317685e-08,null,1.4227538135839355e-08,null,9.8218990037302416e-09,null,6.7804913731126204e-09,null,4.6808731281533965e-09,null,0.044713844672077979,null,3.2314137704957721e-09,null,0.032977995895501794,null,0.023907192036111875,null,0.017098615255739927,null,0.012104745610634878],"text":["RANDOM<br />Gen: 0<br />Prop: 0.1429",null,"RANDOM<br />Gen: 1<br />Prop: 0.1194",null,"RANDOM<br />Gen: 10<br />Prop: 0.0085",null,"RANDOM<br />Gen: 11<br />Prop: 0.0059",null,"RANDOM<br />Gen: 12<br />Prop: 0.0041",null,"RANDOM<br />Gen: 13<br />Prop: 0.0029",null,"RANDOM<br />Gen: 14<br />Prop: 0.002",null,"RANDOM<br />Gen: 15<br />Prop: 0.0014",null,"RANDOM<br />Gen: 16<br />Prop: 0.001",null,"RANDOM<br />Gen: 17<br />Prop: 7e-04",null,"RANDOM<br />Gen: 18<br />Prop: 5e-04",null,"RANDOM<br />Gen: 19<br />Prop: 3e-04",null,"RANDOM<br />Gen: 2<br />Prop: 0.0972",null,"RANDOM<br />Gen: 20<br />Prop: 2e-04",null,"RANDOM<br />Gen: 21<br />Prop: 2e-04",null,"RANDOM<br />Gen: 22<br />Prop: 1e-04",null,"RANDOM<br />Gen: 23<br />Prop: 1e-04",null,"RANDOM<br />Gen: 24<br />Prop: 0",null,"RANDOM<br />Gen: 25<br />Prop: 0",null,"RANDOM<br />Gen: 26<br />Prop: 0",null,"RANDOM<br />Gen: 27<br />Prop: 0",null,"RANDOM<br />Gen: 28<br />Prop: 0",null,"RANDOM<br />Gen: 29<br />Prop: 0",null,"RANDOM<br />Gen: 3<br />Prop: 0.077",null,"RANDOM<br />Gen: 30<br />Prop: 0",null,"RANDOM<br />Gen: 31<br />Prop: 0",null,"RANDOM<br />Gen: 32<br />Prop: 0",null,"RANDOM<br />Gen: 33<br />Prop: 0",null,"RANDOM<br />Gen: 34<br />Prop: 0",null,"RANDOM<br />Gen: 35<br />Prop: 0",null,"RANDOM<br />Gen: 36<br />Prop: 0",null,"RANDOM<br />Gen: 37<br />Prop: 0",null,"RANDOM<br />Gen: 38<br />Prop: 0",null,"RANDOM<br />Gen: 39<br />Prop: 0",null,"RANDOM<br />Gen: 4<br />Prop: 0.0594",null,"RANDOM<br />Gen: 40<br />Prop: 0",null,"RANDOM<br />Gen: 41<br />Prop: 0",null,"RANDOM<br />Gen: 42<br />Prop: 0",null,"RANDOM<br />Gen: 43<br />Prop: 0",null,"RANDOM<br />Gen: 44<br />Prop: 0",null,"RANDOM<br />Gen: 45<br />Prop: 0",null,"RANDOM<br />Gen: 46<br />Prop: 0",null,"RANDOM<br />Gen: 47<br />Prop: 0",null,"RANDOM<br />Gen: 48<br />Prop: 0",null,"RANDOM<br />Gen: 49<br />Prop: 0",null,"RANDOM<br />Gen: 5<br />Prop: 0.0447",null,"RANDOM<br />Gen: 50<br />Prop: 0",null,"RANDOM<br />Gen: 6<br />Prop: 0.033",null,"RANDOM<br />Gen: 7<br />Prop: 0.0239",null,"RANDOM<br />Gen: 8<br />Prop: 0.0171",null,"RANDOM<br />Gen: 9<br />Prop: 0.0121"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(240,228,66,1)","dash":"solid"},"hoveron":"points","name":"RANDOM","legendgroup":"RANDOM","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28,null,29,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7,null,8,null,9],"y":[0.14285714285714285,null,0.15207450602005287,null,0.20413834572297707,null,0.20536456969436709,null,0.20621181378884587,null,0.20679257459870332,null,0.20718852093675483,null,0.20745749048010115,null,0.20763977083237636,null,0.207763115811189,null,0.20784650421669149,null,0.20790285098260647,null,0.16150592046174062,null,0.20794091653692615,null,0.20796663100972834,null,0.20798400348604656,null,0.20799574226645934,null,0.20800367618483162,null,0.20800904000278142,null,0.20801266739286736,null,0.20801512129315985,null,0.20801678190368991,null,0.20801790607069356,null,0.17063388833317619,null,0.20801866735818972,null,0.20801918308902628,null,0.20801953259540018,null,0.20801976953915605,null,0.20801993023098808,null,0.20802003924959123,null,0.20802011323828848,null,0.20802016347111202,null,0.20802019758777646,null,0.20802022076713841,null,0.17896195217760263,null,0.20802023652115767,null,0.20802024723228477,null,0.20802025451732054,null,0.20802025947387209,null,0.2080202628473479,null,0.20802026514415281,null,0.20802026670844398,null,0.20802026777419658,null,0.20802026850053457,null,0.20802026899571432,null,0.18612839131419234,null,0.20802026933341108,null,0.19197008509824087,null,0.19651343370492091,null,0.19991383668431567,null,0.20238384455769046],"text":["TIT_FOR_TAT<br />Gen: 0<br />Prop: 0.1429",null,"TIT_FOR_TAT<br />Gen: 1<br />Prop: 0.1521",null,"TIT_FOR_TAT<br />Gen: 10<br />Prop: 0.2041",null,"TIT_FOR_TAT<br />Gen: 11<br />Prop: 0.2054",null,"TIT_FOR_TAT<br />Gen: 12<br />Prop: 0.2062",null,"TIT_FOR_TAT<br />Gen: 13<br />Prop: 0.2068",null,"TIT_FOR_TAT<br />Gen: 14<br />Prop: 0.2072",null,"TIT_FOR_TAT<br />Gen: 15<br />Prop: 0.2075",null,"TIT_FOR_TAT<br />Gen: 16<br />Prop: 0.2076",null,"TIT_FOR_TAT<br />Gen: 17<br />Prop: 0.2078",null,"TIT_FOR_TAT<br />Gen: 18<br />Prop: 0.2078",null,"TIT_FOR_TAT<br />Gen: 19<br />Prop: 0.2079",null,"TIT_FOR_TAT<br />Gen: 2<br />Prop: 0.1615",null,"TIT_FOR_TAT<br />Gen: 20<br />Prop: 0.2079",null,"TIT_FOR_TAT<br />Gen: 21<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 22<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 23<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 24<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 25<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 26<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 27<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 28<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 29<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 3<br />Prop: 0.1706",null,"TIT_FOR_TAT<br />Gen: 30<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 31<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 32<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 33<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 34<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 35<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 36<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 37<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 38<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 39<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 4<br />Prop: 0.179",null,"TIT_FOR_TAT<br />Gen: 40<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 41<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 42<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 43<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 44<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 45<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 46<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 47<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 48<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 49<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 5<br />Prop: 0.1861",null,"TIT_FOR_TAT<br />Gen: 50<br />Prop: 0.208",null,"TIT_FOR_TAT<br />Gen: 6<br />Prop: 0.192",null,"TIT_FOR_TAT<br />Gen: 7<br />Prop: 0.1965",null,"TIT_FOR_TAT<br />Gen: 8<br />Prop: 0.1999",null,"TIT_FOR_TAT<br />Gen: 9<br />Prop: 0.2024"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"TIT_FOR_TAT","legendgroup":"TIT_FOR_TAT","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":52.337069323370706},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Evolutionary dynamics of IPD strategies <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-2.5,52.5],"tickmode":"array","ticktext":["0","10","20","30","40","50"],"tickvals":[0,10,20,30,40,50],"categoryorder":"array","categoryarray":["0","10","20","30","40","50"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Generation","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.013096367993240205,0.27502374556846026],"tickmode":"array","ticktext":["0.0","0.1","0.2"],"tickvals":[0,0.10000000000000001,0.20000000000000001],"categoryorder":"array","categoryarray":["0.0","0.1","0.2"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Population share","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"Strategy","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"3a984883e9af":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"}},"cur_data":"3a984883e9af","visdat":{"3a984883e9af":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The tournament results replicate the core finding from <span class="citation" data-cites="axelrod_1984">Axelrod (<a href="#ref-axelrod_1984" role="doc-biblioref">1984</a>)</span>: Tit-for-Tat wins by accumulating mutual cooperation scores against other nice strategies while avoiding heavy exploitation by defectors. Always-Defect scores well against exploitable strategies like Always-Cooperate and Random, but earns only the punishment payoff against retaliatory strategies, pulling its average down. The evolutionary dynamics reveal an even sharper story: over many generations, Always-Defect initially grows as it exploits cooperators, but as exploitable strategies are driven to extinction, defectors are left facing only retaliatory strategies and their fitness drops. Tit-for-Tat, Grudger, and Generous-TFT survive in the long run because they cooperate with each other while punishing defectors. Pavlov (Win-Stay-Lose-Shift) does well too because it can recover from mutual defection — an advantage over Tit-for-Tat in noisy environments. These dynamics illustrate why cooperation can evolve among self-interested agents even without centralized enforcement: the shadow of the future, combined with conditional strategies, sustains cooperative equilibria.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../prisoners-dilemma-formal/">The Prisoner’s Dilemma — formal setup</a> — the one-shot game and its dominant-strategy analysis.</li>
+<li>
+<a href="../tit-for-tat-robust/">Tit-for-Tat as a robust strategy</a> — why simplicity wins.</li>
+<li>
+<a href="../generous-tit-for-tat/">Generous Tit-for-Tat and noise</a> — handling trembles in repeated play.</li>
+<li>
+<a href="../../simulations/spatial-prisoners-dilemma-nowak-may/">Spatial Prisoner’s Dilemma on a lattice</a> — Nowak &amp; May’s spatial extension.</li>
+<li>
+<a href="../../foundations/folk-theorem-perfect-monitoring/">The folk theorem with perfect monitoring</a> — the theoretical foundation for cooperation in repeated games.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-axelrod_1984" class="csl-entry" role="listitem">
+Axelrod, Robert. 1984. <em>The Evolution of Cooperation</em>. Basic Books. <a href="https://doi.org/10.1017/CBO9780511609381">https://doi.org/10.1017/CBO9780511609381</a>.
+</div>
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {The Iterated {Prisoner’s} {Dilemma} — {Axelrod’s}
+    Tournaments},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“The Iterated Prisoner’s Dilemma — Axelrod’s
+Tournaments.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/">https://r-heller.github.io/equilibria/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "The iterated Prisoner's Dilemma — Axelrod's tournaments"</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Replicate Robert Axelrod's classic 1980 computer tournaments for the iterated Prisoner's Dilemma in R, with round-robin scoring, strategy comparison, and evolutionary dynamics."</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - classical-games</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - prisoners-dilemma</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - iterated-games</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - axelrod</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co">  - cooperation</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["prisoner's dilemma", "iterated", "Axelrod", "tit-for-tat", "cooperation", "tournament"]</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["canonical-games", "repeated-games"]</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_classical-games_iterated-prisoners-dilemma-axelrod"</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Bar chart of tournament scores showing Tit-for-Tat winning Axelrod's tournament"</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY-SA 4.0"</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> "prisoners-dilemma-tournament"</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>)</span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>In 1980, political scientist Robert Axelrod invited game theorists to submit strategies for a computer tournament of the iterated Prisoner's Dilemma (IPD). Each strategy played 200 rounds against every other strategy, and the one with the highest total score won. The surprise result was that the simplest strategy entered — **Tit-for-Tat**, submitted by Anatol Rapoport — won both the first tournament (14 entries) and a second, larger tournament (63 entries). Tit-for-Tat cooperates on the first move, then copies whatever the opponent did on the previous move. @axelrod_1984 distilled the lessons from these tournaments into four properties shared by successful strategies: be **nice** (never defect first), be **retaliatory** (punish defection immediately), be **forgiving** (return to cooperation after the opponent does), and be **clear** (behave predictably so opponents can adapt). These findings had a profound impact on evolutionary biology, international relations, and the study of cooperation more broadly. This article replicates Axelrod's tournament in pure R, implements seven classic strategies, runs a full round-robin, and visualizes the results — then extends the analysis with evolutionary population dynamics to see which strategies survive in the long run.</span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>The stage game is the standard Prisoner's Dilemma with payoff matrix:</span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a>\begin{array}{c|cc}</span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a> &amp; C &amp; D <span class="sc">\\</span> \hline</span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a>C &amp; R, R &amp; S, T <span class="sc">\\</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a>D &amp; T, S &amp; P, P</span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>\end{array}</span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>where $T &gt; R &gt; P &gt; S$ and $2R &gt; T + S$. Axelrod used $T = 5, R = 3, P = 1, S = 0$. In the iterated version, two strategies play $n$ rounds (Axelrod used $n = 200$). A strategy is a function mapping the history of play to an action $<span class="sc">\{</span>C, D<span class="sc">\}</span>$. The total payoff is the sum of stage-game payoffs across all rounds. In a round-robin tournament with $k$ strategies, each pair plays the IPD, and strategies are ranked by their average score per round across all opponents. The IPD's key theoretical insight is that cooperation can be sustained as a subgame-perfect equilibrium of the infinitely repeated game via the **folk theorem**, provided the discount factor is sufficiently high — equivalently, provided the expected number of future rounds is large enough for the shadow of the future to outweigh the short-term gain from defection.</span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a>We implement seven strategies and a round-robin tournament engine entirely in base R. Each strategy is a function that takes the game history and returns "C" or "D".</span>
+<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-83"><a href="#cb8-83" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-84"><a href="#cb8-84" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tournament-engine</span></span>
+<span id="cb8-85"><a href="#cb8-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-86"><a href="#cb8-86" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Payoff parameters (Axelrod's values) ---</span></span>
+<span id="cb8-87"><a href="#cb8-87" aria-hidden="true" tabindex="-1"></a>T_pay <span class="ot">&lt;-</span> <span class="dv">5</span>; R_pay <span class="ot">&lt;-</span> <span class="dv">3</span>; P_pay <span class="ot">&lt;-</span> <span class="dv">1</span>; S_pay <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a>payoff <span class="ot">&lt;-</span> <span class="cf">function</span>(my_move, opp_move) {</span>
+<span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (my_move <span class="sc">==</span> <span class="st">"C"</span> <span class="sc">&amp;&amp;</span> opp_move <span class="sc">==</span> <span class="st">"C"</span>) <span class="fu">return</span>(R_pay)</span>
+<span id="cb8-91"><a href="#cb8-91" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (my_move <span class="sc">==</span> <span class="st">"C"</span> <span class="sc">&amp;&amp;</span> opp_move <span class="sc">==</span> <span class="st">"D"</span>) <span class="fu">return</span>(S_pay)</span>
+<span id="cb8-92"><a href="#cb8-92" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (my_move <span class="sc">==</span> <span class="st">"D"</span> <span class="sc">&amp;&amp;</span> opp_move <span class="sc">==</span> <span class="st">"C"</span>) <span class="fu">return</span>(T_pay)</span>
+<span id="cb8-93"><a href="#cb8-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(P_pay)  <span class="co"># D vs D</span></span>
+<span id="cb8-94"><a href="#cb8-94" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-95"><a href="#cb8-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-96"><a href="#cb8-96" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Strategy definitions ---</span></span>
+<span id="cb8-97"><a href="#cb8-97" aria-hidden="true" tabindex="-1"></a>strategies <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb8-98"><a href="#cb8-98" aria-hidden="true" tabindex="-1"></a>  <span class="at">TIT_FOR_TAT =</span> <span class="cf">function</span>(my_hist, opp_hist, round) {</span>
+<span id="cb8-99"><a href="#cb8-99" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (round <span class="sc">==</span> <span class="dv">1</span>) <span class="st">"C"</span> <span class="cf">else</span> opp_hist[round <span class="sc">-</span> <span class="dv">1</span>]</span>
+<span id="cb8-100"><a href="#cb8-100" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb8-101"><a href="#cb8-101" aria-hidden="true" tabindex="-1"></a>  <span class="at">ALWAYS_COOPERATE =</span> <span class="cf">function</span>(my_hist, opp_hist, round) <span class="st">"C"</span>,</span>
+<span id="cb8-102"><a href="#cb8-102" aria-hidden="true" tabindex="-1"></a>  <span class="at">ALWAYS_DEFECT =</span> <span class="cf">function</span>(my_hist, opp_hist, round) <span class="st">"D"</span>,</span>
+<span id="cb8-103"><a href="#cb8-103" aria-hidden="true" tabindex="-1"></a>  <span class="at">RANDOM =</span> <span class="cf">function</span>(my_hist, opp_hist, round) <span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">"C"</span>,<span class="st">"D"</span>), <span class="dv">1</span>),</span>
+<span id="cb8-104"><a href="#cb8-104" aria-hidden="true" tabindex="-1"></a>  <span class="at">GRUDGER =</span> <span class="cf">function</span>(my_hist, opp_hist, round) {</span>
+<span id="cb8-105"><a href="#cb8-105" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (round <span class="sc">==</span> <span class="dv">1</span>) <span class="st">"C"</span></span>
+<span id="cb8-106"><a href="#cb8-106" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">any</span>(opp_hist[<span class="dv">1</span><span class="sc">:</span>(round<span class="dv">-1</span>)] <span class="sc">==</span> <span class="st">"D"</span>)) <span class="st">"D"</span></span>
+<span id="cb8-107"><a href="#cb8-107" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="st">"C"</span></span>
+<span id="cb8-108"><a href="#cb8-108" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb8-109"><a href="#cb8-109" aria-hidden="true" tabindex="-1"></a>  <span class="at">PAVLOV =</span> <span class="cf">function</span>(my_hist, opp_hist, round) {</span>
+<span id="cb8-110"><a href="#cb8-110" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (round <span class="sc">==</span> <span class="dv">1</span>) <span class="st">"C"</span></span>
+<span id="cb8-111"><a href="#cb8-111" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> (my_hist[round<span class="dv">-1</span>] <span class="sc">==</span> opp_hist[round<span class="dv">-1</span>]) <span class="st">"C"</span></span>
+<span id="cb8-112"><a href="#cb8-112" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="st">"D"</span></span>
+<span id="cb8-113"><a href="#cb8-113" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb8-114"><a href="#cb8-114" aria-hidden="true" tabindex="-1"></a>  <span class="at">GENEROUS_TFT =</span> <span class="cf">function</span>(my_hist, opp_hist, round) {</span>
+<span id="cb8-115"><a href="#cb8-115" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (round <span class="sc">==</span> <span class="dv">1</span>) <span class="st">"C"</span></span>
+<span id="cb8-116"><a href="#cb8-116" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> (opp_hist[round<span class="dv">-1</span>] <span class="sc">==</span> <span class="st">"C"</span>) <span class="st">"C"</span></span>
+<span id="cb8-117"><a href="#cb8-117" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">runif</span>(<span class="dv">1</span>) <span class="sc">&lt;</span> <span class="fl">0.1</span>) <span class="st">"C"</span>  <span class="co"># forgive 10% of defections</span></span>
+<span id="cb8-118"><a href="#cb8-118" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span> <span class="st">"D"</span></span>
+<span id="cb8-119"><a href="#cb8-119" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-120"><a href="#cb8-120" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-121"><a href="#cb8-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-122"><a href="#cb8-122" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Play one match of n rounds ---</span></span>
+<span id="cb8-123"><a href="#cb8-123" aria-hidden="true" tabindex="-1"></a>play_match <span class="ot">&lt;-</span> <span class="cf">function</span>(strat1, strat2, <span class="at">n_rounds =</span> <span class="dv">200</span>) {</span>
+<span id="cb8-124"><a href="#cb8-124" aria-hidden="true" tabindex="-1"></a>  h1 <span class="ot">&lt;-</span> <span class="fu">character</span>(n_rounds)</span>
+<span id="cb8-125"><a href="#cb8-125" aria-hidden="true" tabindex="-1"></a>  h2 <span class="ot">&lt;-</span> <span class="fu">character</span>(n_rounds)</span>
+<span id="cb8-126"><a href="#cb8-126" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (r <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_rounds) {</span>
+<span id="cb8-127"><a href="#cb8-127" aria-hidden="true" tabindex="-1"></a>    h1[r] <span class="ot">&lt;-</span> <span class="fu">strat1</span>(h1, h2, r)</span>
+<span id="cb8-128"><a href="#cb8-128" aria-hidden="true" tabindex="-1"></a>    h2[r] <span class="ot">&lt;-</span> <span class="fu">strat2</span>(h2, h1, r)</span>
+<span id="cb8-129"><a href="#cb8-129" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-130"><a href="#cb8-130" aria-hidden="true" tabindex="-1"></a>  s1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>n_rounds, <span class="cf">function</span>(r) <span class="fu">payoff</span>(h1[r], h2[r])))</span>
+<span id="cb8-131"><a href="#cb8-131" aria-hidden="true" tabindex="-1"></a>  s2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>n_rounds, <span class="cf">function</span>(r) <span class="fu">payoff</span>(h2[r], h1[r])))</span>
+<span id="cb8-132"><a href="#cb8-132" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">score1 =</span> s1, <span class="at">score2 =</span> s2, <span class="at">history1 =</span> h1, <span class="at">history2 =</span> h2)</span>
+<span id="cb8-133"><a href="#cb8-133" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-134"><a href="#cb8-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-135"><a href="#cb8-135" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Round-robin tournament ---</span></span>
+<span id="cb8-136"><a href="#cb8-136" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb8-137"><a href="#cb8-137" aria-hidden="true" tabindex="-1"></a>strat_names <span class="ot">&lt;-</span> <span class="fu">names</span>(strategies)</span>
+<span id="cb8-138"><a href="#cb8-138" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">length</span>(strat_names)</span>
+<span id="cb8-139"><a href="#cb8-139" aria-hidden="true" tabindex="-1"></a>scores <span class="ot">&lt;-</span> <span class="fu">setNames</span>(<span class="fu">rep</span>(<span class="dv">0</span>, k), strat_names)</span>
+<span id="cb8-140"><a href="#cb8-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-141"><a href="#cb8-141" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>(k<span class="dv">-1</span>)) {</span>
+<span id="cb8-142"><a href="#cb8-142" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> (i<span class="sc">+</span><span class="dv">1</span>)<span class="sc">:</span>k) {</span>
+<span id="cb8-143"><a href="#cb8-143" aria-hidden="true" tabindex="-1"></a>    result <span class="ot">&lt;-</span> <span class="fu">play_match</span>(strategies[[i]], strategies[[j]])</span>
+<span id="cb8-144"><a href="#cb8-144" aria-hidden="true" tabindex="-1"></a>    scores[i] <span class="ot">&lt;-</span> scores[i] <span class="sc">+</span> result<span class="sc">$</span>score1</span>
+<span id="cb8-145"><a href="#cb8-145" aria-hidden="true" tabindex="-1"></a>    scores[j] <span class="ot">&lt;-</span> scores[j] <span class="sc">+</span> result<span class="sc">$</span>score2</span>
+<span id="cb8-146"><a href="#cb8-146" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-147"><a href="#cb8-147" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-148"><a href="#cb8-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-149"><a href="#cb8-149" aria-hidden="true" tabindex="-1"></a><span class="co"># Average per round per opponent</span></span>
+<span id="cb8-150"><a href="#cb8-150" aria-hidden="true" tabindex="-1"></a>avg_scores <span class="ot">&lt;-</span> scores <span class="sc">/</span> ((k <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="dv">200</span>)</span>
+<span id="cb8-151"><a href="#cb8-151" aria-hidden="true" tabindex="-1"></a>results_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb8-152"><a href="#cb8-152" aria-hidden="true" tabindex="-1"></a>  <span class="at">strategy =</span> <span class="fu">names</span>(avg_scores),</span>
+<span id="cb8-153"><a href="#cb8-153" aria-hidden="true" tabindex="-1"></a>  <span class="at">avg_score =</span> <span class="fu">as.numeric</span>(avg_scores)</span>
+<span id="cb8-154"><a href="#cb8-154" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">arrange</span>(<span class="fu">desc</span>(avg_score))</span>
+<span id="cb8-155"><a href="#cb8-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-156"><a href="#cb8-156" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Tournament results (average score per round per opponent):</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb8-157"><a href="#cb8-157" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(results_df, <span class="at">n =</span> <span class="cn">Inf</span>)</span>
+<span id="cb8-158"><a href="#cb8-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb8-159"><a href="#cb8-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-160"><a href="#cb8-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-161"><a href="#cb8-161" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb8-162"><a href="#cb8-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-165"><a href="#cb8-165" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-166"><a href="#cb8-166" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-tournament-static</span></span>
+<span id="cb8-167"><a href="#cb8-167" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Axelrod-style IPD tournament results for seven classic strategies (200 rounds per match). Tit-for-Tat wins with the highest average score per round per opponent. Nice strategies (never defect first) cluster at the top. Okabe-Ito palette."</span></span>
+<span id="cb8-168"><a href="#cb8-168" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb8-169"><a href="#cb8-169" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 7</span></span>
+<span id="cb8-170"><a href="#cb8-170" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb8-171"><a href="#cb8-171" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb8-172"><a href="#cb8-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-173"><a href="#cb8-173" aria-hidden="true" tabindex="-1"></a>results_df<span class="sc">$</span>strategy <span class="ot">&lt;-</span> <span class="fu">factor</span>(results_df<span class="sc">$</span>strategy,</span>
+<span id="cb8-174"><a href="#cb8-174" aria-hidden="true" tabindex="-1"></a>                               <span class="at">levels =</span> results_df<span class="sc">$</span>strategy[<span class="fu">order</span>(results_df<span class="sc">$</span>avg_score)])</span>
+<span id="cb8-175"><a href="#cb8-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-176"><a href="#cb8-176" aria-hidden="true" tabindex="-1"></a>p_tournament <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(results_df, <span class="fu">aes</span>(<span class="at">x =</span> strategy, <span class="at">y =</span> avg_score, <span class="at">fill =</span> strategy)) <span class="sc">+</span></span>
+<span id="cb8-177"><a href="#cb8-177" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">width =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb8-178"><a href="#cb8-178" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">round</span>(avg_score, <span class="dv">2</span>)), <span class="at">hjust =</span> <span class="sc">-</span><span class="fl">0.1</span>, <span class="at">size =</span> <span class="fl">3.5</span>) <span class="sc">+</span></span>
+<span id="cb8-179"><a href="#cb8-179" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">max</span>(results_df<span class="sc">$</span>avg_score) <span class="sc">*</span> <span class="fl">1.15</span>)) <span class="sc">+</span></span>
+<span id="cb8-180"><a href="#cb8-180" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> okabe_ito[<span class="dv">1</span><span class="sc">:</span><span class="dv">7</span>]) <span class="sc">+</span></span>
+<span id="cb8-181"><a href="#cb8-181" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb8-182"><a href="#cb8-182" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Axelrod's IPD Tournament — Strategy Rankings"</span>,</span>
+<span id="cb8-183"><a href="#cb8-183" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Average payoff per round per opponent (200 rounds, Axelrod payoffs: T=5, R=3, P=1, S=0)"</span>,</span>
+<span id="cb8-184"><a href="#cb8-184" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb8-185"><a href="#cb8-185" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Average score per round"</span></span>
+<span id="cb8-186"><a href="#cb8-186" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb8-187"><a href="#cb8-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb8-188"><a href="#cb8-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-189"><a href="#cb8-189" aria-hidden="true" tabindex="-1"></a>p_tournament</span>
+<span id="cb8-190"><a href="#cb8-190" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb8-191"><a href="#cb8-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-192"><a href="#cb8-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-193"><a href="#cb8-193" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb8-194"><a href="#cb8-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-197"><a href="#cb8-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-198"><a href="#cb8-198" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-tournament-interactive</span></span>
+<span id="cb8-199"><a href="#cb8-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-200"><a href="#cb8-200" aria-hidden="true" tabindex="-1"></a>p_int <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(results_df, <span class="fu">aes</span>(<span class="at">x =</span> strategy, <span class="at">y =</span> avg_score, <span class="at">fill =</span> strategy,</span>
+<span id="cb8-201"><a href="#cb8-201" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">text =</span> <span class="fu">paste0</span>(strategy, <span class="st">"</span><span class="sc">\n</span><span class="st">Avg: "</span>, <span class="fu">round</span>(avg_score, <span class="dv">3</span>)))) <span class="sc">+</span></span>
+<span id="cb8-202"><a href="#cb8-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="at">width =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb8-203"><a href="#cb8-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb8-204"><a href="#cb8-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> okabe_ito[<span class="dv">1</span><span class="sc">:</span><span class="dv">7</span>]) <span class="sc">+</span></span>
+<span id="cb8-205"><a href="#cb8-205" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Average score per round"</span>) <span class="sc">+</span></span>
+<span id="cb8-206"><a href="#cb8-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb8-207"><a href="#cb8-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-208"><a href="#cb8-208" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_int, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-209"><a href="#cb8-209" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb8-210"><a href="#cb8-210" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb8-211"><a href="#cb8-211" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb8-212"><a href="#cb8-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-213"><a href="#cb8-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-214"><a href="#cb8-214" aria-hidden="true" tabindex="-1"></a><span class="fu">## Evolutionary dynamics</span></span>
+<span id="cb8-215"><a href="#cb8-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-216"><a href="#cb8-216" aria-hidden="true" tabindex="-1"></a>What happens when strategies compete not just in a tournament but in an evolving population? We simulate a simple replicator dynamic: after each generation, the proportion of each strategy in the population is updated proportionally to its fitness (average score against the current population mix).</span>
+<span id="cb8-217"><a href="#cb8-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-220"><a href="#cb8-220" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb8-221"><a href="#cb8-221" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: evolutionary-dynamics</span></span>
+<span id="cb8-222"><a href="#cb8-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-223"><a href="#cb8-223" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute payoff matrix: M[i,j] = strategy i's total score vs strategy j</span></span>
+<span id="cb8-224"><a href="#cb8-224" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb8-225"><a href="#cb8-225" aria-hidden="true" tabindex="-1"></a>M <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> k, <span class="at">ncol =</span> k, <span class="at">dimnames =</span> <span class="fu">list</span>(strat_names, strat_names))</span>
+<span id="cb8-226"><a href="#cb8-226" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>k) {</span>
+<span id="cb8-227"><a href="#cb8-227" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>k) {</span>
+<span id="cb8-228"><a href="#cb8-228" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (i <span class="sc">==</span> j) {</span>
+<span id="cb8-229"><a href="#cb8-229" aria-hidden="true" tabindex="-1"></a>      result <span class="ot">&lt;-</span> <span class="fu">play_match</span>(strategies[[i]], strategies[[j]], <span class="at">n_rounds =</span> <span class="dv">200</span>)</span>
+<span id="cb8-230"><a href="#cb8-230" aria-hidden="true" tabindex="-1"></a>      M[i,j] <span class="ot">&lt;-</span> result<span class="sc">$</span>score1 <span class="sc">/</span> <span class="dv">200</span></span>
+<span id="cb8-231"><a href="#cb8-231" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb8-232"><a href="#cb8-232" aria-hidden="true" tabindex="-1"></a>      result <span class="ot">&lt;-</span> <span class="fu">play_match</span>(strategies[[i]], strategies[[j]], <span class="at">n_rounds =</span> <span class="dv">200</span>)</span>
+<span id="cb8-233"><a href="#cb8-233" aria-hidden="true" tabindex="-1"></a>      M[i,j] <span class="ot">&lt;-</span> result<span class="sc">$</span>score1 <span class="sc">/</span> <span class="dv">200</span></span>
+<span id="cb8-234"><a href="#cb8-234" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb8-235"><a href="#cb8-235" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-236"><a href="#cb8-236" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-237"><a href="#cb8-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-238"><a href="#cb8-238" aria-hidden="true" tabindex="-1"></a><span class="co"># Replicator dynamics</span></span>
+<span id="cb8-239"><a href="#cb8-239" aria-hidden="true" tabindex="-1"></a>n_gen <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb8-240"><a href="#cb8-240" aria-hidden="true" tabindex="-1"></a>pop <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> n_gen <span class="sc">+</span> <span class="dv">1</span>, <span class="at">ncol =</span> k)</span>
+<span id="cb8-241"><a href="#cb8-241" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pop) <span class="ot">&lt;-</span> strat_names</span>
+<span id="cb8-242"><a href="#cb8-242" aria-hidden="true" tabindex="-1"></a>pop[<span class="dv">1</span>, ] <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">/</span>k, k)  <span class="co"># equal initial shares</span></span>
+<span id="cb8-243"><a href="#cb8-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-244"><a href="#cb8-244" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (g <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_gen) {</span>
+<span id="cb8-245"><a href="#cb8-245" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> pop[g, ]</span>
+<span id="cb8-246"><a href="#cb8-246" aria-hidden="true" tabindex="-1"></a>  fitness <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(M <span class="sc">%*%</span> x)</span>
+<span id="cb8-247"><a href="#cb8-247" aria-hidden="true" tabindex="-1"></a>  avg_fitness <span class="ot">&lt;-</span> <span class="fu">sum</span>(x <span class="sc">*</span> fitness)</span>
+<span id="cb8-248"><a href="#cb8-248" aria-hidden="true" tabindex="-1"></a>  x_new <span class="ot">&lt;-</span> x <span class="sc">*</span> fitness <span class="sc">/</span> avg_fitness</span>
+<span id="cb8-249"><a href="#cb8-249" aria-hidden="true" tabindex="-1"></a>  pop[g <span class="sc">+</span> <span class="dv">1</span>, ] <span class="ot">&lt;-</span> x_new <span class="sc">/</span> <span class="fu">sum</span>(x_new)</span>
+<span id="cb8-250"><a href="#cb8-250" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-251"><a href="#cb8-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-252"><a href="#cb8-252" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot evolutionary trajectory</span></span>
+<span id="cb8-253"><a href="#cb8-253" aria-hidden="true" tabindex="-1"></a>evo_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(pop) <span class="sc">|&gt;</span></span>
+<span id="cb8-254"><a href="#cb8-254" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">generation =</span> <span class="dv">0</span><span class="sc">:</span>n_gen) <span class="sc">|&gt;</span></span>
+<span id="cb8-255"><a href="#cb8-255" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>generation, <span class="at">names_to =</span> <span class="st">"strategy"</span>, <span class="at">values_to =</span> <span class="st">"proportion"</span>)</span>
+<span id="cb8-256"><a href="#cb8-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-257"><a href="#cb8-257" aria-hidden="true" tabindex="-1"></a>p_evo <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(evo_df, <span class="fu">aes</span>(<span class="at">x =</span> generation, <span class="at">y =</span> proportion, <span class="at">color =</span> strategy,</span>
+<span id="cb8-258"><a href="#cb8-258" aria-hidden="true" tabindex="-1"></a>                              <span class="at">text =</span> <span class="fu">paste0</span>(strategy, <span class="st">"</span><span class="sc">\n</span><span class="st">Gen: "</span>, generation,</span>
+<span id="cb8-259"><a href="#cb8-259" aria-hidden="true" tabindex="-1"></a>                                           <span class="st">"</span><span class="sc">\n</span><span class="st">Prop: "</span>, <span class="fu">round</span>(proportion, <span class="dv">4</span>)))) <span class="sc">+</span></span>
+<span id="cb8-260"><a href="#cb8-260" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb8-261"><a href="#cb8-261" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">setNames</span>(okabe_ito[<span class="dv">1</span><span class="sc">:</span><span class="dv">7</span>], strat_names)) <span class="sc">+</span></span>
+<span id="cb8-262"><a href="#cb8-262" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Evolutionary dynamics of IPD strategies"</span>,</span>
+<span id="cb8-263"><a href="#cb8-263" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Replicator dynamics from equal initial proportions"</span>,</span>
+<span id="cb8-264"><a href="#cb8-264" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Generation"</span>, <span class="at">y =</span> <span class="st">"Population share"</span>, <span class="at">color =</span> <span class="st">"Strategy"</span>) <span class="sc">+</span></span>
+<span id="cb8-265"><a href="#cb8-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb8-266"><a href="#cb8-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-267"><a href="#cb8-267" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_evo, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-268"><a href="#cb8-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb8-269"><a href="#cb8-269" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb8-270"><a href="#cb8-270" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb8-271"><a href="#cb8-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-272"><a href="#cb8-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-273"><a href="#cb8-273" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb8-274"><a href="#cb8-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-275"><a href="#cb8-275" aria-hidden="true" tabindex="-1"></a>The tournament results replicate the core finding from @axelrod_1984: Tit-for-Tat wins by accumulating mutual cooperation scores against other nice strategies while avoiding heavy exploitation by defectors. Always-Defect scores well against exploitable strategies like Always-Cooperate and Random, but earns only the punishment payoff against retaliatory strategies, pulling its average down. The evolutionary dynamics reveal an even sharper story: over many generations, Always-Defect initially grows as it exploits cooperators, but as exploitable strategies are driven to extinction, defectors are left facing only retaliatory strategies and their fitness drops. Tit-for-Tat, Grudger, and Generous-TFT survive in the long run because they cooperate with each other while punishing defectors. Pavlov (Win-Stay-Lose-Shift) does well too because it can recover from mutual defection — an advantage over Tit-for-Tat in noisy environments. These dynamics illustrate why cooperation can evolve among self-interested agents even without centralized enforcement: the shadow of the future, combined with conditional strategies, sustains cooperative equilibria.</span>
+<span id="cb8-276"><a href="#cb8-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-277"><a href="#cb8-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-278"><a href="#cb8-278" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb8-279"><a href="#cb8-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-280"><a href="#cb8-280" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The Prisoner's Dilemma — formal setup</span><span class="co">](../prisoners-dilemma-formal/)</span> — the one-shot game and its dominant-strategy analysis.</span>
+<span id="cb8-281"><a href="#cb8-281" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Tit-for-Tat as a robust strategy</span><span class="co">](../tit-for-tat-robust/)</span> — why simplicity wins.</span>
+<span id="cb8-282"><a href="#cb8-282" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Generous Tit-for-Tat and noise</span><span class="co">](../generous-tit-for-tat/)</span> — handling trembles in repeated play.</span>
+<span id="cb8-283"><a href="#cb8-283" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Spatial Prisoner's Dilemma on a lattice</span><span class="co">](../../simulations/spatial-prisoners-dilemma-nowak-may/)</span> — Nowak &amp; May's spatial extension.</span>
+<span id="cb8-284"><a href="#cb8-284" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The folk theorem with perfect monitoring</span><span class="co">](../../foundations/folk-theorem-perfect-monitoring/)</span> — the theoretical foundation for cooperation in repeated games.</span>
+<span id="cb8-285"><a href="#cb8-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-286"><a href="#cb8-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-287"><a href="#cb8-287" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb8-288"><a href="#cb8-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-289"><a href="#cb8-289" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb8-290"><a href="#cb8-290" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/classical-games/iterated-prisoners-dilemma-axelrod/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

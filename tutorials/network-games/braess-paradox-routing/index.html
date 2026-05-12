@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="Braess paradox, Wardrop equilibrium, selfish routing, price of anarchy, congestion game, network routing">
+<meta name="description" content="Implement Braess’s paradox in R, compute Wardrop equilibrium flows on networks with selfish routing, demonstrate how adding capacity can increase total latency, and compare the price of anarchy across network topologies.">
+<title>Braess’s paradox — when adding roads makes traffic worse – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-0e749b838db2118feaca109dcdf294be.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/network-games/braess-paradox-routing/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/network-games/braess-paradox-routing/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Braess’s paradox — when adding roads makes traffic worse</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">network-games</div>
+    <div class="quarto-category">braess-paradox</div>
+    <div class="quarto-category">routing-games</div>
+    <div class="quarto-category">price-of-anarchy</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Implement Braess’s paradox in R, compute Wardrop equilibrium flows on networks with selfish routing, demonstrate how adding capacity can increase total latency, and compare the price of anarchy across network topologies.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>Braess paradox, Wardrop equilibrium, selfish routing, price of anarchy, congestion game, network routing</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>In 1968, the German mathematician Dietrich Braess discovered a startling paradox in network routing: <strong>adding a new road to a traffic network can increase the total travel time for all drivers</strong>. This counterintuitive result, now known as <strong>Braess’s paradox</strong>, is one of the most celebrated examples of how individual rationality leads to collective irrationality in games. The paradox has been confirmed in real traffic networks (the closure of 42nd Street in New York City actually improved traffic flow), in telecommunications networks, in electrical circuits, and in mechanical spring systems.</p>
+<p>The setup is deceptively simple. Consider a network with two routes from origin <span class="math inline">\(s\)</span> to destination <span class="math inline">\(t\)</span>, each consisting of two edges. Route 1 uses a congestion-sensitive edge followed by a constant-latency edge; Route 2 uses a constant-latency edge followed by a congestion-sensitive edge. In the original network, the symmetric equilibrium splits traffic equally between the two routes, achieving reasonable total latency. Now add a zero-cost shortcut connecting the middle nodes of the two routes. Intuitively, adding a free road should only help — drivers now have more options. But in equilibrium, every driver uses the shortcut, routing through both congestion-sensitive edges, and total latency increases. The new road makes everyone worse off.</p>
+<p>The paradox is a special case of the broader theory of <strong>selfish routing</strong> and the <strong>price of anarchy</strong> — the ratio between the worst-case equilibrium cost and the socially optimal cost. In routing games, the price of anarchy quantifies how much efficiency is lost when drivers choose routes selfishly rather than following a central planner’s recommendations. Roughgarden and Tardos (2002) proved that for linear latency functions, the price of anarchy is at most 4/3 — remarkably, selfish routing can never waste more than 33% of the optimal travel time. But for more general latency functions (polynomial, exponential), the price of anarchy can be arbitrarily large.</p>
+<p>The connection to game theory runs deep. Routing games are a special case of <strong>congestion games</strong> (Rosenthal 1973), which are potential games — they admit a potential function whose minimisers are Nash equilibria. The equilibrium concept in routing is <strong>Wardrop equilibrium</strong>: all used routes have equal latency, and no unused route has lower latency. This is the continuous analogue of Nash equilibrium for non-atomic games (games with a continuum of infinitesimal players). This tutorial implements the Braess network, computes Wardrop equilibria, demonstrates the paradox, quantifies the price of anarchy, and explores how network topology affects the severity of the inefficiency.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p><strong>Routing game</strong>: Network <span class="math inline">\(G = (V, E)\)</span> with source <span class="math inline">\(s\)</span>, destination <span class="math inline">\(t\)</span>, total traffic flow <span class="math inline">\(d\)</span>. Each edge <span class="math inline">\(e\)</span> has latency function <span class="math inline">\(\ell_e(f_e)\)</span> where <span class="math inline">\(f_e\)</span> is the flow on edge <span class="math inline">\(e\)</span>.</p>
+<p><strong>Wardrop equilibrium</strong>: A flow <span class="math inline">\(f\)</span> is a Wardrop equilibrium if for every pair of routes <span class="math inline">\(r_1, r_2\)</span> with <span class="math inline">\(f_{r_1} &gt; 0\)</span>:</p>
+<p><span class="math display">\[\sum_{e \in r_1} \ell_e(f_e) \leq \sum_{e \in r_2} \ell_e(f_e)\]</span></p>
+<p>All used routes have equal latency.</p>
+<p><strong>Braess network</strong>: 4 nodes <span class="math inline">\(\{s, v, w, t\}\)</span>.</p>
+<p>Without shortcut: Route 1 (<span class="math inline">\(s \to v \to t\)</span>): <span class="math inline">\(\ell_{sv}(f) = f\)</span>, <span class="math inline">\(\ell_{vt} = 1\)</span>. Route 2 (<span class="math inline">\(s \to w \to t\)</span>): <span class="math inline">\(\ell_{sw} = 1\)</span>, <span class="math inline">\(\ell_{wt}(f) = f\)</span>. Total flow <span class="math inline">\(d = 1\)</span>.</p>
+<p>With shortcut: Add edge <span class="math inline">\(v \to w\)</span> with <span class="math inline">\(\ell_{vw} = 0\)</span>. Route 3 (<span class="math inline">\(s \to v \to w \to t\)</span>) now available.</p>
+<p><strong>Price of anarchy</strong>: <span class="math inline">\(\text{PoA} = \frac{C(\text{equilibrium flow})}{C(\text{optimal flow})}\)</span> where <span class="math inline">\(C(f) = \sum_e f_e \cdot \ell_e(f_e)\)</span>.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Braess's Paradox ===\n\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Braess's Paradox ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Original network (no shortcut) ===</span></span>
+<span><span class="co"># Routes: R1 = s→v→t, R2 = s→w→t</span></span>
+<span><span class="co"># Latencies: l_sv(f) = f, l_vt = 1, l_sw = 1, l_wt(f) = f</span></span>
+<span><span class="co"># Total flow d = 1</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"--- Original Network (no shortcut) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Original Network (no shortcut) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Wardrop equilibrium: latency(R1) = latency(R2)</span></span>
+<span><span class="co"># f1 + 1 = 1 + f2, where f1 + f2 = 1</span></span>
+<span><span class="co"># f1 + 1 = 1 + (1-f1) → 2f1 = 1 → f1 = 0.5</span></span>
+<span><span class="va">f1_orig</span> <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
+<span><span class="va">f2_orig</span> <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
+<span><span class="va">latency_R1</span> <span class="op">&lt;-</span> <span class="va">f1_orig</span> <span class="op">+</span> <span class="fl">1</span>  <span class="co"># = 1.5</span></span>
+<span><span class="va">latency_R2</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">f2_orig</span>  <span class="co"># = 1.5</span></span>
+<span><span class="va">total_cost_orig</span> <span class="op">&lt;-</span> <span class="va">f1_orig</span> <span class="op">*</span> <span class="va">latency_R1</span> <span class="op">+</span> <span class="va">f2_orig</span> <span class="op">*</span> <span class="va">latency_R2</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Route 1 flow: %.2f, latency: %.2f\n"</span>, <span class="va">f1_orig</span>, <span class="va">latency_R1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Route 1 flow: 0.50, latency: 1.50</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Route 2 flow: %.2f, latency: %.2f\n"</span>, <span class="va">f2_orig</span>, <span class="va">latency_R2</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Route 2 flow: 0.50, latency: 1.50</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Total cost: %.2f\n"</span>, <span class="va">total_cost_orig</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total cost: 1.50</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Network with shortcut ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Network WITH shortcut (s→v→w→t) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Network WITH shortcut (s→v→w→t) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Routes: R1 = s→v→t, R2 = s→w→t, R3 = s→v→w→t</span></span>
+<span><span class="co"># R3 latency: l_sv(f_sv) + 0 + l_wt(f_wt)</span></span>
+<span><span class="co"># where f_sv = f1 + f3, f_wt = f2 + f3</span></span>
+<span><span class="co"># At equilibrium, check if R3 dominates:</span></span>
+<span><span class="co"># If all use R3: f1=f2=0, f3=1</span></span>
+<span><span class="co"># R3 latency = f_sv(=1) + 0 + f_wt(=1) = 2</span></span>
+<span><span class="co"># R1 latency = f_sv(=1) + 1 = 2</span></span>
+<span><span class="co"># R2 latency = 1 + f_wt(=1) = 2</span></span>
+<span><span class="co"># All routes equal at latency 2 → this is Wardrop equilibrium!</span></span>
+<span><span class="va">f3_braess</span> <span class="op">&lt;-</span> <span class="fl">1.0</span></span>
+<span><span class="va">latency_braess</span> <span class="op">&lt;-</span> <span class="fl">2.0</span></span>
+<span><span class="va">total_cost_braess</span> <span class="op">&lt;-</span> <span class="va">f3_braess</span> <span class="op">*</span> <span class="va">latency_braess</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  All traffic on shortcut route: flow = %.2f\n"</span>, <span class="va">f3_braess</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  All traffic on shortcut route: flow = 1.00</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Equilibrium latency: %.2f\n"</span>, <span class="va">latency_braess</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Equilibrium latency: 2.00</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Total cost: %.2f\n"</span>, <span class="va">total_cost_braess</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total cost: 2.00</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Increase from adding shortcut: %.2f → %.2f (+%.0f%%)\n"</span>,</span>
+<span>            <span class="va">total_cost_orig</span>, <span class="va">total_cost_braess</span>,</span>
+<span>            <span class="fl">100</span> <span class="op">*</span> <span class="op">(</span><span class="va">total_cost_braess</span> <span class="op">/</span> <span class="va">total_cost_orig</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Increase from adding shortcut: 1.50 → 2.00 (+33%)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Social optimum with shortcut ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Social Optimum (with shortcut) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Social Optimum (with shortcut) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Optimise over (f1, f2, f3) with f1+f2+f3=1, fi &gt;= 0</span></span>
+<span><span class="co"># C = f_sv * l_sv(f_sv) + f_vt * l_vt + f_sw * l_sw + f_wt * l_wt(f_wt)</span></span>
+<span><span class="co"># where f_sv = f1+f3, f_vt = f1, f_sw = f2, f_wt = f2+f3</span></span>
+<span><span class="va">social_cost</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f1</span>, <span class="va">f3</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">f2</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="va">f1</span> <span class="op">-</span> <span class="va">f3</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">f2</span> <span class="op">&lt;</span> <span class="op">-</span><span class="fl">1e-10</span> <span class="op">||</span> <span class="va">f1</span> <span class="op">&lt;</span> <span class="op">-</span><span class="fl">1e-10</span> <span class="op">||</span> <span class="va">f3</span> <span class="op">&lt;</span> <span class="op">-</span><span class="fl">1e-10</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="cn">Inf</span><span class="op">)</span></span>
+<span>  <span class="va">f_sv</span> <span class="op">&lt;-</span> <span class="va">f1</span> <span class="op">+</span> <span class="va">f3</span></span>
+<span>  <span class="va">f_wt</span> <span class="op">&lt;-</span> <span class="va">f2</span> <span class="op">+</span> <span class="va">f3</span></span>
+<span>  <span class="va">f_sv</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="va">f1</span> <span class="op">*</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">f2</span> <span class="op">*</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">f_wt</span><span class="op">^</span><span class="fl">2</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Grid search</span></span>
+<span><span class="va">best</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>cost <span class="op">=</span> <span class="cn">Inf</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">f1</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">f3</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span> <span class="op">-</span> <span class="va">f1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu">social_cost</span><span class="op">(</span><span class="va">f1</span>, <span class="va">f3</span><span class="op">)</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">cost</span> <span class="op">&lt;</span> <span class="va">best</span><span class="op">$</span><span class="va">cost</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">best</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>f1 <span class="op">=</span> <span class="va">f1</span>, f3 <span class="op">=</span> <span class="va">f3</span>, f2 <span class="op">=</span> <span class="fl">1</span> <span class="op">-</span> <span class="va">f1</span> <span class="op">-</span> <span class="va">f3</span>, cost <span class="op">=</span> <span class="va">cost</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Optimal flows: f1=%.2f, f2=%.2f, f3=%.2f\n"</span>,</span>
+<span>            <span class="va">best</span><span class="op">$</span><span class="va">f1</span>, <span class="va">best</span><span class="op">$</span><span class="va">f2</span>, <span class="va">best</span><span class="op">$</span><span class="va">f3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Optimal flows: f1=0.50, f2=0.50, f3=0.00</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Optimal cost: %.2f\n"</span>, <span class="va">best</span><span class="op">$</span><span class="va">cost</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Optimal cost: 1.50</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Price of anarchy: %.3f\n"</span>, <span class="va">total_cost_braess</span> <span class="op">/</span> <span class="va">best</span><span class="op">$</span><span class="va">cost</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Price of anarchy: 1.333</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === General Braess: vary shortcut capacity ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Shortcut Latency Sensitivity ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Shortcut Latency Sensitivity ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">shortcut_costs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.5</span>, <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="va">braess_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">shortcut_costs</span>, <span class="kw">function</span><span class="op">(</span><span class="va">c_vw</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># With shortcut cost c_vw, find Wardrop equilibrium</span></span>
+<span>  <span class="co"># Numerical: search over f3 (flow on shortcut)</span></span>
+<span>  <span class="va">best_eq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>f3 <span class="op">=</span> <span class="fl">0</span>, cost <span class="op">=</span> <span class="va">total_cost_orig</span>, latency <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">f3</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.001</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Remaining flow split equally between R1 and R2 (by symmetry)</span></span>
+<span>    <span class="va">f1</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">f3</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span></span>
+<span>    <span class="va">f2</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">f3</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span></span>
+<span></span>
+<span>    <span class="va">f_sv</span> <span class="op">&lt;-</span> <span class="va">f1</span> <span class="op">+</span> <span class="va">f3</span></span>
+<span>    <span class="va">f_wt</span> <span class="op">&lt;-</span> <span class="va">f2</span> <span class="op">+</span> <span class="va">f3</span></span>
+<span></span>
+<span>    <span class="va">lat_R1</span> <span class="op">&lt;-</span> <span class="va">f_sv</span> <span class="op">+</span> <span class="fl">1</span></span>
+<span>    <span class="va">lat_R2</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">f_wt</span></span>
+<span>    <span class="va">lat_R3</span> <span class="op">&lt;-</span> <span class="va">f_sv</span> <span class="op">+</span> <span class="va">c_vw</span> <span class="op">+</span> <span class="va">f_wt</span></span>
+<span></span>
+<span>    <span class="co"># Wardrop: all used routes equal latency</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">f3</span> <span class="op">&gt;</span> <span class="fl">0.001</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="co"># R3 must equal R1 and R2</span></span>
+<span>      <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">lat_R3</span> <span class="op">-</span> <span class="va">lat_R1</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.05</span> <span class="op">&amp;&amp;</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">lat_R3</span> <span class="op">-</span> <span class="va">lat_R2</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span> <span class="op">{</span></span>
+<span>        <span class="va">cost</span> <span class="op">&lt;-</span> <span class="va">f1</span> <span class="op">*</span> <span class="va">lat_R1</span> <span class="op">+</span> <span class="va">f2</span> <span class="op">*</span> <span class="va">lat_R2</span> <span class="op">+</span> <span class="va">f3</span> <span class="op">*</span> <span class="va">lat_R3</span></span>
+<span>        <span class="va">best_eq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>f3 <span class="op">=</span> <span class="va">f3</span>, cost <span class="op">=</span> <span class="va">cost</span>, latency <span class="op">=</span> <span class="va">lat_R1</span><span class="op">)</span></span>
+<span>        <span class="kw">break</span></span>
+<span>      <span class="op">}</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="co"># If no R3 equilibrium found, original equilibrium holds</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">best_eq</span><span class="op">$</span><span class="va">f3</span> <span class="op">&lt;</span> <span class="fl">0.001</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">best_eq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>f3 <span class="op">=</span> <span class="fl">0</span>, cost <span class="op">=</span> <span class="va">total_cost_orig</span>, latency <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>shortcut_cost <span class="op">=</span> <span class="va">c_vw</span>, eq_cost <span class="op">=</span> <span class="va">best_eq</span><span class="op">$</span><span class="va">cost</span>,</span>
+<span>         f3 <span class="op">=</span> <span class="va">best_eq</span><span class="op">$</span><span class="va">f3</span>, original_cost <span class="op">=</span> <span class="va">total_cost_orig</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  %-12s %-12s %-12s %-12s\n"</span>,</span>
+<span>            <span class="st">"c(v→w)"</span>, <span class="st">"Eq cost"</span>, <span class="st">"Flow on SC"</span>, <span class="st">"Paradox?"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  c(v→w)     Eq cost      Flow on SC   Paradox?    </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">braess_data</span><span class="op">)</span>, by <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">row</span> <span class="op">&lt;-</span> <span class="va">braess_data</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  %-12.2f %-12.3f %-12.3f %-12s\n"</span>,</span>
+<span>              <span class="va">row</span><span class="op">$</span><span class="va">shortcut_cost</span>, <span class="va">row</span><span class="op">$</span><span class="va">eq_cost</span>, <span class="va">row</span><span class="op">$</span><span class="va">f3</span>,</span>
+<span>              <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">row</span><span class="op">$</span><span class="va">eq_cost</span> <span class="op">&gt;</span> <span class="va">row</span><span class="op">$</span><span class="va">original_cost</span> <span class="op">+</span> <span class="fl">0.01</span>, <span class="st">"YES"</span>, <span class="st">"no"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  0.00         1.906        0.901        YES         
+  0.30         1.636        0.301        YES         
+  0.60         1.500        0.000        no          
+  0.90         1.500        0.000        no          
+  1.20         1.500        0.000        no          
+  1.50         1.500        0.000        no          </code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">braess_plot</span> <span class="op">&lt;-</span> <span class="va">braess_data</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">eq_cost</span>, <span class="va">original_cost</span><span class="op">)</span>, names_to <span class="op">=</span> <span class="st">"scenario"</span>,</span>
+<span>               values_to <span class="op">=</span> <span class="st">"cost"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>scenario <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">scenario</span> <span class="op">==</span> <span class="st">"eq_cost"</span>, <span class="st">"With shortcut"</span>,</span>
+<span>                            <span class="st">"Without shortcut"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p1</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">braess_plot</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">shortcut_cost</span>, y <span class="op">=</span> <span class="va">cost</span>,</span>
+<span>                               color <span class="op">=</span> <span class="va">scenario</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1.1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"rect"</span>, xmin <span class="op">=</span> <span class="fl">0</span>, xmax <span class="op">=</span> <span class="fl">0.5</span>, ymin <span class="op">=</span> <span class="fl">1.5</span>, ymax <span class="op">=</span> <span class="fl">2.0</span>,</span>
+<span>           alpha <span class="op">=</span> <span class="fl">0.1</span>, fill <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">0.25</span>, y <span class="op">=</span> <span class="fl">1.75</span>, label <span class="op">=</span> <span class="st">"Braess\nparadox"</span>,</span>
+<span>           color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">6</span>, <span class="fl">5</span><span class="op">)</span><span class="op">]</span>, name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Braess's paradox: adding capacity increases cost"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Total equilibrium cost vs shortcut latency"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Shortcut latency c(v→w)"</span>, y <span class="op">=</span> <span class="st">"Total travel cost"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-braess-paradox" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-braess-paradox-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-braess-paradox-1.png" class="img-fluid figure-img" width="3000">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-braess-paradox-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Braess’s paradox: adding a shortcut to a traffic network increases total equilibrium cost. Left: equilibrium total cost as a function of shortcut latency c(v→w). When the shortcut is free (c=0), the paradox is strongest — cost increases from 1.5 to 2.0. As shortcut cost increases, the paradox weakens and eventually the shortcut is unused. Right: fraction of traffic using the shortcut route. The paradox occurs precisely when drivers are attracted to the shortcut despite its negative externality. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Price of anarchy for different network structures</span></span>
+<span><span class="co"># Pigou network: s→t with l(f)=f and l=1</span></span>
+<span><span class="co"># PoA for polynomial latency l(f) = f^d</span></span>
+<span><span class="va">degree_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="va">poa_data</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  degree <span class="op">=</span> <span class="va">degree_seq</span>,</span>
+<span>  poa <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">degree_seq</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># For l(f) = f^d, Pigou PoA = 1 - d * (d+1)^(-1-1/d) + (simplified bound)</span></span>
+<span>    <span class="co"># Roughgarden-Tardos bound for degree d polynomials</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">d</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="co"># PoA = (1 + (d+1)^(-(d+1)/d)) / (1 - d/(d+1) * (1/(d+1))^(1/d))</span></span>
+<span>    <span class="co"># Simplified: for Pigou with l(f)=f^d, PoA = (1 + 1/d)^d / ((1+1/d)^d - 1/d)</span></span>
+<span>    <span class="co"># Actually compute directly</span></span>
+<span>    <span class="co"># Equilibrium: all flow on l(f)=f^d edge when f^d = 1, so f=1</span></span>
+<span>    <span class="co"># Social optimum: min f*(f^d) + (1-f)*1 = min f^(d+1) + 1 - f</span></span>
+<span>    <span class="va">opt_f</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="va">d</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="va">d</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">opt_f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">opt_f</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">opt_cost</span> <span class="op">&lt;-</span> <span class="va">opt_f</span><span class="op">^</span><span class="op">(</span><span class="va">d</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">opt_f</span><span class="op">)</span></span>
+<span>    <span class="va">eq_cost</span> <span class="op">&lt;-</span> <span class="fl">1</span>  <span class="co"># all on congested: 1^d = 1</span></span>
+<span>    <span class="va">eq_cost</span> <span class="op">/</span> <span class="va">opt_cost</span></span>
+<span>  <span class="op">}</span><span class="op">)</span>,</span>
+<span>  text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Degree d = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">degree_seq</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>                <span class="st">"\nPrice of anarchy: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">degree_seq</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">d</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">opt_f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="va">d</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="va">d</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">opt_cost</span> <span class="op">&lt;-</span> <span class="va">opt_f</span><span class="op">^</span><span class="op">(</span><span class="va">d</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">opt_f</span><span class="op">)</span></span>
+<span>    <span class="fl">1</span> <span class="op">/</span> <span class="va">opt_cost</span></span>
+<span>  <span class="op">}</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_poa</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">poa_data</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">degree</span>, y <span class="op">=</span> <span class="va">poa</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">1.1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">4</span><span class="op">/</span><span class="fl">3</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">4.5</span>, y <span class="op">=</span> <span class="fl">4</span><span class="op">/</span><span class="fl">3</span> <span class="op">+</span> <span class="fl">0.05</span>, label <span class="op">=</span> <span class="st">"4/3 (linear bound)"</span>,</span>
+<span>           color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Price of anarchy grows with latency function degree"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Pigou network: l(f) = f^d; PoA = 4/3 for linear (d=1)"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Latency function degree d"</span>, y <span class="op">=</span> <span class="st">"Price of anarchy"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_poa</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>, modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-poa-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-poa-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-30e4409849e39179307f" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-30e4409849e39179307f">{"x":{"data":[{"x":[0,null,0.10000000000000001,null,0.20000000000000001,null,0.30000000000000004,null,0.40000000000000002,null,0.5,null,0.60000000000000009,null,0.70000000000000007,null,0.80000000000000004,null,0.90000000000000002,null,1,null,1.1000000000000001,null,1.2000000000000002,null,1.3,null,1.4000000000000001,null,1.5,null,1.6000000000000001,null,1.7000000000000002,null,1.8,null,1.9000000000000001,null,2,null,2.1000000000000001,null,2.2000000000000002,null,2.3000000000000003,null,2.4000000000000004,null,2.5,null,2.6000000000000001,null,2.7000000000000002,null,2.8000000000000003,null,2.9000000000000004,null,3,null,3.1000000000000001,null,3.2000000000000002,null,3.3000000000000003,null,3.4000000000000004,null,3.5,null,3.6000000000000001,null,3.7000000000000002,null,3.8000000000000003,null,3.9000000000000004,null,4,null,4.1000000000000005,null,4.2000000000000002,null,4.2999999999999998,null,4.4000000000000004,null,4.5,null,4.6000000000000005,null,4.7000000000000002,null,4.8000000000000007,null,4.9000000000000004,null,5],"y":[1,null,1.0363224703762357,null,1.0717879212515218,null,1.1064914635670378,null,1.1405113764376962,null,1.1739130434782608,null,1.20675177281181,null,1.2390748662774338,null,1.2709231694502083,null,1.3023322538905004,null,1.3333333333333333,null,1.3639539837852641,null,1.3942187166844715,null,1.4241494403131296,null,1.4537658350810112,null,1.4830856616177412,null,1.5121250158667205,null,1.5408985419526051,null,1.5694196110924548,null,1.597700472967476,null,1.6257523845831854,null,1.6535857205931948,null,1.6812100682559687,null,1.7086343095712484,null,1.7358666926574104,null,1.7629148940495385,null,1.7897860732958513,null,1.8164869209891177,null,1.8430237011761543,null,1.8694022889320761,null,1.8956282037587904,null,1.9217066393632463,null,1.9476424902854588,null,1.973440375775708,null,1.9991046612616641,null,2.0246394776972991,null,2.0500487390444539,null,2.0753361581034984,null,2.1005052608803907,null,2.1255593996527891,null,2.1505017648768776,null,2.1753353960586361,null,2.2000631916979541,null,2.2246879184007793,null,2.249212219243141,null,2.2736386214610427,null,2.2979695435317149,null,2.3222073017043061,null,2.346354116031633,null,2.370412115948977,null,2.394383345440978],"text":["Degree d = 0<br />Price of anarchy: 1",null,"Degree d = 0.1<br />Price of anarchy: 1.036",null,"Degree d = 0.2<br />Price of anarchy: 1.072",null,"Degree d = 0.3<br />Price of anarchy: 1.106",null,"Degree d = 0.4<br />Price of anarchy: 1.141",null,"Degree d = 0.5<br />Price of anarchy: 1.174",null,"Degree d = 0.6<br />Price of anarchy: 1.207",null,"Degree d = 0.7<br />Price of anarchy: 1.239",null,"Degree d = 0.8<br />Price of anarchy: 1.271",null,"Degree d = 0.9<br />Price of anarchy: 1.302",null,"Degree d = 1<br />Price of anarchy: 1.333",null,"Degree d = 1.1<br />Price of anarchy: 1.364",null,"Degree d = 1.2<br />Price of anarchy: 1.394",null,"Degree d = 1.3<br />Price of anarchy: 1.424",null,"Degree d = 1.4<br />Price of anarchy: 1.454",null,"Degree d = 1.5<br />Price of anarchy: 1.483",null,"Degree d = 1.6<br />Price of anarchy: 1.512",null,"Degree d = 1.7<br />Price of anarchy: 1.541",null,"Degree d = 1.8<br />Price of anarchy: 1.569",null,"Degree d = 1.9<br />Price of anarchy: 1.598",null,"Degree d = 2<br />Price of anarchy: 1.626",null,"Degree d = 2.1<br />Price of anarchy: 1.654",null,"Degree d = 2.2<br />Price of anarchy: 1.681",null,"Degree d = 2.3<br />Price of anarchy: 1.709",null,"Degree d = 2.4<br />Price of anarchy: 1.736",null,"Degree d = 2.5<br />Price of anarchy: 1.763",null,"Degree d = 2.6<br />Price of anarchy: 1.79",null,"Degree d = 2.7<br />Price of anarchy: 1.816",null,"Degree d = 2.8<br />Price of anarchy: 1.843",null,"Degree d = 2.9<br />Price of anarchy: 1.869",null,"Degree d = 3<br />Price of anarchy: 1.896",null,"Degree d = 3.1<br />Price of anarchy: 1.922",null,"Degree d = 3.2<br />Price of anarchy: 1.948",null,"Degree d = 3.3<br />Price of anarchy: 1.973",null,"Degree d = 3.4<br />Price of anarchy: 1.999",null,"Degree d = 3.5<br />Price of anarchy: 2.025",null,"Degree d = 3.6<br />Price of anarchy: 2.05",null,"Degree d = 3.7<br />Price of anarchy: 2.075",null,"Degree d = 3.8<br />Price of anarchy: 2.101",null,"Degree d = 3.9<br />Price of anarchy: 2.126",null,"Degree d = 4<br />Price of anarchy: 2.151",null,"Degree d = 4.1<br />Price of anarchy: 2.175",null,"Degree d = 4.2<br />Price of anarchy: 2.2",null,"Degree d = 4.3<br />Price of anarchy: 2.225",null,"Degree d = 4.4<br />Price of anarchy: 2.249",null,"Degree d = 4.5<br />Price of anarchy: 2.274",null,"Degree d = 4.6<br />Price of anarchy: 2.298",null,"Degree d = 4.7<br />Price of anarchy: 2.322",null,"Degree d = 4.8<br />Price of anarchy: 2.346",null,"Degree d = 4.9<br />Price of anarchy: 2.37",null,"Degree d = 5<br />Price of anarchy: 2.394"],"type":"scatter","mode":"lines","line":{"width":4.1574803149606305,"color":"rgba(213,94,0,1)","dash":"solid"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[-0.25,5.25],"y":[1.3333333333333333,1.3333333333333333],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(0,114,178,1)","dash":"dash"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[4.5],"y":[1.3833333333333333],"text":"4/3 (linear bound)","hovertext":"","textfont":{"size":11.338582677165356,"color":"rgba(0,114,178,1)"},"type":"scatter","mode":"text","hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":52.337069323370706},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Price of anarchy grows with latency function degree <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.25,5.25],"tickmode":"array","ticktext":["0","1","2","3","4","5"],"tickvals":[0,1,2,3,4,5],"categoryorder":"array","categoryarray":["0","1","2","3","4","5"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Latency function degree d","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.93028083272795115,2.4641025127130267],"tickmode":"array","ticktext":["1.0","1.5","2.0"],"tickvals":[1,1.5,2],"categoryorder":"array","categoryarray":["1.0","1.5","2.0"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Price of anarchy","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top"},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"1dcf37b41c4a":{"x":{},"y":{},"text":{},"type":"scatter"},"1dcf75104f78":{"yintercept":{}},"1dcf650aed6c":{"x":{},"y":{}}},"cur_data":"1dcf37b41c4a","visdat":{"1dcf37b41c4a":["function (y) ","x"],"1dcf75104f78":["function (y) ","x"],"1dcf650aed6c":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-poa-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>Braess’s paradox is a vivid demonstration of the gap between individual rationality and collective welfare in games. Each driver, acting in their own self-interest, chooses the route that minimises their personal travel time. When a new, apparently beneficial road is added, drivers flock to it — but the resulting congestion on shared edges makes everyone worse off. The paradox is not a theoretical curiosity: it has been documented in real road networks, and traffic engineers have found that closing certain roads can actually improve traffic flow. The paradox has analogues in electrical networks (adding a wire can reduce total current flow), in mechanical systems (adding a spring can weaken a structure), and in computer networks (adding bandwidth can reduce throughput under selfish routing protocols).</p>
+<p>The price of anarchy analysis quantifies the worst-case inefficiency of selfish routing. For the Braess network with linear latency functions, the equilibrium cost is 2.0 while the social optimum is 1.5, giving a price of anarchy of 4/3 — which exactly matches the Roughgarden-Tardos upper bound for linear latency functions. This is not a coincidence: the Braess/Pigou network is the worst-case instance for linear latencies. For polynomial latency functions of degree <span class="math inline">\(d\)</span>, the price of anarchy grows without bound as <span class="math inline">\(d\)</span> increases, reflecting the fact that steeper congestion effects amplify the externality that each driver imposes on others.</p>
+<p>The policy implications are direct and important. First, capacity expansion is not always beneficial in networks with strategic users — a result that challenges the intuition of network planners who assume more is always better. Second, congestion pricing (Pigouvian taxes) can restore efficiency by making drivers internalise the externality they impose. In the Braess network, a toll on the shortcut equal to the marginal congestion cost would discourage over-use and restore the social optimum. Third, the Wardrop equilibrium concept — equal travel time on all used routes — is the right equilibrium concept for large traffic networks where individual drivers are infinitesimal, and it connects naturally to the theory of potential games. The fact that selfish routing is guaranteed to be at most 33% worse than optimal (for linear latencies) is both a reassuring bound and a quantification of the “price of freedom” — the cost society pays for allowing individuals to make their own routing decisions rather than imposing centrally planned routes.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../congestion-games-potential/">Congestion games and potential functions</a> — the general theory behind routing games.</li>
+<li>
+<a href="../public-goods-on-networks/">Public goods on networks</a> — strategic behaviour on network structures.</li>
+<li>
+<a href="../network-formation-strategic/">Network formation and strategic linking</a> — when players choose network structure.</li>
+<li>
+<a href="../../case-studies/tragedy-of-the-commons/">Tragedy of the commons</a> — another model of collective action failure.</li>
+<li>
+<a href="../../classical-games/colonel-blotto/">Colonel Blotto game</a> — resource allocation across multiple battlefields.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Braess’s Paradox — When Adding Roads Makes Traffic Worse},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/network-games/braess-paradox-routing/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Braess’s Paradox — When Adding Roads Makes
+Traffic Worse.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/network-games/braess-paradox-routing/">https://r-heller.github.io/equilibria/tutorials/network-games/braess-paradox-routing/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Braess's paradox — when adding roads makes traffic worse"</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Implement Braess's paradox in R, compute Wardrop equilibrium flows on networks with selfish routing, demonstrate how adding capacity can increase total latency, and compare the price of anarchy across network topologies."</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - network-games</span></span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - braess-paradox</span></span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - routing-games</span></span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - price-of-anarchy</span></span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["Braess paradox", "Wardrop equilibrium", "selfish routing", "price of anarchy", "congestion game", "network routing"]</span></span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["network-games", "inefficiency"]</span></span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_network-games_braess-paradox-routing"</span></span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Network diagram showing how adding a zero-cost link increases equilibrium total latency in Braess's paradox"</span></span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb37-21"><a href="#cb37-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/network-games/braess-paradox-routing/</span></span>
+<span id="cb37-22"><a href="#cb37-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY-SA 4.0"</span></span>
+<span id="cb37-23"><a href="#cb37-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb37-24"><a href="#cb37-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb37-25"><a href="#cb37-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb37-26"><a href="#cb37-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb37-27"><a href="#cb37-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb37-28"><a href="#cb37-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-31"><a href="#cb37-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb37-32"><a href="#cb37-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb37-33"><a href="#cb37-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb37-34"><a href="#cb37-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb37-35"><a href="#cb37-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb37-36"><a href="#cb37-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb37-37"><a href="#cb37-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb37-38"><a href="#cb37-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb37-39"><a href="#cb37-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb37-40"><a href="#cb37-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb37-41"><a href="#cb37-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb37-42"><a href="#cb37-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb37-43"><a href="#cb37-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb37-44"><a href="#cb37-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb37-45"><a href="#cb37-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb37-46"><a href="#cb37-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb37-47"><a href="#cb37-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-48"><a href="#cb37-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb37-49"><a href="#cb37-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-50"><a href="#cb37-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-51"><a href="#cb37-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb37-52"><a href="#cb37-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-53"><a href="#cb37-53" aria-hidden="true" tabindex="-1"></a>In 1968, the German mathematician Dietrich Braess discovered a startling paradox in network routing: **adding a new road to a traffic network can increase the total travel time for all drivers**. This counterintuitive result, now known as **Braess's paradox**, is one of the most celebrated examples of how individual rationality leads to collective irrationality in games. The paradox has been confirmed in real traffic networks (the closure of 42nd Street in New York City actually improved traffic flow), in telecommunications networks, in electrical circuits, and in mechanical spring systems.</span>
+<span id="cb37-54"><a href="#cb37-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-55"><a href="#cb37-55" aria-hidden="true" tabindex="-1"></a>The setup is deceptively simple. Consider a network with two routes from origin $s$ to destination $t$, each consisting of two edges. Route 1 uses a congestion-sensitive edge followed by a constant-latency edge; Route 2 uses a constant-latency edge followed by a congestion-sensitive edge. In the original network, the symmetric equilibrium splits traffic equally between the two routes, achieving reasonable total latency. Now add a zero-cost shortcut connecting the middle nodes of the two routes. Intuitively, adding a free road should only help — drivers now have more options. But in equilibrium, every driver uses the shortcut, routing through both congestion-sensitive edges, and total latency increases. The new road makes everyone worse off.</span>
+<span id="cb37-56"><a href="#cb37-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-57"><a href="#cb37-57" aria-hidden="true" tabindex="-1"></a>The paradox is a special case of the broader theory of **selfish routing** and the **price of anarchy** — the ratio between the worst-case equilibrium cost and the socially optimal cost. In routing games, the price of anarchy quantifies how much efficiency is lost when drivers choose routes selfishly rather than following a central planner's recommendations. Roughgarden and Tardos (2002) proved that for linear latency functions, the price of anarchy is at most 4/3 — remarkably, selfish routing can never waste more than 33% of the optimal travel time. But for more general latency functions (polynomial, exponential), the price of anarchy can be arbitrarily large.</span>
+<span id="cb37-58"><a href="#cb37-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-59"><a href="#cb37-59" aria-hidden="true" tabindex="-1"></a>The connection to game theory runs deep. Routing games are a special case of **congestion games** (Rosenthal 1973), which are potential games — they admit a potential function whose minimisers are Nash equilibria. The equilibrium concept in routing is **Wardrop equilibrium**: all used routes have equal latency, and no unused route has lower latency. This is the continuous analogue of Nash equilibrium for non-atomic games (games with a continuum of infinitesimal players). This tutorial implements the Braess network, computes Wardrop equilibria, demonstrates the paradox, quantifies the price of anarchy, and explores how network topology affects the severity of the inefficiency.</span>
+<span id="cb37-60"><a href="#cb37-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-61"><a href="#cb37-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-62"><a href="#cb37-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb37-63"><a href="#cb37-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-64"><a href="#cb37-64" aria-hidden="true" tabindex="-1"></a>**Routing game**: Network $G = (V, E)$ with source $s$, destination $t$, total traffic flow $d$. Each edge $e$ has latency function $\ell_e(f_e)$ where $f_e$ is the flow on edge $e$.</span>
+<span id="cb37-65"><a href="#cb37-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-66"><a href="#cb37-66" aria-hidden="true" tabindex="-1"></a>**Wardrop equilibrium**: A flow $f$ is a Wardrop equilibrium if for every pair of routes $r_1, r_2$ with $f_{r_1} &gt; 0$:</span>
+<span id="cb37-67"><a href="#cb37-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-68"><a href="#cb37-68" aria-hidden="true" tabindex="-1"></a>$$\sum_{e \in r_1} \ell_e(f_e) \leq \sum_{e \in r_2} \ell_e(f_e)$$</span>
+<span id="cb37-69"><a href="#cb37-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-70"><a href="#cb37-70" aria-hidden="true" tabindex="-1"></a>All used routes have equal latency.</span>
+<span id="cb37-71"><a href="#cb37-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-72"><a href="#cb37-72" aria-hidden="true" tabindex="-1"></a>**Braess network**: 4 nodes $<span class="sc">\{</span>s, v, w, t<span class="sc">\}</span>$.</span>
+<span id="cb37-73"><a href="#cb37-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-74"><a href="#cb37-74" aria-hidden="true" tabindex="-1"></a>Without shortcut: Route 1 ($s \to v \to t$): $\ell_{sv}(f) = f$, $\ell_{vt} = 1$. Route 2 ($s \to w \to t$): $\ell_{sw} = 1$, $\ell_{wt}(f) = f$. Total flow $d = 1$.</span>
+<span id="cb37-75"><a href="#cb37-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-76"><a href="#cb37-76" aria-hidden="true" tabindex="-1"></a>With shortcut: Add edge $v \to w$ with $\ell_{vw} = 0$. Route 3 ($s \to v \to w \to t$) now available.</span>
+<span id="cb37-77"><a href="#cb37-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-78"><a href="#cb37-78" aria-hidden="true" tabindex="-1"></a>**Price of anarchy**: $\text{PoA} = \frac{C(\text{equilibrium flow})}{C(\text{optimal flow})}$ where $C(f) = \sum_e f_e \cdot \ell_e(f_e)$.</span>
+<span id="cb37-79"><a href="#cb37-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-80"><a href="#cb37-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-81"><a href="#cb37-81" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb37-82"><a href="#cb37-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-85"><a href="#cb37-85" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb37-86"><a href="#cb37-86" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: braess-paradox</span></span>
+<span id="cb37-87"><a href="#cb37-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-88"><a href="#cb37-88" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb37-89"><a href="#cb37-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-90"><a href="#cb37-90" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Braess's Paradox ===</span><span class="sc">\n\n</span><span class="st">"</span>)</span>
+<span id="cb37-91"><a href="#cb37-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-92"><a href="#cb37-92" aria-hidden="true" tabindex="-1"></a><span class="co"># === Original network (no shortcut) ===</span></span>
+<span id="cb37-93"><a href="#cb37-93" aria-hidden="true" tabindex="-1"></a><span class="co"># Routes: R1 = s→v→t, R2 = s→w→t</span></span>
+<span id="cb37-94"><a href="#cb37-94" aria-hidden="true" tabindex="-1"></a><span class="co"># Latencies: l_sv(f) = f, l_vt = 1, l_sw = 1, l_wt(f) = f</span></span>
+<span id="cb37-95"><a href="#cb37-95" aria-hidden="true" tabindex="-1"></a><span class="co"># Total flow d = 1</span></span>
+<span id="cb37-96"><a href="#cb37-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-97"><a href="#cb37-97" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"--- Original Network (no shortcut) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb37-98"><a href="#cb37-98" aria-hidden="true" tabindex="-1"></a><span class="co"># Wardrop equilibrium: latency(R1) = latency(R2)</span></span>
+<span id="cb37-99"><a href="#cb37-99" aria-hidden="true" tabindex="-1"></a><span class="co"># f1 + 1 = 1 + f2, where f1 + f2 = 1</span></span>
+<span id="cb37-100"><a href="#cb37-100" aria-hidden="true" tabindex="-1"></a><span class="co"># f1 + 1 = 1 + (1-f1) → 2f1 = 1 → f1 = 0.5</span></span>
+<span id="cb37-101"><a href="#cb37-101" aria-hidden="true" tabindex="-1"></a>f1_orig <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb37-102"><a href="#cb37-102" aria-hidden="true" tabindex="-1"></a>f2_orig <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb37-103"><a href="#cb37-103" aria-hidden="true" tabindex="-1"></a>latency_R1 <span class="ot">&lt;-</span> f1_orig <span class="sc">+</span> <span class="dv">1</span>  <span class="co"># = 1.5</span></span>
+<span id="cb37-104"><a href="#cb37-104" aria-hidden="true" tabindex="-1"></a>latency_R2 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> f2_orig  <span class="co"># = 1.5</span></span>
+<span id="cb37-105"><a href="#cb37-105" aria-hidden="true" tabindex="-1"></a>total_cost_orig <span class="ot">&lt;-</span> f1_orig <span class="sc">*</span> latency_R1 <span class="sc">+</span> f2_orig <span class="sc">*</span> latency_R2</span>
+<span id="cb37-106"><a href="#cb37-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-107"><a href="#cb37-107" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Route 1 flow: %.2f, latency: %.2f</span><span class="sc">\n</span><span class="st">"</span>, f1_orig, latency_R1))</span>
+<span id="cb37-108"><a href="#cb37-108" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Route 2 flow: %.2f, latency: %.2f</span><span class="sc">\n</span><span class="st">"</span>, f2_orig, latency_R2))</span>
+<span id="cb37-109"><a href="#cb37-109" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Total cost: %.2f</span><span class="sc">\n</span><span class="st">"</span>, total_cost_orig))</span>
+<span id="cb37-110"><a href="#cb37-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-111"><a href="#cb37-111" aria-hidden="true" tabindex="-1"></a><span class="co"># === Network with shortcut ===</span></span>
+<span id="cb37-112"><a href="#cb37-112" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Network WITH shortcut (s→v→w→t) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb37-113"><a href="#cb37-113" aria-hidden="true" tabindex="-1"></a><span class="co"># Routes: R1 = s→v→t, R2 = s→w→t, R3 = s→v→w→t</span></span>
+<span id="cb37-114"><a href="#cb37-114" aria-hidden="true" tabindex="-1"></a><span class="co"># R3 latency: l_sv(f_sv) + 0 + l_wt(f_wt)</span></span>
+<span id="cb37-115"><a href="#cb37-115" aria-hidden="true" tabindex="-1"></a><span class="co"># where f_sv = f1 + f3, f_wt = f2 + f3</span></span>
+<span id="cb37-116"><a href="#cb37-116" aria-hidden="true" tabindex="-1"></a><span class="co"># At equilibrium, check if R3 dominates:</span></span>
+<span id="cb37-117"><a href="#cb37-117" aria-hidden="true" tabindex="-1"></a><span class="co"># If all use R3: f1=f2=0, f3=1</span></span>
+<span id="cb37-118"><a href="#cb37-118" aria-hidden="true" tabindex="-1"></a><span class="co"># R3 latency = f_sv(=1) + 0 + f_wt(=1) = 2</span></span>
+<span id="cb37-119"><a href="#cb37-119" aria-hidden="true" tabindex="-1"></a><span class="co"># R1 latency = f_sv(=1) + 1 = 2</span></span>
+<span id="cb37-120"><a href="#cb37-120" aria-hidden="true" tabindex="-1"></a><span class="co"># R2 latency = 1 + f_wt(=1) = 2</span></span>
+<span id="cb37-121"><a href="#cb37-121" aria-hidden="true" tabindex="-1"></a><span class="co"># All routes equal at latency 2 → this is Wardrop equilibrium!</span></span>
+<span id="cb37-122"><a href="#cb37-122" aria-hidden="true" tabindex="-1"></a>f3_braess <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb37-123"><a href="#cb37-123" aria-hidden="true" tabindex="-1"></a>latency_braess <span class="ot">&lt;-</span> <span class="fl">2.0</span></span>
+<span id="cb37-124"><a href="#cb37-124" aria-hidden="true" tabindex="-1"></a>total_cost_braess <span class="ot">&lt;-</span> f3_braess <span class="sc">*</span> latency_braess</span>
+<span id="cb37-125"><a href="#cb37-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-126"><a href="#cb37-126" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  All traffic on shortcut route: flow = %.2f</span><span class="sc">\n</span><span class="st">"</span>, f3_braess))</span>
+<span id="cb37-127"><a href="#cb37-127" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Equilibrium latency: %.2f</span><span class="sc">\n</span><span class="st">"</span>, latency_braess))</span>
+<span id="cb37-128"><a href="#cb37-128" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Total cost: %.2f</span><span class="sc">\n</span><span class="st">"</span>, total_cost_braess))</span>
+<span id="cb37-129"><a href="#cb37-129" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Increase from adding shortcut: %.2f → %.2f (+%.0f%%)</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb37-130"><a href="#cb37-130" aria-hidden="true" tabindex="-1"></a>            total_cost_orig, total_cost_braess,</span>
+<span id="cb37-131"><a href="#cb37-131" aria-hidden="true" tabindex="-1"></a>            <span class="dv">100</span> <span class="sc">*</span> (total_cost_braess <span class="sc">/</span> total_cost_orig <span class="sc">-</span> <span class="dv">1</span>)))</span>
+<span id="cb37-132"><a href="#cb37-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-133"><a href="#cb37-133" aria-hidden="true" tabindex="-1"></a><span class="co"># === Social optimum with shortcut ===</span></span>
+<span id="cb37-134"><a href="#cb37-134" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Social Optimum (with shortcut) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb37-135"><a href="#cb37-135" aria-hidden="true" tabindex="-1"></a><span class="co"># Optimise over (f1, f2, f3) with f1+f2+f3=1, fi &gt;= 0</span></span>
+<span id="cb37-136"><a href="#cb37-136" aria-hidden="true" tabindex="-1"></a><span class="co"># C = f_sv * l_sv(f_sv) + f_vt * l_vt + f_sw * l_sw + f_wt * l_wt(f_wt)</span></span>
+<span id="cb37-137"><a href="#cb37-137" aria-hidden="true" tabindex="-1"></a><span class="co"># where f_sv = f1+f3, f_vt = f1, f_sw = f2, f_wt = f2+f3</span></span>
+<span id="cb37-138"><a href="#cb37-138" aria-hidden="true" tabindex="-1"></a>social_cost <span class="ot">&lt;-</span> <span class="cf">function</span>(f1, f3) {</span>
+<span id="cb37-139"><a href="#cb37-139" aria-hidden="true" tabindex="-1"></a>  f2 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> f1 <span class="sc">-</span> f3</span>
+<span id="cb37-140"><a href="#cb37-140" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (f2 <span class="sc">&lt;</span> <span class="sc">-</span><span class="fl">1e-10</span> <span class="sc">||</span> f1 <span class="sc">&lt;</span> <span class="sc">-</span><span class="fl">1e-10</span> <span class="sc">||</span> f3 <span class="sc">&lt;</span> <span class="sc">-</span><span class="fl">1e-10</span>) <span class="fu">return</span>(<span class="cn">Inf</span>)</span>
+<span id="cb37-141"><a href="#cb37-141" aria-hidden="true" tabindex="-1"></a>  f_sv <span class="ot">&lt;-</span> f1 <span class="sc">+</span> f3</span>
+<span id="cb37-142"><a href="#cb37-142" aria-hidden="true" tabindex="-1"></a>  f_wt <span class="ot">&lt;-</span> f2 <span class="sc">+</span> f3</span>
+<span id="cb37-143"><a href="#cb37-143" aria-hidden="true" tabindex="-1"></a>  f_sv<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> f1 <span class="sc">*</span> <span class="dv">1</span> <span class="sc">+</span> f2 <span class="sc">*</span> <span class="dv">1</span> <span class="sc">+</span> f_wt<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb37-144"><a href="#cb37-144" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-145"><a href="#cb37-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-146"><a href="#cb37-146" aria-hidden="true" tabindex="-1"></a><span class="co"># Grid search</span></span>
+<span id="cb37-147"><a href="#cb37-147" aria-hidden="true" tabindex="-1"></a>best <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">cost =</span> <span class="cn">Inf</span>)</span>
+<span id="cb37-148"><a href="#cb37-148" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (f1 <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.01</span>)) {</span>
+<span id="cb37-149"><a href="#cb37-149" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (f3 <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span> <span class="sc">-</span> f1, <span class="fl">0.01</span>)) {</span>
+<span id="cb37-150"><a href="#cb37-150" aria-hidden="true" tabindex="-1"></a>    cost <span class="ot">&lt;-</span> <span class="fu">social_cost</span>(f1, f3)</span>
+<span id="cb37-151"><a href="#cb37-151" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (cost <span class="sc">&lt;</span> best<span class="sc">$</span>cost) {</span>
+<span id="cb37-152"><a href="#cb37-152" aria-hidden="true" tabindex="-1"></a>      best <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">f1 =</span> f1, <span class="at">f3 =</span> f3, <span class="at">f2 =</span> <span class="dv">1</span> <span class="sc">-</span> f1 <span class="sc">-</span> f3, <span class="at">cost =</span> cost)</span>
+<span id="cb37-153"><a href="#cb37-153" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb37-154"><a href="#cb37-154" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb37-155"><a href="#cb37-155" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-156"><a href="#cb37-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-157"><a href="#cb37-157" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Optimal flows: f1=%.2f, f2=%.2f, f3=%.2f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb37-158"><a href="#cb37-158" aria-hidden="true" tabindex="-1"></a>            best<span class="sc">$</span>f1, best<span class="sc">$</span>f2, best<span class="sc">$</span>f3))</span>
+<span id="cb37-159"><a href="#cb37-159" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Optimal cost: %.2f</span><span class="sc">\n</span><span class="st">"</span>, best<span class="sc">$</span>cost))</span>
+<span id="cb37-160"><a href="#cb37-160" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Price of anarchy: %.3f</span><span class="sc">\n</span><span class="st">"</span>, total_cost_braess <span class="sc">/</span> best<span class="sc">$</span>cost))</span>
+<span id="cb37-161"><a href="#cb37-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-162"><a href="#cb37-162" aria-hidden="true" tabindex="-1"></a><span class="co"># === General Braess: vary shortcut capacity ===</span></span>
+<span id="cb37-163"><a href="#cb37-163" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Shortcut Latency Sensitivity ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb37-164"><a href="#cb37-164" aria-hidden="true" tabindex="-1"></a>shortcut_costs <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="fl">0.1</span>)</span>
+<span id="cb37-165"><a href="#cb37-165" aria-hidden="true" tabindex="-1"></a>braess_data <span class="ot">&lt;-</span> <span class="fu">lapply</span>(shortcut_costs, <span class="cf">function</span>(c_vw) {</span>
+<span id="cb37-166"><a href="#cb37-166" aria-hidden="true" tabindex="-1"></a>  <span class="co"># With shortcut cost c_vw, find Wardrop equilibrium</span></span>
+<span id="cb37-167"><a href="#cb37-167" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Numerical: search over f3 (flow on shortcut)</span></span>
+<span id="cb37-168"><a href="#cb37-168" aria-hidden="true" tabindex="-1"></a>  best_eq <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">f3 =</span> <span class="dv">0</span>, <span class="at">cost =</span> total_cost_orig, <span class="at">latency =</span> <span class="fl">1.5</span>)</span>
+<span id="cb37-169"><a href="#cb37-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-170"><a href="#cb37-170" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (f3 <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="fl">0.001</span>)) {</span>
+<span id="cb37-171"><a href="#cb37-171" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Remaining flow split equally between R1 and R2 (by symmetry)</span></span>
+<span id="cb37-172"><a href="#cb37-172" aria-hidden="true" tabindex="-1"></a>    f1 <span class="ot">&lt;-</span> (<span class="dv">1</span> <span class="sc">-</span> f3) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb37-173"><a href="#cb37-173" aria-hidden="true" tabindex="-1"></a>    f2 <span class="ot">&lt;-</span> (<span class="dv">1</span> <span class="sc">-</span> f3) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb37-174"><a href="#cb37-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-175"><a href="#cb37-175" aria-hidden="true" tabindex="-1"></a>    f_sv <span class="ot">&lt;-</span> f1 <span class="sc">+</span> f3</span>
+<span id="cb37-176"><a href="#cb37-176" aria-hidden="true" tabindex="-1"></a>    f_wt <span class="ot">&lt;-</span> f2 <span class="sc">+</span> f3</span>
+<span id="cb37-177"><a href="#cb37-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-178"><a href="#cb37-178" aria-hidden="true" tabindex="-1"></a>    lat_R1 <span class="ot">&lt;-</span> f_sv <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb37-179"><a href="#cb37-179" aria-hidden="true" tabindex="-1"></a>    lat_R2 <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> f_wt</span>
+<span id="cb37-180"><a href="#cb37-180" aria-hidden="true" tabindex="-1"></a>    lat_R3 <span class="ot">&lt;-</span> f_sv <span class="sc">+</span> c_vw <span class="sc">+</span> f_wt</span>
+<span id="cb37-181"><a href="#cb37-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-182"><a href="#cb37-182" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Wardrop: all used routes equal latency</span></span>
+<span id="cb37-183"><a href="#cb37-183" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (f3 <span class="sc">&gt;</span> <span class="fl">0.001</span>) {</span>
+<span id="cb37-184"><a href="#cb37-184" aria-hidden="true" tabindex="-1"></a>      <span class="co"># R3 must equal R1 and R2</span></span>
+<span id="cb37-185"><a href="#cb37-185" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">abs</span>(lat_R3 <span class="sc">-</span> lat_R1) <span class="sc">&lt;</span> <span class="fl">0.05</span> <span class="sc">&amp;&amp;</span> <span class="fu">abs</span>(lat_R3 <span class="sc">-</span> lat_R2) <span class="sc">&lt;</span> <span class="fl">0.05</span>) {</span>
+<span id="cb37-186"><a href="#cb37-186" aria-hidden="true" tabindex="-1"></a>        cost <span class="ot">&lt;-</span> f1 <span class="sc">*</span> lat_R1 <span class="sc">+</span> f2 <span class="sc">*</span> lat_R2 <span class="sc">+</span> f3 <span class="sc">*</span> lat_R3</span>
+<span id="cb37-187"><a href="#cb37-187" aria-hidden="true" tabindex="-1"></a>        best_eq <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">f3 =</span> f3, <span class="at">cost =</span> cost, <span class="at">latency =</span> lat_R1)</span>
+<span id="cb37-188"><a href="#cb37-188" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span></span>
+<span id="cb37-189"><a href="#cb37-189" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb37-190"><a href="#cb37-190" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb37-191"><a href="#cb37-191" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb37-192"><a href="#cb37-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-193"><a href="#cb37-193" aria-hidden="true" tabindex="-1"></a>  <span class="co"># If no R3 equilibrium found, original equilibrium holds</span></span>
+<span id="cb37-194"><a href="#cb37-194" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (best_eq<span class="sc">$</span>f3 <span class="sc">&lt;</span> <span class="fl">0.001</span>) {</span>
+<span id="cb37-195"><a href="#cb37-195" aria-hidden="true" tabindex="-1"></a>    best_eq <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">f3 =</span> <span class="dv">0</span>, <span class="at">cost =</span> total_cost_orig, <span class="at">latency =</span> <span class="fl">1.5</span>)</span>
+<span id="cb37-196"><a href="#cb37-196" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb37-197"><a href="#cb37-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-198"><a href="#cb37-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">shortcut_cost =</span> c_vw, <span class="at">eq_cost =</span> best_eq<span class="sc">$</span>cost,</span>
+<span id="cb37-199"><a href="#cb37-199" aria-hidden="true" tabindex="-1"></a>         <span class="at">f3 =</span> best_eq<span class="sc">$</span>f3, <span class="at">original_cost =</span> total_cost_orig)</span>
+<span id="cb37-200"><a href="#cb37-200" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb37-201"><a href="#cb37-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-202"><a href="#cb37-202" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  %-12s %-12s %-12s %-12s</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb37-203"><a href="#cb37-203" aria-hidden="true" tabindex="-1"></a>            <span class="st">"c(v→w)"</span>, <span class="st">"Eq cost"</span>, <span class="st">"Flow on SC"</span>, <span class="st">"Paradox?"</span>))</span>
+<span id="cb37-204"><a href="#cb37-204" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">nrow</span>(braess_data), <span class="at">by =</span> <span class="dv">3</span>)) {</span>
+<span id="cb37-205"><a href="#cb37-205" aria-hidden="true" tabindex="-1"></a>  row <span class="ot">&lt;-</span> braess_data[i, ]</span>
+<span id="cb37-206"><a href="#cb37-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  %-12.2f %-12.3f %-12.3f %-12s</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb37-207"><a href="#cb37-207" aria-hidden="true" tabindex="-1"></a>              row<span class="sc">$</span>shortcut_cost, row<span class="sc">$</span>eq_cost, row<span class="sc">$</span>f3,</span>
+<span id="cb37-208"><a href="#cb37-208" aria-hidden="true" tabindex="-1"></a>              <span class="fu">ifelse</span>(row<span class="sc">$</span>eq_cost <span class="sc">&gt;</span> row<span class="sc">$</span>original_cost <span class="sc">+</span> <span class="fl">0.01</span>, <span class="st">"YES"</span>, <span class="st">"no"</span>)))</span>
+<span id="cb37-209"><a href="#cb37-209" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb37-210"><a href="#cb37-210" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb37-211"><a href="#cb37-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-212"><a href="#cb37-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-213"><a href="#cb37-213" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb37-214"><a href="#cb37-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-217"><a href="#cb37-217" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb37-218"><a href="#cb37-218" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-braess-paradox</span></span>
+<span id="cb37-219"><a href="#cb37-219" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Braess's paradox: adding a shortcut to a traffic network increases total equilibrium cost. Left: equilibrium total cost as a function of shortcut latency c(v→w). When the shortcut is free (c=0), the paradox is strongest — cost increases from 1.5 to 2.0. As shortcut cost increases, the paradox weakens and eventually the shortcut is unused. Right: fraction of traffic using the shortcut route. The paradox occurs precisely when drivers are attracted to the shortcut despite its negative externality. Okabe-Ito palette."</span></span>
+<span id="cb37-220"><a href="#cb37-220" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb37-221"><a href="#cb37-221" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
+<span id="cb37-222"><a href="#cb37-222" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb37-223"><a href="#cb37-223" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb37-224"><a href="#cb37-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-225"><a href="#cb37-225" aria-hidden="true" tabindex="-1"></a>braess_plot <span class="ot">&lt;-</span> braess_data <span class="sc">|&gt;</span></span>
+<span id="cb37-226"><a href="#cb37-226" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">c</span>(eq_cost, original_cost), <span class="at">names_to =</span> <span class="st">"scenario"</span>,</span>
+<span id="cb37-227"><a href="#cb37-227" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"cost"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb37-228"><a href="#cb37-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scenario =</span> <span class="fu">ifelse</span>(scenario <span class="sc">==</span> <span class="st">"eq_cost"</span>, <span class="st">"With shortcut"</span>,</span>
+<span id="cb37-229"><a href="#cb37-229" aria-hidden="true" tabindex="-1"></a>                            <span class="st">"Without shortcut"</span>))</span>
+<span id="cb37-230"><a href="#cb37-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-231"><a href="#cb37-231" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(braess_plot, <span class="fu">aes</span>(<span class="at">x =</span> shortcut_cost, <span class="at">y =</span> cost,</span>
+<span id="cb37-232"><a href="#cb37-232" aria-hidden="true" tabindex="-1"></a>                               <span class="at">color =</span> scenario)) <span class="sc">+</span></span>
+<span id="cb37-233"><a href="#cb37-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">1.1</span>) <span class="sc">+</span></span>
+<span id="cb37-234"><a href="#cb37-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"rect"</span>, <span class="at">xmin =</span> <span class="dv">0</span>, <span class="at">xmax =</span> <span class="fl">0.5</span>, <span class="at">ymin =</span> <span class="fl">1.5</span>, <span class="at">ymax =</span> <span class="fl">2.0</span>,</span>
+<span id="cb37-235"><a href="#cb37-235" aria-hidden="true" tabindex="-1"></a>           <span class="at">alpha =</span> <span class="fl">0.1</span>, <span class="at">fill =</span> okabe_ito[<span class="dv">6</span>]) <span class="sc">+</span></span>
+<span id="cb37-236"><a href="#cb37-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">0.25</span>, <span class="at">y =</span> <span class="fl">1.75</span>, <span class="at">label =</span> <span class="st">"Braess</span><span class="sc">\n</span><span class="st">paradox"</span>,</span>
+<span id="cb37-237"><a href="#cb37-237" aria-hidden="true" tabindex="-1"></a>           <span class="at">color =</span> okabe_ito[<span class="dv">6</span>], <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb37-238"><a href="#cb37-238" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> okabe_ito[<span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">5</span>)], <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb37-239"><a href="#cb37-239" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Braess's paradox: adding capacity increases cost"</span>,</span>
+<span id="cb37-240"><a href="#cb37-240" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Total equilibrium cost vs shortcut latency"</span>,</span>
+<span id="cb37-241"><a href="#cb37-241" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Shortcut latency c(v→w)"</span>, <span class="at">y =</span> <span class="st">"Total travel cost"</span>) <span class="sc">+</span></span>
+<span id="cb37-242"><a href="#cb37-242" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb37-243"><a href="#cb37-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-244"><a href="#cb37-244" aria-hidden="true" tabindex="-1"></a>p1</span>
+<span id="cb37-245"><a href="#cb37-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb37-246"><a href="#cb37-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-247"><a href="#cb37-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-248"><a href="#cb37-248" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb37-249"><a href="#cb37-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-252"><a href="#cb37-252" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb37-253"><a href="#cb37-253" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-poa-interactive</span></span>
+<span id="cb37-254"><a href="#cb37-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-255"><a href="#cb37-255" aria-hidden="true" tabindex="-1"></a><span class="co"># Price of anarchy for different network structures</span></span>
+<span id="cb37-256"><a href="#cb37-256" aria-hidden="true" tabindex="-1"></a><span class="co"># Pigou network: s→t with l(f)=f and l=1</span></span>
+<span id="cb37-257"><a href="#cb37-257" aria-hidden="true" tabindex="-1"></a><span class="co"># PoA for polynomial latency l(f) = f^d</span></span>
+<span id="cb37-258"><a href="#cb37-258" aria-hidden="true" tabindex="-1"></a>degree_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">5</span>, <span class="fl">0.1</span>)</span>
+<span id="cb37-259"><a href="#cb37-259" aria-hidden="true" tabindex="-1"></a>poa_data <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb37-260"><a href="#cb37-260" aria-hidden="true" tabindex="-1"></a>  <span class="at">degree =</span> degree_seq,</span>
+<span id="cb37-261"><a href="#cb37-261" aria-hidden="true" tabindex="-1"></a>  <span class="at">poa =</span> <span class="fu">sapply</span>(degree_seq, <span class="cf">function</span>(d) {</span>
+<span id="cb37-262"><a href="#cb37-262" aria-hidden="true" tabindex="-1"></a>    <span class="co"># For l(f) = f^d, Pigou PoA = 1 - d * (d+1)^(-1-1/d) + (simplified bound)</span></span>
+<span id="cb37-263"><a href="#cb37-263" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Roughgarden-Tardos bound for degree d polynomials</span></span>
+<span id="cb37-264"><a href="#cb37-264" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="dv">1</span>)</span>
+<span id="cb37-265"><a href="#cb37-265" aria-hidden="true" tabindex="-1"></a>    <span class="co"># PoA = (1 + (d+1)^(-(d+1)/d)) / (1 - d/(d+1) * (1/(d+1))^(1/d))</span></span>
+<span id="cb37-266"><a href="#cb37-266" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simplified: for Pigou with l(f)=f^d, PoA = (1 + 1/d)^d / ((1+1/d)^d - 1/d)</span></span>
+<span id="cb37-267"><a href="#cb37-267" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Actually compute directly</span></span>
+<span id="cb37-268"><a href="#cb37-268" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Equilibrium: all flow on l(f)=f^d edge when f^d = 1, so f=1</span></span>
+<span id="cb37-269"><a href="#cb37-269" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Social optimum: min f*(f^d) + (1-f)*1 = min f^(d+1) + 1 - f</span></span>
+<span id="cb37-270"><a href="#cb37-270" aria-hidden="true" tabindex="-1"></a>    opt_f <span class="ot">&lt;-</span> ((<span class="dv">1</span> <span class="sc">/</span> (d <span class="sc">+</span> <span class="dv">1</span>))<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">/</span> d))</span>
+<span id="cb37-271"><a href="#cb37-271" aria-hidden="true" tabindex="-1"></a>    opt_f <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">max</span>(opt_f, <span class="dv">0</span>), <span class="dv">1</span>)</span>
+<span id="cb37-272"><a href="#cb37-272" aria-hidden="true" tabindex="-1"></a>    opt_cost <span class="ot">&lt;-</span> opt_f<span class="sc">^</span>(d <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> opt_f)</span>
+<span id="cb37-273"><a href="#cb37-273" aria-hidden="true" tabindex="-1"></a>    eq_cost <span class="ot">&lt;-</span> <span class="dv">1</span>  <span class="co"># all on congested: 1^d = 1</span></span>
+<span id="cb37-274"><a href="#cb37-274" aria-hidden="true" tabindex="-1"></a>    eq_cost <span class="sc">/</span> opt_cost</span>
+<span id="cb37-275"><a href="#cb37-275" aria-hidden="true" tabindex="-1"></a>  }),</span>
+<span id="cb37-276"><a href="#cb37-276" aria-hidden="true" tabindex="-1"></a>  <span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Degree d = "</span>, <span class="fu">round</span>(degree_seq, <span class="dv">1</span>),</span>
+<span id="cb37-277"><a href="#cb37-277" aria-hidden="true" tabindex="-1"></a>                <span class="st">"</span><span class="sc">\n</span><span class="st">Price of anarchy: "</span>, <span class="fu">round</span>(<span class="fu">sapply</span>(degree_seq, <span class="cf">function</span>(d) {</span>
+<span id="cb37-278"><a href="#cb37-278" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (d <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="dv">1</span>)</span>
+<span id="cb37-279"><a href="#cb37-279" aria-hidden="true" tabindex="-1"></a>    opt_f <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">max</span>((<span class="dv">1</span> <span class="sc">/</span> (d <span class="sc">+</span> <span class="dv">1</span>))<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">/</span> d), <span class="dv">0</span>), <span class="dv">1</span>)</span>
+<span id="cb37-280"><a href="#cb37-280" aria-hidden="true" tabindex="-1"></a>    opt_cost <span class="ot">&lt;-</span> opt_f<span class="sc">^</span>(d <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> opt_f)</span>
+<span id="cb37-281"><a href="#cb37-281" aria-hidden="true" tabindex="-1"></a>    <span class="dv">1</span> <span class="sc">/</span> opt_cost</span>
+<span id="cb37-282"><a href="#cb37-282" aria-hidden="true" tabindex="-1"></a>  }), <span class="dv">3</span>))</span>
+<span id="cb37-283"><a href="#cb37-283" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb37-284"><a href="#cb37-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-285"><a href="#cb37-285" aria-hidden="true" tabindex="-1"></a>p_poa <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(poa_data, <span class="fu">aes</span>(<span class="at">x =</span> degree, <span class="at">y =</span> poa, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb37-286"><a href="#cb37-286" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> okabe_ito[<span class="dv">6</span>], <span class="at">linewidth =</span> <span class="fl">1.1</span>) <span class="sc">+</span></span>
+<span id="cb37-287"><a href="#cb37-287" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">4</span><span class="sc">/</span><span class="dv">3</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> okabe_ito[<span class="dv">5</span>]) <span class="sc">+</span></span>
+<span id="cb37-288"><a href="#cb37-288" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">4.5</span>, <span class="at">y =</span> <span class="dv">4</span><span class="sc">/</span><span class="dv">3</span> <span class="sc">+</span> <span class="fl">0.05</span>, <span class="at">label =</span> <span class="st">"4/3 (linear bound)"</span>,</span>
+<span id="cb37-289"><a href="#cb37-289" aria-hidden="true" tabindex="-1"></a>           <span class="at">color =</span> okabe_ito[<span class="dv">5</span>], <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb37-290"><a href="#cb37-290" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Price of anarchy grows with latency function degree"</span>,</span>
+<span id="cb37-291"><a href="#cb37-291" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Pigou network: l(f) = f^d; PoA = 4/3 for linear (d=1)"</span>,</span>
+<span id="cb37-292"><a href="#cb37-292" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Latency function degree d"</span>, <span class="at">y =</span> <span class="st">"Price of anarchy"</span>) <span class="sc">+</span></span>
+<span id="cb37-293"><a href="#cb37-293" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb37-294"><a href="#cb37-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-295"><a href="#cb37-295" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_poa, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb37-296"><a href="#cb37-296" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>, <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb37-297"><a href="#cb37-297" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb37-298"><a href="#cb37-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-299"><a href="#cb37-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-300"><a href="#cb37-300" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb37-301"><a href="#cb37-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-302"><a href="#cb37-302" aria-hidden="true" tabindex="-1"></a>Braess's paradox is a vivid demonstration of the gap between individual rationality and collective welfare in games. Each driver, acting in their own self-interest, chooses the route that minimises their personal travel time. When a new, apparently beneficial road is added, drivers flock to it — but the resulting congestion on shared edges makes everyone worse off. The paradox is not a theoretical curiosity: it has been documented in real road networks, and traffic engineers have found that closing certain roads can actually improve traffic flow. The paradox has analogues in electrical networks (adding a wire can reduce total current flow), in mechanical systems (adding a spring can weaken a structure), and in computer networks (adding bandwidth can reduce throughput under selfish routing protocols).</span>
+<span id="cb37-303"><a href="#cb37-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-304"><a href="#cb37-304" aria-hidden="true" tabindex="-1"></a>The price of anarchy analysis quantifies the worst-case inefficiency of selfish routing. For the Braess network with linear latency functions, the equilibrium cost is 2.0 while the social optimum is 1.5, giving a price of anarchy of 4/3 — which exactly matches the Roughgarden-Tardos upper bound for linear latency functions. This is not a coincidence: the Braess/Pigou network is the worst-case instance for linear latencies. For polynomial latency functions of degree $d$, the price of anarchy grows without bound as $d$ increases, reflecting the fact that steeper congestion effects amplify the externality that each driver imposes on others.</span>
+<span id="cb37-305"><a href="#cb37-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-306"><a href="#cb37-306" aria-hidden="true" tabindex="-1"></a>The policy implications are direct and important. First, capacity expansion is not always beneficial in networks with strategic users — a result that challenges the intuition of network planners who assume more is always better. Second, congestion pricing (Pigouvian taxes) can restore efficiency by making drivers internalise the externality they impose. In the Braess network, a toll on the shortcut equal to the marginal congestion cost would discourage over-use and restore the social optimum. Third, the Wardrop equilibrium concept — equal travel time on all used routes — is the right equilibrium concept for large traffic networks where individual drivers are infinitesimal, and it connects naturally to the theory of potential games. The fact that selfish routing is guaranteed to be at most 33% worse than optimal (for linear latencies) is both a reassuring bound and a quantification of the "price of freedom" — the cost society pays for allowing individuals to make their own routing decisions rather than imposing centrally planned routes.</span>
+<span id="cb37-307"><a href="#cb37-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-308"><a href="#cb37-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-309"><a href="#cb37-309" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb37-310"><a href="#cb37-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-311"><a href="#cb37-311" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Congestion games and potential functions</span><span class="co">](../congestion-games-potential/)</span> — the general theory behind routing games.</span>
+<span id="cb37-312"><a href="#cb37-312" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Public goods on networks</span><span class="co">](../public-goods-on-networks/)</span> — strategic behaviour on network structures.</span>
+<span id="cb37-313"><a href="#cb37-313" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Network formation and strategic linking</span><span class="co">](../network-formation-strategic/)</span> — when players choose network structure.</span>
+<span id="cb37-314"><a href="#cb37-314" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Tragedy of the commons</span><span class="co">](../../case-studies/tragedy-of-the-commons/)</span> — another model of collective action failure.</span>
+<span id="cb37-315"><a href="#cb37-315" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Colonel Blotto game</span><span class="co">](../../classical-games/colonel-blotto/)</span> — resource allocation across multiple battlefields.</span>
+<span id="cb37-316"><a href="#cb37-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-317"><a href="#cb37-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-318"><a href="#cb37-318" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb37-319"><a href="#cb37-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-320"><a href="#cb37-320" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb37-321"><a href="#cb37-321" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/network-games/braess-paradox-routing/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/network-games/braess-paradox-routing/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

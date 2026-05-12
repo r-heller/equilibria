@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="instrumental variables, 2SLS, endogeneity, causal inference, game theory, strategic interaction, simultaneous equations, R">
+<meta name="description" content="Use instrumental variable methods to estimate causal effects when strategic interaction creates endogeneity, implement two-stage least squares (2SLS) in R, and apply the approach to a game-theoretic model of market entry.">
+<title>Instrumental variables for causal effects in strategic settings – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-0e749b838db2118feaca109dcdf294be.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b6f7cf9d5539542dae2bc8cee8b2e715.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/causal-inference/instrumental-variables-game-theory/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/causal-inference/instrumental-variables-game-theory/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Instrumental variables for causal effects in strategic settings</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">causal-inference</div>
+    <div class="quarto-category">instrumental-variables</div>
+    <div class="quarto-category">endogeneity</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Use instrumental variable methods to estimate causal effects when strategic interaction creates endogeneity, implement two-stage least squares (2SLS) in R, and apply the approach to a game-theoretic model of market entry.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>instrumental variables, 2SLS, endogeneity, causal inference, game theory, strategic interaction, simultaneous equations, R</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>In strategic settings, the actions of one player depend on the actions of others — and those actions, in turn, depend on shared unobservable factors like market conditions, common shocks, or private information. This <strong>simultaneity</strong> creates endogeneity that makes ordinary least squares (OLS) estimates of causal effects biased and inconsistent. For example, if we want to estimate how one firm’s market entry affects a rival’s profits, we cannot simply regress rival profits on entry decisions, because both are driven by unobserved market attractiveness. <strong>Instrumental variables (IV)</strong> resolve this by exploiting exogenous variation that shifts one player’s strategy without directly affecting the outcome of interest. The two-stage least squares (2SLS) estimator first predicts the endogenous variable using instruments (the “first stage”), then uses these predictions in the outcome equation (the “second stage”), isolating the causal component of variation. IV methods are the workhorse of empirical industrial organisation and have been used to study market power, strategic entry deterrence, advertising effects, and the competitive impact of mergers. Finding valid instruments in game-theoretic settings requires deep institutional knowledge: cost shifters, regulatory changes, geographic variation, and characteristics of distant competitors (BLP-style instruments) are common sources. This tutorial simulates a strategic entry game with endogeneity, demonstrates the bias of naive OLS, implements 2SLS from scratch in R, and shows how valid instruments recover the true causal effect.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>Consider two firms deciding on entry intensity <span class="math inline">\(y_1, y_2\)</span> in a market. The structural model is:</p>
+<p><span class="math display">\[
+y_1 = \alpha_1 + \beta_1 y_2 + \gamma_1 x_1 + u_1
+\]</span> <span class="math display">\[
+y_2 = \alpha_2 + \beta_2 y_1 + \gamma_2 x_2 + u_2
+\]</span></p>
+<p>where <span class="math inline">\(x_i\)</span> are exogenous characteristics and <span class="math inline">\(u_i\)</span> are unobserved shocks. If <span class="math inline">\(\text{Cov}(u_1, u_2) \neq 0\)</span> (common unobserved market conditions), then <span class="math inline">\(y_2\)</span> is correlated with <span class="math inline">\(u_1\)</span>, making OLS on the first equation inconsistent for <span class="math inline">\(\beta_1\)</span>.</p>
+<p>An <strong>instrument</strong> <span class="math inline">\(z\)</span> must satisfy:</p>
+<ol type="1">
+<li>
+<strong>Relevance</strong>: <span class="math inline">\(\text{Cov}(z, y_2) \neq 0\)</span> — the instrument predicts the endogenous variable</li>
+<li>
+<strong>Exclusion</strong>: <span class="math inline">\(\text{Cov}(z, u_1) = 0\)</span> — the instrument affects <span class="math inline">\(y_1\)</span> only through <span class="math inline">\(y_2\)</span>
+</li>
+</ol>
+<p>The <strong>2SLS estimator</strong> proceeds in two stages:</p>
+<p><span class="math display">\[
+\text{Stage 1: } \hat{y}_2 = z'\hat{\pi} \quad \text{(project } y_2 \text{ onto instruments)}
+\]</span> <span class="math display">\[
+\text{Stage 2: } \hat{\beta}_1 = (\hat{Y}'X)^{-1}\hat{Y}'y_1 \quad \text{(use fitted values)}
+\]</span></p>
+<p>where <span class="math inline">\(\hat{Y}\)</span> replaces <span class="math inline">\(y_2\)</span> with <span class="math inline">\(\hat{y}_2\)</span> from the first stage. The IV estimator is consistent when the instruments are valid, regardless of the correlation structure of the error terms.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">2000</span></span>
+<span></span>
+<span><span class="co"># --- Data generating process with simultaneity ---</span></span>
+<span><span class="co"># Firm-specific exogenous characteristics</span></span>
+<span><span class="va">x1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="fl">10</span>, sd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>   <span class="co"># Firm 1 cost shifter</span></span>
+<span><span class="va">x2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="fl">8</span>, sd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>    <span class="co"># Firm 2 cost shifter</span></span>
+<span><span class="va">z2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="fl">5</span>, sd <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span>  <span class="co"># Instrument: Firm 2 regulatory shock</span></span>
+<span></span>
+<span><span class="co"># Correlated unobservables (common market shock)</span></span>
+<span><span class="va">common_shock</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="va">u1</span> <span class="op">&lt;-</span> <span class="va">common_shock</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">u2</span> <span class="op">&lt;-</span> <span class="va">common_shock</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># True parameters</span></span>
+<span><span class="va">beta_true</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">1.5</span>   <span class="co"># Causal effect of firm 2 entry on firm 1 profits</span></span>
+<span><span class="va">gamma1</span> <span class="op">&lt;-</span> <span class="fl">2.0</span></span>
+<span><span class="va">gamma2</span> <span class="op">&lt;-</span> <span class="fl">1.8</span></span>
+<span><span class="va">delta_z</span> <span class="op">&lt;-</span> <span class="fl">1.2</span>      <span class="co"># Instrument effect on firm 2</span></span>
+<span></span>
+<span><span class="co"># Solve simultaneous system (reduced form)</span></span>
+<span><span class="co"># y2 = alpha2 + beta2*y1 + gamma2*x2 + delta*z2 + u2</span></span>
+<span><span class="co"># For simplicity, set beta2 = -0.8</span></span>
+<span><span class="va">beta2</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">0.8</span></span>
+<span><span class="va">denom</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="va">beta_true</span> <span class="op">*</span> <span class="va">beta2</span></span>
+<span><span class="va">y2</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fl">5</span> <span class="op">+</span> <span class="va">gamma2</span> <span class="op">*</span> <span class="va">x2</span> <span class="op">+</span> <span class="va">delta_z</span> <span class="op">*</span> <span class="va">z2</span> <span class="op">+</span> <span class="va">u2</span> <span class="op">+</span></span>
+<span>       <span class="va">beta2</span> <span class="op">*</span> <span class="op">(</span><span class="fl">3</span> <span class="op">+</span> <span class="va">gamma1</span> <span class="op">*</span> <span class="va">x1</span> <span class="op">+</span> <span class="va">u1</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom</span></span>
+<span><span class="va">y1</span> <span class="op">&lt;-</span> <span class="fl">3</span> <span class="op">+</span> <span class="va">beta_true</span> <span class="op">*</span> <span class="va">y2</span> <span class="op">+</span> <span class="va">gamma1</span> <span class="op">*</span> <span class="va">x1</span> <span class="op">+</span> <span class="va">u1</span></span>
+<span></span>
+<span><span class="va">data_sim</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span><span class="va">y1</span>, <span class="va">y2</span>, <span class="va">x1</span>, <span class="va">x2</span>, <span class="va">z2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># --- Naive OLS (biased) ---</span></span>
+<span><span class="va">ols_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y1</span> <span class="op">~</span> <span class="va">y2</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">data_sim</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== OLS (biased due to simultaneity) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== OLS (biased due to simultaneity) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  beta_hat (OLS)  = %.4f\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">ols_fit</span><span class="op">)</span><span class="op">[</span><span class="st">"y2"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  beta_hat (OLS)  = -1.5164</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  beta_true       = %.4f\n"</span>, <span class="va">beta_true</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  beta_true       = -1.5000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  OLS bias        = %.4f\n\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">ols_fit</span><span class="op">)</span><span class="op">[</span><span class="st">"y2"</span><span class="op">]</span> <span class="op">-</span> <span class="va">beta_true</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  OLS bias        = -0.0164</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- 2SLS (manual implementation) ---</span></span>
+<span><span class="co"># Stage 1: Regress y2 on instruments and exogenous variables</span></span>
+<span><span class="va">stage1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y2</span> <span class="op">~</span> <span class="va">z2</span> <span class="op">+</span> <span class="va">x1</span> <span class="op">+</span> <span class="va">x2</span>, data <span class="op">=</span> <span class="va">data_sim</span><span class="op">)</span></span>
+<span><span class="va">data_sim</span><span class="op">$</span><span class="va">y2_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html">fitted</a></span><span class="op">(</span><span class="va">stage1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== First Stage: Instrument Relevance ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== First Stage: Instrument Relevance ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  F-statistic on z2: %.1f (rule of thumb: F &gt; 10)\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">stage1</span><span class="op">)</span><span class="op">$</span><span class="va">fstatistic</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  F-statistic on z2: 8547.9 (rule of thumb: F &gt; 10)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Coefficient on z2: %.4f (p &lt; 0.001)\n\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">stage1</span><span class="op">)</span><span class="op">[</span><span class="st">"z2"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Coefficient on z2: -5.9624 (p &lt; 0.001)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Stage 2: Regress y1 on fitted y2 and exogenous variables</span></span>
+<span><span class="va">stage2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y1</span> <span class="op">~</span> <span class="va">y2_hat</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">data_sim</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== 2SLS (consistent) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== 2SLS (consistent) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  beta_hat (2SLS) = %.4f\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">stage2</span><span class="op">)</span><span class="op">[</span><span class="st">"y2_hat"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  beta_hat (2SLS) = -1.5061</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  beta_true       = %.4f\n"</span>, <span class="va">beta_true</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  beta_true       = -1.5000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  2SLS bias       = %.4f\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">stage2</span><span class="op">)</span><span class="op">[</span><span class="st">"y2_hat"</span><span class="op">]</span> <span class="op">-</span> <span class="va">beta_true</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  2SLS bias       = -0.0061</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Monte Carlo comparison</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
+<span><span class="va">n_mc</span> <span class="op">&lt;-</span> <span class="fl">500</span></span>
+<span><span class="va">mc_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n_mc</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sim</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x1_s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">10</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="va">x2_s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">8</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="va">z2_s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">5</span>, <span class="fl">1.5</span><span class="op">)</span></span>
+<span>  <span class="va">cs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span>  <span class="va">u1_s</span> <span class="op">&lt;-</span> <span class="va">cs</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">u2_s</span> <span class="op">&lt;-</span> <span class="va">cs</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">y2_s</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fl">5</span> <span class="op">+</span> <span class="va">gamma2</span><span class="op">*</span><span class="va">x2_s</span> <span class="op">+</span> <span class="va">delta_z</span><span class="op">*</span><span class="va">z2_s</span> <span class="op">+</span> <span class="va">u2_s</span> <span class="op">+</span> <span class="va">beta2</span><span class="op">*</span><span class="op">(</span><span class="fl">3</span> <span class="op">+</span> <span class="va">gamma1</span><span class="op">*</span><span class="va">x1_s</span> <span class="op">+</span> <span class="va">u1_s</span><span class="op">)</span><span class="op">)</span><span class="op">/</span><span class="va">denom</span></span>
+<span>  <span class="va">y1_s</span> <span class="op">&lt;-</span> <span class="fl">3</span> <span class="op">+</span> <span class="va">beta_true</span><span class="op">*</span><span class="va">y2_s</span> <span class="op">+</span> <span class="va">gamma1</span><span class="op">*</span><span class="va">x1_s</span> <span class="op">+</span> <span class="va">u1_s</span></span>
+<span>  <span class="va">ols_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y1_s</span> <span class="op">~</span> <span class="va">y2_s</span> <span class="op">+</span> <span class="va">x1_s</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="st">"y2_s"</span><span class="op">]</span></span>
+<span>  <span class="va">s1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y2_s</span> <span class="op">~</span> <span class="va">z2_s</span> <span class="op">+</span> <span class="va">x1_s</span> <span class="op">+</span> <span class="va">x2_s</span><span class="op">)</span></span>
+<span>  <span class="va">y2h</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html">fitted</a></span><span class="op">(</span><span class="va">s1</span><span class="op">)</span></span>
+<span>  <span class="va">iv_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">y1_s</span> <span class="op">~</span> <span class="va">y2h</span> <span class="op">+</span> <span class="va">x1_s</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="st">"y2h"</span><span class="op">]</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>sim <span class="op">=</span> <span class="va">sim</span>, OLS <span class="op">=</span> <span class="va">ols_b</span>, `2SLS` <span class="op">=</span> <span class="va">iv_b</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">mc_long</span> <span class="op">&lt;-</span> <span class="va">mc_results</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span>cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">OLS</span>, <span class="va">`2SLS`</span><span class="op">)</span>, names_to <span class="op">=</span> <span class="st">"method"</span>, values_to <span class="op">=</span> <span class="st">"estimate"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="va">mc_long</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">estimate</span>, fill <span class="op">=</span> <span class="va">method</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_histogram</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="fu">after_stat</span><span class="op">(</span><span class="va">density</span><span class="op">)</span><span class="op">)</span>, bins <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>                 alpha <span class="op">=</span> <span class="fl">0.6</span>, position <span class="op">=</span> <span class="st">"identity"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_vline</span><span class="op">(</span>xintercept <span class="op">=</span> <span class="va">beta_true</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>,</span>
+<span>             color <span class="op">=</span> <span class="st">"grey30"</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="va">beta_true</span> <span class="op">-</span> <span class="fl">0.05</span>, y <span class="op">=</span> <span class="fl">3.5</span>,</span>
+<span>           label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"True beta = "</span>, <span class="va">beta_true</span><span class="op">)</span>,</span>
+<span>           hjust <span class="op">=</span> <span class="fl">1</span>, size <span class="op">=</span> <span class="fl">3.5</span>, color <span class="op">=</span> <span class="st">"grey30"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"OLS"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"2SLS"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                    name <span class="op">=</span> <span class="st">"Estimator"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"OLS vs 2SLS: Monte Carlo distribution of estimates"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"500 replications, n = 2000; OLS biased by simultaneity, 2SLS consistent"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Estimated coefficient on y2"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Density"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-iv-comparison" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-iv-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-iv-comparison-1.png" class="img-fluid figure-img" width="2100">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iv-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. OLS vs 2SLS estimates across 500 Monte Carlo replications. OLS (orange) is systematically biased toward zero due to simultaneity — common shocks induce a positive correlation between the endogenous regressor and the error. 2SLS (blue) is centred on the true parameter (dashed vertical line at -1.5), demonstrating consistency when instruments are valid. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">data_sim</span> <span class="op">&lt;-</span> <span class="va">data_sim</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"z2 = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">z2</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                       <span class="st">"\ny2 = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">y2</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                       <span class="st">"\ny2_hat = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">y2_hat</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_fs</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">data_sim</span> <span class="op">|&gt;</span> <span class="fu">sample_n</span><span class="op">(</span><span class="fl">500</span><span class="op">)</span>,</span>
+<span>               <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">z2</span>, y <span class="op">=</span> <span class="va">y2</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.3</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">8</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_smooth</span><span class="op">(</span>method <span class="op">=</span> <span class="st">"lm"</span>, se <span class="op">=</span> <span class="cn">FALSE</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>              linewidth <span class="op">=</span> <span class="fl">1.2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"First stage: instrument z2 predicts endogenous y2"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Strong first-stage relationship is necessary for valid IV estimation"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Instrument z2 (regulatory shock to firm 2)"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Endogenous variable y2 (firm 2 entry intensity)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_fs</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-iv-first-stage-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-iv-first-stage-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-9043fa81dab0e5e03ab5" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-9043fa81dab0e5e03ab5">{"x":{"data":[{"x":[5.363455402488591,5.1235810063679237,5.6224935370884097,3.1680338656456479,5.8115945272948322,5.3980341090126052,6.382056047559999,8.2205292866306685,5.1366347270893371,7.4917472843226136,5.3514957248790154,5.4638413497282885,4.8314383193208466,4.8799259203726493,6.5998741282919147,6.0885111871798054,8.9560272235605112,4.4665917732752254,2.3463776535794501,6.3258198975346254,3.7503669096037093,5.8899229571496763,7.2896343936631496,6.5256480519727909,5.5972299266741254,4.0969563551763315,6.4706941482513276,6.030556124012115,4.5117689850723197,3.3236267040223235,4.600835525322867,5.2927205635485191,5.2810349469309097,6.2993199341275341,4.3621344510406459,2.7831552977691185,6.9217605530003459,2.1307701598964379,4.8610290978559725,6.6066108029580732,7.7321817647985229,2.9703050198094738,4.9164643931109913,4.4998414412458523,5.4835204566402309,8.4300744045746985,4.5494713378187246,5.2325242807875485,4.6878945724804542,6.5645476366678004,6.546668909419405,5.1713704226146611,3.9771133041274509,5.6075662707230904,4.8888189004854805,4.9570609421835412,3.6100436367409747,5.766591391328503,5.6666664834917082,6.4792369817956388,5.2414574918915973,5.858662804437361,6.8793345292423691,5.8191969635955001,4.3549735089145694,4.5666480501847859,6.755324330629219,4.7555392215897276,4.6182641569090332,1.8540836902281557,3.3209829047250374,6.6565492263930368,3.646266534099087,6.8891807757160155,9.1179088156164667,7.4767593026558288,6.4101060551585043,5.9752989752572541,3.0716236114006135,1.4695485469458855,8.2958011302066339,3.6984815936527089,4.3065700108309404,6.7262108499731976,3.479111864564417,5.971442193370601,4.9104573961902558,6.5148204857313061,6.6913418132476679,6.9136860125897419,6.4266206727671049,6.7391052687935726,5.6928453570923043,4.7807092674733935,5.0579216346892579,4.9672188007233098,6.4677984515896307,6.2129877829682947,6.1054149121642816,4.4865841592865703,5.4706302855849787,5.9032163714684032,3.266114005576914,8.5314278924686846,4.6870024222189803,5.1624969413928499,1.5396471989382885,5.7016969778335689,3.539489785061916,5.770393525148779,3.3972565120986244,8.1725751493410872,6.807173337283027,2.8680004804213439,7.3694461503617017,6.2762141129859366,4.374477631840012,2.7207924992154133,4.4508536688529983,6.131253195952441,8.2990533007683318,7.4495403934810707,6.7037695278193414,4.0462375991626187,3.5930225771785707,4.0627578727732487,3.1625810618789689,4.2666109163136445,4.7857416959865517,5.4853581433365353,2.7187765867866256,6.038495109576651,3.3959757446258738,4.6970830661260976,5.0598193590748606,3.937342267239321,4.2642664826076953,3.8532470818347431,3.9548102381073402,8.6007294545928055,5.2183497479119989,4.4137546167331552,4.894708716265991,4.4258327372343986,4.0865391103665782,6.389931274642513,2.6346595669685473,4.4322437053827937,3.9206583908821058,5.5320107201746591,5.4923651040640413,6.2070280194738316,5.4009448137899474,4.8680237248757079,6.6752354170381354,3.0431702436140853,3.8928988566666574,4.0990828640773742,1.4337264188424022,4.9922429217009308,5.3694054849990458,6.1272449767951152,6.2074264179074508,6.4700948325482139,3.952547973996543,2.9621427116597312,4.2090139506167805,6.8892299176990122,5.1167590014377495,3.4496126766028219,2.2348326659993032,7.142802643015445,4.0833177326888555,2.6222421857542244,2.7505592846000182,6.163745271418013,6.4028710747041977,3.0532377544142508,3.5794691199047053,2.202449285027408,4.3251710493856921,4.5946293712019965,7.0055705930390388,2.1966022137005607,3.4351901741426718,3.1729910256476299,4.4217056416537082,3.8089332979922936,8.6312875611137319,5.8007200294199501,5.7112447489452371,5.0722451996103066,4.784872105394566,3.2518838608857994,5.5828369965046294,4.8169136287103766,7.2155748339995904,2.5792126765735315,4.135587709189851,5.5646568699687018,5.914392869511369,4.7163668738442031,2.8569891771942268,6.3168275026911509,6.7358108342584924,4.5620687068079162,5.0286450534237588,4.2999777365758725,5.5926789572346323,5.9815774041895624,6.4179953882223311,4.3777978309918941,3.6813982334223465,5.8172946969479895,4.6014760644907362,6.1580663298896701,6.5524921148443998,3.4006840832641378,2.879102204582519,5.671878242280818,6.599466240315949,4.4011259186207479,4.1521960091436458,7.0282183787713706,1.5494693295696136,4.859482668859072,2.440263556705256,2.9021670074717454,6.111336891787154,2.8563378508357511,3.4920670353896632,8.3656038844913887,5.7806030738480088,2.0901150529764205,4.8349152588060047,5.5968579648602423,3.7041387572920357,3.0899840854348963,3.7791528891958333,3.895332184616302,7.2652501123126338,5.8483379434777776,7.9450599478623118,3.2017382578895317,5.4188240380516177,3.7545639276867218,8.5592080325243796,7.8396791399628336,5.8110619622856943,4.9612960348179236,5.8528095059183745,6.042944696783441,1.7578109127178392,5.9857204380839475,3.3535950007856243,5.7678623470324766,7.359918466299435,3.5274273498913642,3.2365759244244834,4.7709023083779831,4.4985853612580442,4.9807281601975681,4.7872870151441962,1.3867375909161681,5.0497840244561596,2.8659095964104813,4.2811133322253685,4.3760266242801888,1.5096479434694103,2.7156868049176741,5.3166717659900096,4.8202972895781127,5.3873930027347789,7.5712570715877785,4.1708186313300839,6.0694798774055876,6.193597707359995,5.8865604039078443,2.2581740261776595,5.2793912744432561,3.3755967308060213,7.2748776868713687,4.266830309246914,3.0591075896347188,4.1646763410108329,4.9885152990412296,1.2318507660738161,5.9408431141647249,6.4554350389751161,7.6208431777734154,3.7800771199943739,5.926055063860888,4.2688117441099518,3.3724327628659925,3.4767547518170518,4.5970002919363493,4.5219072208756552,3.5265661329434081,4.762860821072521,0.49846283973987049,3.505969826094554,5.8961882683937779,4.0932127356238963,5.9990882833411892,5.9440264320836977,9.0141884256743392,4.706685656321274,8.0523206863252526,5.9779428005129827,4.1290788681873867,4.9874404655209812,2.790615571611343,5.6566203513238289,6.1302509891847299,6.84460019659093,6.3852651876355724,5.7326362977001795,5.1681166055794625,4.2082148779989401,3.6876534761678919,5.7305080005140319,2.6658863107040078,3.8725592511675719,6.5135508020108022,6.6145185308389136,5.2833036635789075,4.3903179694064329,6.9151247595774086,3.741994259642917,5.9610746121348956,3.6632947047159226,6.4766662180779804,7.5491389496641954,8.8015193455582139,5.9596290468752731,6.98490922182972,5.2600167915865086,7.1301294823071775,5.0461901409447947,5.7574431077903743,3.8633042859808584,2.5915131213975631,4.9380769787795771,3.8689496951849853,8.6708882323229837,3.2951086087721615,4.7303156869613172,4.1723260743765094,3.9300588303136141,2.5281939864409586,5.4048546259311436,2.5077543232855031,5.837353652910596,5.9494768629576562,4.5619466061357805,4.7551467798519358,4.239801658859677,4.227475241205398,6.4443055438286363,7.3057429727623857,1.8899151211324154,6.5365366521878059,4.4178529234832249,8.0337940248222104,5.9578399819476129,3.6257021650315426,5.5712735834700009,6.9274142009648489,5.338995911352769,4.7912706864167838,6.0883369364217614,4.9385072858824639,6.3075946952003417,4.1126811290265008,4.9931989471649132,2.9921000679311387,3.6513233446439592,6.9665846067138313,6.2567350118984839,3.7411940051386274,3.342326086273848,7.5780848621857757,2.3782452414189614,6.8441019029000669,6.3008473383713293,5.269202298133556,4.682019933541623,5.86552440384125,7.2726171416801533,2.5942122173988915,5.3740093726063565,6.0975540912275292,6.7538312762336226,2.592567480003058,2.9049177257899088,4.9707104808743248,7.066979037781457,3.6883185498313127,5.7163240420934489,5.9187433057052115,6.3495437118514815,5.7664573335543823,6.1223710174229495,6.3159988220942225,5.3444185050852422,3.7123672972102835,6.0786772919288818,5.3291976411317581,6.0758510800690644,4.714723571708717,1.941742169425396,6.3823170787143688,5.1594694574415803,3.1372254866821825,4.119344287763294,5.031105181159452,5.3604852847657289,3.1305310874767383,4.706328579560334,2.5844327882400702,6.4888010912680869,5.9912256488193538,4.8724100765914082,5.740955234045618,4.5167033405543293,5.7556533424996363,6.7931256852715993,6.368930276725747,3.8045979765763622,6.5517206543966324,3.7195126071042059,1.4170498659225919,5.2928770659210311,7.6160355022535535,6.1099515057244318,5.28121292617615,2.5701811299677155,5.5324039599416608,5.3839088962729482,6.9250590974143247,7.4224634600750088,5.5226139165420012,7.0053217811515358,5.4577318217660906,4.7421228959772126,3.5017354763874975,5.0294932871869831,5.697420307317743,3.4309171675164052,4.7420374164228463,4.1344388391455409,5.3346511664106933,5.4630815926359668,6.8535124543996844,1.8557987540212961,5.5438199677222375,2.3229250604484433,0.89604468395772852,5.7597745791993438,7.5836017807889871,5.7535194566469245,5.2559371490131257,4.9505623280014586,5.3337042063723672,8.4588185901912354,5.3622297412032269,4.1948494998865939,1.7266588634141051,7.1300567641071257,6.8878512444977149,2.8627364222943323,4.5974575040311967,8.0173786845170909,6.0380338096127222,7.1828763609587964,4.8582128517290011,3.4466336390896473,3.6957702510061492,3.6646715357754913,2.7119037636175012,4.8775865675712149,4.6752394442572092,4.2806976992271561,2.8896377502035473,3.4344738419255489,4.1807075624351864,2.3190244452516207,4.5992677997022406,4.5001762254971949,1.823474442192571,3.8316610551943766,4.7209706558238409,6.3435279035375149,6.216275633751593,5.6430947725365179,6.9722032185634264,3.7319225310547139,2.9276685858386511,6.0140337904047483,4.7332781263688819],"y":[-3.6285380250276735,-27.339770080129117,-40.439135864365383,-18.053879639639767,-34.01766267329571,-50.363451652496309,-44.497238895529321,-37.952671253107368,-53.485233797972626,-43.131101177208535,-54.074364662359521,-56.995150394303224,-20.300552053132375,-45.860418921117031,-9.2409629924233894,26.003441149877339,-48.940814346480302,-18.190412763896973,-4.7384625606859698,-39.513953189249968,-42.002112040996714,-78.028973932228197,-2.942515290452083,24.464527918717703,-51.469317263220205,-39.980313980828086,-34.071786138679755,-22.123329914182822,-36.734476726653646,-31.015905607094279,-65.366501564123084,-8.9222979377384277,-4.0231855291499272,-26.39205994722888,-28.131217351148347,-19.999202161980332,-46.554146554630897,-4.7711558942604837,-26.490800322782484,-47.062088839999262,-41.580198425230691,-8.5099064131169229,-0.66193438550337491,-38.153823630234029,-55.513583752225358,-69.602241218098499,-22.543879318576817,-29.210414866552512,-56.653060651371412,-43.641148798904879,-23.389193141572303,-30.179438567962745,-15.948884952333437,-31.446014706347992,-3.944425744619938,-11.076921892978689,-67.972765832318387,-21.142199899766396,-35.98505786089769,-36.024797284088223,-13.578630569735695,-44.932309962627329,-86.239456790883381,-72.879681183175492,-20.195303007133809,19.186811082949511,-33.843900770084019,-40.277108630739576,-39.870805975860883,-16.560986664694791,-0.2424493382894608,-4.2051525239650331,-42.3603992980917,-34.864071117458487,-51.143516987951926,-35.950448273375216,-33.432408292186977,-31.451300891313803,-26.919533712051102,-31.077334231383247,-24.893385609152073,32.551190999362859,-75.973369825527996,-106.26295548216376,-25.890265181740389,-15.539768940969822,-42.218370072583312,-40.642937778522246,-43.675175451963227,-62.846486876280032,-48.759753986172278,-5.7022248152512791,-46.688702546628683,31.813605750820553,-28.651306026463985,-5.2543752959006929,-19.549405399005977,-15.524463277494561,-54.767395297494808,-27.033234220831545,-51.709607801126822,-62.413198122701424,18.548534230728535,-24.310004668781811,-35.362489464893734,-60.122801146197915,22.149931707758427,-68.240916011914322,-10.697301266832318,-35.230218430920488,-10.798340163078342,-45.772646315268084,-66.361667557709339,-45.366290403908522,-25.721241793371746,-90.699193309084933,-1.1179500935714151,-5.4696342892277761,-49.594236382559124,-46.351154234013798,-60.193621902081205,-54.956457936879247,-44.327570715917467,-56.610133878065398,-31.181169930984883,-25.853223587500032,-5.4896603351718598,16.068974364879075,-22.742485483481676,-74.10832963378104,-2.1946718821236448,-63.886131263156592,-67.082796112414655,-35.655403881782689,-22.079018394910449,-7.3302427812870556,-18.698569540459218,-31.037514013761854,-1.112262419430027,-96.002114100376033,-26.958579098098447,-43.50835242888207,-40.679766928516884,-44.703939344091928,-41.032171386380298,-24.259767789780891,-19.538788095680353,-36.569931571352313,-62.814927919369552,-63.628688293731557,-25.739310126698896,-44.471849181092345,-62.253286656982759,13.326079653541788,-32.52789611844522,13.829035409534912,-38.399923669421021,-39.002704460974023,-11.31184316877756,-40.853213155058619,-40.588725152227838,-5.870761492164446,-49.812113727744787,-29.393067687369918,-19.671451640714377,-3.3923317552569334,-35.067157408897074,-95.071806002487833,-34.307129194014571,-33.758808978747531,-23.824621137852461,-56.649076685734897,-40.583481536502752,-3.6220941773494499,-42.79512138689487,-15.642264895742905,-46.567578691131914,-21.153146143210133,-19.370427622049988,-17.630280384784744,-39.250366392938645,-31.574875751550209,4.610250228837649,-40.563098525305229,-9.7386668748749194,-39.365453224867792,-24.423504711094669,-38.468330748313235,-60.513537981729968,-24.829246644694788,-30.705614896415153,-49.144775136187654,-66.842688248158055,-20.606360793829133,-57.498343233039066,-57.641870942060031,-32.660722985488619,-41.443054647693074,-45.339971762785758,5.5737904700344156,-47.974933358917951,-46.235677954638291,-24.126492545822838,-53.629483046294716,-80.385761769990467,-17.669563423393186,23.360028873748814,-13.99704519060173,-56.729772371263664,-22.193430951877918,-91.513222131423831,-23.229319050513869,-21.710067679135612,-36.130843968034085,-45.073100931309803,-49.143640230344417,-51.423856131854457,-31.146163020546503,-23.280148725105946,-95.928492015512305,-55.143810221232961,-62.121966673138843,-35.879899976041635,-55.03348819739535,-83.529211434004139,-57.588981183844332,-31.132044180082577,-78.769528530119501,-28.523141447854591,-66.973341788460132,-31.696997159571339,-96.121970638014716,7.016156777596863,0.87681604583920525,8.1717133104720503,-21.042920172688149,15.124486330257824,-13.481517985627912,-27.933532627971893,-6.0655681915824768,-54.098646336954744,-31.620885795825931,-64.656269941498678,-32.599156315917355,-5.7029908926849995,-29.94483694747321,-55.219369144682972,-60.871617426434099,-10.548142655646737,-28.635742319063066,-50.261571764974022,-21.947261261915827,-25.980171520115945,-54.895283771554951,10.180438382497359,-28.398689869185223,-22.754587649689576,-66.804530778373291,-60.653685509431853,-13.914814627603077,-49.715387309193837,-30.634545109528133,-22.862644015664998,-9.7190316841846869,-71.517805519196884,-6.8946970199511819,-26.925290919138114,-19.893890358296353,-19.332678911279331,-29.455861122428281,-54.484454461811346,-42.097491674436199,-50.894366203593265,-5.2676167270191199,-18.162933962309875,-47.638190400936573,-36.59765418543472,-22.900466566411929,-9.7777043316839762,-80.196275274696021,-26.431145426850595,-40.516390391449249,-51.68784178991389,-44.348423560113176,-25.627395094365287,-56.938906480915982,0.12806481679294979,-17.289715643834199,-27.053028514264145,-32.729389220972152,-16.238874405718121,-23.119984459681145,-30.517418098392557,10.402245217291837,-47.506795823817342,-63.74961304208594,13.6471227846581,-72.865783850134164,-56.481551951973614,-10.156620789120963,-42.814709283423348,-57.465157603079312,-60.25439902921336,-12.855404336568082,-49.050629802176857,-59.756567456599846,-24.361295398801083,-44.429599234083788,-74.157704838301441,-52.368613750915806,-20.599746439880029,-15.456609186762108,-24.872558889526083,-55.993084572534521,-37.702939339715577,-98.05301759888016,-79.34321577206552,-23.655731268103782,-3.7291777783013349,-15.816295507919284,-22.488586732696266,-18.15086182780357,-37.763634956126992,-53.867875402582655,-19.719724491692325,-16.129233449831574,-46.479252312315673,-34.04898569885021,-12.423247379111631,-29.339415052987754,-44.154774941694114,-41.277676618960086,-51.460199609133007,-51.456663352364195,-59.208421759400331,-27.128408413575126,-17.443945052050619,16.828618032888642,-40.814827177274374,-81.928993752285805,13.960403886552678,8.1459284958620977,-61.744925868532981,-34.319961386114997,-58.470657922256585,-37.543039869179893,-20.488769079406737,-25.620998503438447,-80.825529728832862,-24.057949180428025,-23.464780953921306,-20.306987187105907,1.1861045950076832,-32.488963891696358,-17.6491076459039,-50.663080703304047,-27.784618580459092,-27.01250848339016,-52.665318863035417,-27.860786650009423,-47.171134115733381,-29.29180433624434,-47.124596734853974,-32.776846648726455,-6.1807239435472763,-36.52801502387355,-26.675443575926298,-27.537296780569378,-14.817898042113407,-4.3487387400406483,-28.408089513463796,-47.820242872471873,-59.83823261023236,-50.186857667330472,-47.714694576009961,-4.5195844080025926,-44.102749869878998,-29.680420858048812,-77.293847491671343,25.685283719469659,-50.04185902820786,-30.919487458752606,41.905678141024971,-26.622678163411468,-21.358250887750909,11.425022146919169,-17.545406898974555,-58.439563439809206,-68.664033695437524,-41.164029502456657,-116.45803058227536,-36.025238453187804,-42.495132811927512,-46.12690004252925,-54.154560411738387,-43.834059820115243,-40.104036842694995,-25.074275322224008,-48.639228193107471,-59.983699517302561,-54.304193523589937,-33.540790037399425,-55.19097288725375,5.7375813729846872,-59.006411441302923,19.281772292966632,-60.508196247476441,-35.195922814353672,-32.649743856869037,-45.814136862499858,-24.694990447178004,-46.31252823672834,-37.2337487578638,-7.8608435813490303,-5.5679802079519494,-60.810501400010871,-50.721497465353494,-26.962721616965243,-11.289820781786364,-24.287261579292792,-73.633862888844817,-14.855562913397589,-0.8645505321898731,-23.797080799353779,-70.109489396178034,-61.685839933925607,-24.864319150583395,-74.980915832216937,27.399690284874964,-51.128829902393804,-30.034723965545503,-54.108248330976927,-32.030375701404829,-69.136749456738499,-78.791584655568812,-69.673318164057804,-55.333717663278861,-60.791097553262766,-88.791111282978093,-62.39451524543076,-74.671741813210957,-58.154925771801338,-33.817657498373002,-23.269180878853458,2.7962048729219875,-27.374567584599607,-7.8487103368010942,-51.940153267344115,-39.124231597264377,-23.498422998566962,-0.90415008505756156,-36.709916753655186,-31.180620283188432,-20.488912193033944,-9.6151347368568008,-77.100340267487056,41.819896442281191,4.1916987825583583,1.2703246507116706,-19.384603640421272,-23.946427765322134,-3.8500819827570041,-3.6221366164031434,-3.1060279940283282,-118.5331305170956,-66.803097142578707,-71.796955930800323,11.909498445687515,-76.57014611252113,-22.620815097765551,-64.173902810425673,-5.6414357500307535,-57.120537261498107,-43.817372417697342,-34.780130915806325,-41.028384063265101,-23.392151415791449,-5.2590034318371925,-3.8202825780297864,-38.129296134970247,-63.22842539785907,-14.224918458764334,-49.42139675367563,-59.773753700861079,-48.992992647605831,-34.946144555068919,-33.968448287368766,-4.2322279058930654,-27.787483831726398,-51.615505289288642,-48.933830800829725,-26.496515907744371,-35.451455537093118,-37.639681280921224,13.016739255427426,-28.555666825034553,-52.004070379131825,-1.9211461313019544,-32.020233936914607,-30.644764421010446],"text":["z2 = 5.36<br />y2 = -3.63<br />y2_hat = -0.11","z2 = 5.12<br />y2 = -27.34<br />y2_hat = -34.3","z2 = 5.62<br />y2 = -40.44<br />y2_hat = -34.81","z2 = 3.17<br />y2 = -18.05<br />y2_hat = -19.96","z2 = 5.81<br />y2 = -34.02<br />y2_hat = -38.81","z2 = 5.4<br />y2 = -50.36<br />y2_hat = -50.16","z2 = 6.38<br />y2 = -44.5<br />y2_hat = -47.91","z2 = 8.22<br />y2 = -37.95<br />y2_hat = -32.78","z2 = 5.14<br />y2 = -53.49<br />y2_hat = -50.3","z2 = 7.49<br />y2 = -43.13<br />y2_hat = -39.29","z2 = 5.35<br />y2 = -54.07<br />y2_hat = -65.15","z2 = 5.46<br />y2 = -57<br />y2_hat = -58.95","z2 = 4.83<br />y2 = -20.3<br />y2_hat = -23.05","z2 = 4.88<br />y2 = -45.86<br />y2_hat = -42.77","z2 = 6.6<br />y2 = -9.24<br />y2_hat = -29.27","z2 = 6.09<br />y2 = 26<br />y2_hat = 28.71","z2 = 8.96<br />y2 = -48.94<br />y2_hat = -46.05","z2 = 4.47<br />y2 = -18.19<br />y2_hat = -24.39","z2 = 2.35<br />y2 = -4.74<br />y2_hat = -6.9","z2 = 6.33<br />y2 = -39.51<br />y2_hat = -40.59","z2 = 3.75<br />y2 = -42<br />y2_hat = -27.02","z2 = 5.89<br />y2 = -78.03<br />y2_hat = -67.73","z2 = 7.29<br />y2 = -2.94<br />y2_hat = -2.03","z2 = 6.53<br />y2 = 24.46<br />y2_hat = 19.97","z2 = 5.6<br />y2 = -51.47<br />y2_hat = -56.06","z2 = 4.1<br />y2 = -39.98<br />y2_hat = -27.77","z2 = 6.47<br />y2 = -34.07<br />y2_hat = -31.17","z2 = 6.03<br />y2 = -22.12<br />y2_hat = -30.42","z2 = 4.51<br />y2 = -36.73<br />y2_hat = -38.11","z2 = 3.32<br />y2 = -31.02<br />y2_hat = -30.76","z2 = 4.6<br />y2 = -65.37<br />y2_hat = -69.53","z2 = 5.29<br />y2 = -8.92<br />y2_hat = -11.35","z2 = 5.28<br />y2 = -4.02<br />y2_hat = -15.35","z2 = 6.3<br />y2 = -26.39<br />y2_hat = -19.55","z2 = 4.36<br />y2 = -28.13<br />y2_hat = -34.73","z2 = 2.78<br />y2 = -20<br />y2_hat = -26.3","z2 = 6.92<br />y2 = -46.55<br />y2_hat = -40.62","z2 = 2.13<br />y2 = -4.77<br />y2_hat = -2.38","z2 = 4.86<br />y2 = -26.49<br />y2_hat = -22.66","z2 = 6.61<br />y2 = -47.06<br />y2_hat = -53.46","z2 = 7.73<br />y2 = -41.58<br />y2_hat = -42.75","z2 = 2.97<br />y2 = -8.51<br />y2_hat = -3.62","z2 = 4.92<br />y2 = -0.66<br />y2_hat = 3.2","z2 = 4.5<br />y2 = -38.15<br />y2_hat = -36.06","z2 = 5.48<br />y2 = -55.51<br />y2_hat = -61.69","z2 = 8.43<br />y2 = -69.6<br />y2_hat = -58.69","z2 = 4.55<br />y2 = -22.54<br />y2_hat = -31.99","z2 = 5.23<br />y2 = -29.21<br />y2_hat = -28.24","z2 = 4.69<br />y2 = -56.65<br />y2_hat = -60.71","z2 = 6.56<br />y2 = -43.64<br />y2_hat = -40.81","z2 = 6.55<br />y2 = -23.39<br />y2_hat = -23.27","z2 = 5.17<br />y2 = -30.18<br />y2_hat = -43.16","z2 = 3.98<br />y2 = -15.95<br />y2_hat = -14.33","z2 = 5.61<br />y2 = -31.45<br />y2_hat = -36.29","z2 = 4.89<br />y2 = -3.94<br />y2_hat = -11.65","z2 = 4.96<br />y2 = -11.08<br />y2_hat = -25.55","z2 = 3.61<br />y2 = -67.97<br />y2_hat = -66.79","z2 = 5.77<br />y2 = -21.14<br />y2_hat = -19.19","z2 = 5.67<br />y2 = -35.99<br />y2_hat = -46.82","z2 = 6.48<br />y2 = -36.02<br />y2_hat = -27.06","z2 = 5.24<br />y2 = -13.58<br />y2_hat = -12.79","z2 = 5.86<br />y2 = -44.93<br />y2_hat = -45.78","z2 = 6.88<br />y2 = -86.24<br />y2_hat = -88.76","z2 = 5.82<br />y2 = -72.88<br />y2_hat = -60.59","z2 = 4.35<br />y2 = -20.2<br />y2_hat = -15.33","z2 = 4.57<br />y2 = 19.19<br />y2_hat = 12.3","z2 = 6.76<br />y2 = -33.84<br />y2_hat = -30.05","z2 = 4.76<br />y2 = -40.28<br />y2_hat = -34.91","z2 = 4.62<br />y2 = -39.87<br />y2_hat = -45.65","z2 = 1.85<br />y2 = -16.56<br />y2_hat = -17.79","z2 = 3.32<br />y2 = -0.24<br />y2_hat = -3.85","z2 = 6.66<br />y2 = -4.21<br />y2_hat = -6.41","z2 = 3.65<br />y2 = -42.36<br />y2_hat = -38.93","z2 = 6.89<br />y2 = -34.86<br />y2_hat = -45.64","z2 = 9.12<br />y2 = -51.14<br />y2_hat = -57.15","z2 = 7.48<br />y2 = -35.95<br />y2_hat = -32.34","z2 = 6.41<br />y2 = -33.43<br />y2_hat = -31.1","z2 = 5.98<br />y2 = -31.45<br />y2_hat = -35.31","z2 = 3.07<br />y2 = -26.92<br />y2_hat = -23.43","z2 = 1.47<br />y2 = -31.08<br />y2_hat = -24.68","z2 = 8.3<br />y2 = -24.89<br />y2_hat = -33.13","z2 = 3.7<br />y2 = 32.55<br />y2_hat = 24.77","z2 = 4.31<br />y2 = -75.97<br />y2_hat = -80.97","z2 = 6.73<br />y2 = -106.26<br />y2_hat = -95.82","z2 = 3.48<br />y2 = -25.89<br />y2_hat = -16.64","z2 = 5.97<br />y2 = -15.54<br />y2_hat = -18.42","z2 = 4.91<br />y2 = -42.22<br />y2_hat = -44.41","z2 = 6.51<br />y2 = -40.64<br />y2_hat = -33.5","z2 = 6.69<br />y2 = -43.68<br />y2_hat = -38.07","z2 = 6.91<br />y2 = -62.85<br />y2_hat = -62.11","z2 = 6.43<br />y2 = -48.76<br />y2_hat = -45.73","z2 = 6.74<br />y2 = -5.7<br />y2_hat = -10.84","z2 = 5.69<br />y2 = -46.69<br />y2_hat = -47.35","z2 = 4.78<br />y2 = 31.81<br />y2_hat = 26.19","z2 = 5.06<br />y2 = -28.65<br />y2_hat = -31.13","z2 = 4.97<br />y2 = -5.25<br />y2_hat = -1.11","z2 = 6.47<br />y2 = -19.55<br />y2_hat = -20.58","z2 = 6.21<br />y2 = -15.52<br />y2_hat = -22.27","z2 = 6.11<br />y2 = -54.77<br />y2_hat = -43.3","z2 = 4.49<br />y2 = -27.03<br />y2_hat = -26.62","z2 = 5.47<br />y2 = -51.71<br />y2_hat = -48.46","z2 = 5.9<br />y2 = -62.41<br />y2_hat = -61.09","z2 = 3.27<br />y2 = 18.55<br />y2_hat = 18.2","z2 = 8.53<br />y2 = -24.31<br />y2_hat = -22.4","z2 = 4.69<br />y2 = -35.36<br />y2_hat = -21.32","z2 = 5.16<br />y2 = -60.12<br />y2_hat = -57","z2 = 1.54<br />y2 = 22.15<br />y2_hat = 12.05","z2 = 5.7<br />y2 = -68.24<br />y2_hat = -72.5","z2 = 3.54<br />y2 = -10.7<br />y2_hat = -7.69","z2 = 5.77<br />y2 = -35.23<br />y2_hat = -43.83","z2 = 3.4<br />y2 = -10.8<br />y2_hat = -3.18","z2 = 8.17<br />y2 = -45.77<br />y2_hat = -50.96","z2 = 6.81<br />y2 = -66.36<br />y2_hat = -63.85","z2 = 2.87<br />y2 = -45.37<br />y2_hat = -48.26","z2 = 7.37<br />y2 = -25.72<br />y2_hat = -38","z2 = 6.28<br />y2 = -90.7<br />y2_hat = -88.5","z2 = 4.37<br />y2 = -1.12<br />y2_hat = -19.65","z2 = 2.72<br />y2 = -5.47<br />y2_hat = -9.19","z2 = 4.45<br />y2 = -49.59<br />y2_hat = -42.67","z2 = 6.13<br />y2 = -46.35<br />y2_hat = -40.87","z2 = 8.3<br />y2 = -60.19<br />y2_hat = -68.8","z2 = 7.45<br />y2 = -54.96<br />y2_hat = -53.78","z2 = 6.7<br />y2 = -44.33<br />y2_hat = -55.94","z2 = 4.05<br />y2 = -56.61<br />y2_hat = -43.56","z2 = 3.59<br />y2 = -31.18<br />y2_hat = -44.54","z2 = 4.06<br />y2 = -25.85<br />y2_hat = -27.48","z2 = 3.16<br />y2 = -5.49<br />y2_hat = -13.55","z2 = 4.27<br />y2 = 16.07<br />y2_hat = 10.38","z2 = 4.79<br />y2 = -22.74<br />y2_hat = -17.83","z2 = 5.49<br />y2 = -74.11<br />y2_hat = -71.91","z2 = 2.72<br />y2 = -2.19<br />y2_hat = -12.11","z2 = 6.04<br />y2 = -63.89<br />y2_hat = -56.89","z2 = 3.4<br />y2 = -67.08<br />y2_hat = -49.57","z2 = 4.7<br />y2 = -35.66<br />y2_hat = -36.73","z2 = 5.06<br />y2 = -22.08<br />y2_hat = -24.68","z2 = 3.94<br />y2 = -7.33<br />y2_hat = 0.47","z2 = 4.26<br />y2 = -18.7<br />y2_hat = -4.28","z2 = 3.85<br />y2 = -31.04<br />y2_hat = -39.92","z2 = 3.95<br />y2 = -1.11<br />y2_hat = 9.63","z2 = 8.6<br />y2 = -96<br />y2_hat = -95.78","z2 = 5.22<br />y2 = -26.96<br />y2_hat = -30.97","z2 = 4.41<br />y2 = -43.51<br />y2_hat = -43.6","z2 = 4.89<br />y2 = -40.68<br />y2_hat = -30.21","z2 = 4.43<br />y2 = -44.7<br />y2_hat = -39.57","z2 = 4.09<br />y2 = -41.03<br />y2_hat = -42.96","z2 = 6.39<br />y2 = -24.26<br />y2_hat = -30.7","z2 = 2.63<br />y2 = -19.54<br />y2_hat = -23.37","z2 = 4.43<br />y2 = -36.57<br />y2_hat = -20.78","z2 = 3.92<br />y2 = -62.81<br />y2_hat = -62.61","z2 = 5.53<br />y2 = -63.63<br />y2_hat = -48.64","z2 = 5.49<br />y2 = -25.74<br />y2_hat = -33.03","z2 = 6.21<br />y2 = -44.47<br />y2_hat = -46.32","z2 = 5.4<br />y2 = -62.25<br />y2_hat = -52.51","z2 = 4.87<br />y2 = 13.33<br />y2_hat = 8.4","z2 = 6.68<br />y2 = -32.53<br />y2_hat = -26.93","z2 = 3.04<br />y2 = 13.83<br />y2_hat = 8.39","z2 = 3.89<br />y2 = -38.4<br />y2_hat = -44.71","z2 = 4.1<br />y2 = -39<br />y2_hat = -37.62","z2 = 1.43<br />y2 = -11.31<br />y2_hat = -12.38","z2 = 4.99<br />y2 = -40.85<br />y2_hat = -42.35","z2 = 5.37<br />y2 = -40.59<br />y2_hat = -42","z2 = 6.13<br />y2 = -5.87<br />y2_hat = -11.58","z2 = 6.21<br />y2 = -49.81<br />y2_hat = -56.94","z2 = 6.47<br />y2 = -29.39<br />y2_hat = -23.46","z2 = 3.95<br />y2 = -19.67<br />y2_hat = -21.27","z2 = 2.96<br />y2 = -3.39<br />y2_hat = -5.88","z2 = 4.21<br />y2 = -35.07<br />y2_hat = -41.82","z2 = 6.89<br />y2 = -95.07<br />y2_hat = -98.13","z2 = 5.12<br />y2 = -34.31<br />y2_hat = -35.2","z2 = 3.45<br />y2 = -33.76<br />y2_hat = -31.69","z2 = 2.23<br />y2 = -23.82<br />y2_hat = -25.31","z2 = 7.14<br />y2 = -56.65<br />y2_hat = -53.9","z2 = 4.08<br />y2 = -40.58<br />y2_hat = -33.41","z2 = 2.62<br />y2 = -3.62<br />y2_hat = -7.18","z2 = 2.75<br />y2 = -42.8<br />y2_hat = -37.26","z2 = 6.16<br />y2 = -15.64<br />y2_hat = -15","z2 = 6.4<br />y2 = -46.57<br />y2_hat = -55.03","z2 = 3.05<br />y2 = -21.15<br />y2_hat = -16.64","z2 = 3.58<br />y2 = -19.37<br />y2_hat = -27.96","z2 = 2.2<br />y2 = -17.63<br />y2_hat = -19.13","z2 = 4.33<br />y2 = -39.25<br />y2_hat = -57","z2 = 4.59<br />y2 = -31.57<br />y2_hat = -40.29","z2 = 7.01<br />y2 = 4.61<br />y2_hat = -11.07","z2 = 2.2<br />y2 = -40.56<br />y2_hat = -37.88","z2 = 3.44<br />y2 = -9.74<br />y2_hat = -15.77","z2 = 3.17<br />y2 = -39.37<br />y2_hat = -56.85","z2 = 4.42<br />y2 = -24.42<br />y2_hat = -20.12","z2 = 3.81<br />y2 = -38.47<br />y2_hat = -35.75","z2 = 8.63<br />y2 = -60.51<br />y2_hat = -53.01","z2 = 5.8<br />y2 = -24.83<br />y2_hat = -34.62","z2 = 5.71<br />y2 = -30.71<br />y2_hat = -23.86","z2 = 5.07<br />y2 = -49.14<br />y2_hat = -55.62","z2 = 4.78<br />y2 = -66.84<br />y2_hat = -58.73","z2 = 3.25<br />y2 = -20.61<br />y2_hat = -23.57","z2 = 5.58<br />y2 = -57.5<br />y2_hat = -52.38","z2 = 4.82<br />y2 = -57.64<br />y2_hat = -56.86","z2 = 7.22<br />y2 = -32.66<br />y2_hat = -35.98","z2 = 2.58<br />y2 = -41.44<br />y2_hat = -45.99","z2 = 4.14<br />y2 = -45.34<br />y2_hat = -37.35","z2 = 5.56<br />y2 = 5.57<br />y2_hat = -4.73","z2 = 5.91<br />y2 = -47.97<br />y2_hat = -47.24","z2 = 4.72<br />y2 = -46.24<br />y2_hat = -52.5","z2 = 2.86<br />y2 = -24.13<br />y2_hat = -30.58","z2 = 6.32<br />y2 = -53.63<br />y2_hat = -54.47","z2 = 6.74<br />y2 = -80.39<br />y2_hat = -84.95","z2 = 4.56<br />y2 = -17.67<br />y2_hat = -29.52","z2 = 5.03<br />y2 = 23.36<br />y2_hat = 24.5","z2 = 4.3<br />y2 = -14<br />y2_hat = -13.54","z2 = 5.59<br />y2 = -56.73<br />y2_hat = -67.89","z2 = 5.98<br />y2 = -22.19<br />y2_hat = -19.2","z2 = 6.42<br />y2 = -91.51<br />y2_hat = -95.81","z2 = 4.38<br />y2 = -23.23<br />y2_hat = -13.29","z2 = 3.68<br />y2 = -21.71<br />y2_hat = -40.5","z2 = 5.82<br />y2 = -36.13<br />y2_hat = -35.74","z2 = 4.6<br />y2 = -45.07<br />y2_hat = -41.72","z2 = 6.16<br />y2 = -49.14<br />y2_hat = -41.93","z2 = 6.55<br />y2 = -51.42<br />y2_hat = -56.81","z2 = 3.4<br />y2 = -31.15<br />y2_hat = -33.7","z2 = 2.88<br />y2 = -23.28<br />y2_hat = -20.78","z2 = 5.67<br />y2 = -95.93<br />y2_hat = -91.89","z2 = 6.6<br />y2 = -55.14<br />y2_hat = -44.46","z2 = 4.4<br />y2 = -62.12<br />y2_hat = -49.96","z2 = 4.15<br />y2 = -35.88<br />y2_hat = -36.92","z2 = 7.03<br />y2 = -55.03<br />y2_hat = -52.08","z2 = 1.55<br />y2 = -83.53<br />y2_hat = -82.67","z2 = 4.86<br />y2 = -57.59<br />y2_hat = -51.28","z2 = 2.44<br />y2 = -31.13<br />y2_hat = -26.57","z2 = 2.9<br />y2 = -78.77<br />y2_hat = -79.39","z2 = 6.11<br />y2 = -28.52<br />y2_hat = -24.79","z2 = 2.86<br />y2 = -66.97<br />y2_hat = -65.28","z2 = 3.49<br />y2 = -31.7<br />y2_hat = -34.96","z2 = 8.37<br />y2 = -96.12<br />y2_hat = -90.79","z2 = 5.78<br />y2 = 7.02<br />y2_hat = 3.87","z2 = 2.09<br />y2 = 0.88<br />y2_hat = 1.84","z2 = 4.83<br />y2 = 8.17<br />y2_hat = 8.95","z2 = 5.6<br />y2 = -21.04<br />y2_hat = -25.57","z2 = 3.7<br />y2 = 15.12<br />y2_hat = 23.02","z2 = 3.09<br />y2 = -13.48<br />y2_hat = -18.99","z2 = 3.78<br />y2 = -27.93<br />y2_hat = -31.62","z2 = 3.9<br />y2 = -6.07<br />y2_hat = -7.86","z2 = 7.27<br />y2 = -54.1<br />y2_hat = -51.2","z2 = 5.85<br />y2 = -31.62<br />y2_hat = -33.47","z2 = 7.95<br />y2 = -64.66<br />y2_hat = -67.49","z2 = 3.2<br />y2 = -32.6<br />y2_hat = -26.64","z2 = 5.42<br />y2 = -5.7<br />y2_hat = -6.3","z2 = 3.75<br />y2 = -29.94<br />y2_hat = -39.74","z2 = 8.56<br />y2 = -55.22<br />y2_hat = -47.13","z2 = 7.84<br />y2 = -60.87<br />y2_hat = -57.79","z2 = 5.81<br />y2 = -10.55<br />y2_hat = -5.16","z2 = 4.96<br />y2 = -28.64<br />y2_hat = -46.25","z2 = 5.85<br />y2 = -50.26<br />y2_hat = -47.35","z2 = 6.04<br />y2 = -21.95<br />y2_hat = -19.06","z2 = 1.76<br />y2 = -25.98<br />y2_hat = -18.2","z2 = 5.99<br />y2 = -54.9<br />y2_hat = -60.2","z2 = 3.35<br />y2 = 10.18<br />y2_hat = 4.44","z2 = 5.77<br />y2 = -28.4<br />y2_hat = -15.84","z2 = 7.36<br />y2 = -22.75<br />y2_hat = -26.88","z2 = 3.53<br />y2 = -66.8<br />y2_hat = -57.3","z2 = 3.24<br />y2 = -60.65<br />y2_hat = -54.74","z2 = 4.77<br />y2 = -13.91<br />y2_hat = -2.22","z2 = 4.5<br />y2 = -49.72<br />y2_hat = -51.4","z2 = 4.98<br />y2 = -30.63<br />y2_hat = -28.63","z2 = 4.79<br />y2 = -22.86<br />y2_hat = -15.95","z2 = 1.39<br />y2 = -9.72<br />y2_hat = -14.4","z2 = 5.05<br />y2 = -71.52<br />y2_hat = -70.45","z2 = 2.87<br />y2 = -6.89<br />y2_hat = -13.13","z2 = 4.28<br />y2 = -26.93<br />y2_hat = -21.78","z2 = 4.38<br />y2 = -19.89<br />y2_hat = -19.1","z2 = 1.51<br />y2 = -19.33<br />y2_hat = -16.5","z2 = 2.72<br />y2 = -29.46<br />y2_hat = -29.11","z2 = 5.32<br />y2 = -54.48<br />y2_hat = -57.68","z2 = 4.82<br />y2 = -42.1<br />y2_hat = -44.36","z2 = 5.39<br />y2 = -50.89<br />y2_hat = -36.6","z2 = 7.57<br />y2 = -5.27<br />y2_hat = -4.01","z2 = 4.17<br />y2 = -18.16<br />y2_hat = -26.59","z2 = 6.07<br />y2 = -47.64<br />y2_hat = -62.89","z2 = 6.19<br />y2 = -36.6<br />y2_hat = -40.83","z2 = 5.89<br />y2 = -22.9<br />y2_hat = -28.15","z2 = 2.26<br />y2 = -9.78<br />y2_hat = -5.13","z2 = 5.28<br />y2 = -80.2<br />y2_hat = -56.43","z2 = 3.38<br />y2 = -26.43<br />y2_hat = -30.33","z2 = 7.27<br />y2 = -40.52<br />y2_hat = -48.02","z2 = 4.27<br />y2 = -51.69<br />y2_hat = -59.3","z2 = 3.06<br />y2 = -44.35<br />y2_hat = -53.27","z2 = 4.16<br />y2 = -25.63<br />y2_hat = -36.64","z2 = 4.99<br />y2 = -56.94<br />y2_hat = -44.76","z2 = 1.23<br />y2 = 0.13<br />y2_hat = 2.96","z2 = 5.94<br />y2 = -17.29<br />y2_hat = -15.23","z2 = 6.46<br />y2 = -27.05<br />y2_hat = -20.73","z2 = 7.62<br />y2 = -32.73<br />y2_hat = -45.01","z2 = 3.78<br />y2 = -16.24<br />y2_hat = -17.38","z2 = 5.93<br />y2 = -23.12<br />y2_hat = -25.48","z2 = 4.27<br />y2 = -30.52<br />y2_hat = -26.88","z2 = 3.37<br />y2 = 10.4<br />y2_hat = -0.98","z2 = 3.48<br />y2 = -47.51<br />y2_hat = -51.57","z2 = 4.6<br />y2 = -63.75<br />y2_hat = -60.16","z2 = 4.52<br />y2 = 13.65<br />y2_hat = 9.42","z2 = 3.53<br />y2 = -72.87<br />y2_hat = -70.18","z2 = 4.76<br />y2 = -56.48<br />y2_hat = -60.16","z2 = 0.5<br />y2 = -10.16<br />y2_hat = -4.9","z2 = 3.51<br />y2 = -42.81<br />y2_hat = -49.53","z2 = 5.9<br />y2 = -57.47<br />y2_hat = -49.43","z2 = 4.09<br />y2 = -60.25<br />y2_hat = -52.36","z2 = 6<br />y2 = -12.86<br />y2_hat = -18.16","z2 = 5.94<br />y2 = -49.05<br />y2_hat = -59.98","z2 = 9.01<br />y2 = -59.76<br />y2_hat = -62.01","z2 = 4.71<br />y2 = -24.36<br />y2_hat = -33.47","z2 = 8.05<br />y2 = -44.43<br />y2_hat = -44.77","z2 = 5.98<br />y2 = -74.16<br />y2_hat = -54.86","z2 = 4.13<br />y2 = -52.37<br />y2_hat = -48.52","z2 = 4.99<br />y2 = -20.6<br />y2_hat = -18.44","z2 = 2.79<br />y2 = -15.46<br />y2_hat = -17.07","z2 = 5.66<br />y2 = -24.87<br />y2_hat = -18.97","z2 = 6.13<br />y2 = -55.99<br />y2_hat = -53.01","z2 = 6.84<br />y2 = -37.7<br />y2_hat = -41.96","z2 = 6.39<br />y2 = -98.05<br />y2_hat = -98.05","z2 = 5.73<br />y2 = -79.34<br />y2_hat = -74.61","z2 = 5.17<br />y2 = -23.66<br />y2_hat = -26.77","z2 = 4.21<br />y2 = -3.73<br />y2_hat = -11.42","z2 = 3.69<br />y2 = -15.82<br />y2_hat = -25.95","z2 = 5.73<br />y2 = -22.49<br />y2_hat = -17.22","z2 = 2.67<br />y2 = -18.15<br />y2_hat = -21.09","z2 = 3.87<br />y2 = -37.76<br />y2_hat = -46.87","z2 = 6.51<br />y2 = -53.87<br />y2_hat = -54.9","z2 = 6.61<br />y2 = -19.72<br />y2_hat = -29.31","z2 = 5.28<br />y2 = -16.13<br />y2_hat = -16.13","z2 = 4.39<br />y2 = -46.48<br />y2_hat = -53.65","z2 = 6.92<br />y2 = -34.05<br />y2_hat = -19.95","z2 = 3.74<br />y2 = -12.42<br />y2_hat = -17.28","z2 = 5.96<br />y2 = -29.34<br />y2_hat = -25.44","z2 = 3.66<br />y2 = -44.15<br />y2_hat = -50.68","z2 = 6.48<br />y2 = -41.28<br />y2_hat = -33.96","z2 = 7.55<br />y2 = -51.46<br />y2_hat = -56.95","z2 = 8.8<br />y2 = -51.46<br />y2_hat = -49.53","z2 = 5.96<br />y2 = -59.21<br />y2_hat = -48.1","z2 = 6.98<br />y2 = -27.13<br />y2_hat = -19.75","z2 = 5.26<br />y2 = -17.44<br />y2_hat = -14.7","z2 = 7.13<br />y2 = 16.83<br />y2_hat = 12.11","z2 = 5.05<br />y2 = -40.81<br />y2_hat = -40.03","z2 = 5.76<br />y2 = -81.93<br />y2_hat = -67.53","z2 = 3.86<br />y2 = 13.96<br />y2_hat = -5.25","z2 = 2.59<br />y2 = 8.15<br />y2_hat = 5.14","z2 = 4.94<br />y2 = -61.74<br />y2_hat = -61.15","z2 = 3.87<br />y2 = -34.32<br />y2_hat = -33.08","z2 = 8.67<br />y2 = -58.47<br />y2_hat = -60.22","z2 = 3.3<br />y2 = -37.54<br />y2_hat = -37.7","z2 = 4.73<br />y2 = -20.49<br />y2_hat = -22.44","z2 = 4.17<br />y2 = -25.62<br />y2_hat = -21.83","z2 = 3.93<br />y2 = -80.83<br />y2_hat = -77.62","z2 = 2.53<br />y2 = -24.06<br />y2_hat = -18.44","z2 = 5.4<br />y2 = -23.46<br />y2_hat = -20.07","z2 = 2.51<br />y2 = -20.31<br />y2_hat = -22.37","z2 = 5.84<br />y2 = 1.19<br />y2_hat = 0.06","z2 = 5.95<br />y2 = -32.49<br />y2_hat = -27.46","z2 = 4.56<br />y2 = -17.65<br />y2_hat = -25.27","z2 = 4.76<br />y2 = -50.66<br />y2_hat = -57.16","z2 = 4.24<br />y2 = -27.78<br />y2_hat = -26.47","z2 = 4.23<br />y2 = -27.01<br />y2_hat = -22.48","z2 = 6.44<br />y2 = -52.67<br />y2_hat = -62.52","z2 = 7.31<br />y2 = -27.86<br />y2_hat = -35.29","z2 = 1.89<br />y2 = -47.17<br />y2_hat = -32.2","z2 = 6.54<br />y2 = -29.29<br />y2_hat = -28.69","z2 = 4.42<br />y2 = -47.12<br />y2_hat = -42.56","z2 = 8.03<br />y2 = -32.78<br />y2_hat = -31.07","z2 = 5.96<br />y2 = -6.18<br />y2_hat = -3.18","z2 = 3.63<br />y2 = -36.53<br />y2_hat = -27.79","z2 = 5.57<br />y2 = -26.68<br />y2_hat = -25.09","z2 = 6.93<br />y2 = -27.54<br />y2_hat = -5.12","z2 = 5.34<br />y2 = -14.82<br />y2_hat = -16.31","z2 = 4.79<br />y2 = -4.35<br />y2_hat = -9.82","z2 = 6.09<br />y2 = -28.41<br />y2_hat = -31.92","z2 = 4.94<br />y2 = -47.82<br />y2_hat = -49.92","z2 = 6.31<br />y2 = -59.84<br />y2_hat = -64.33","z2 = 4.11<br />y2 = -50.19<br />y2_hat = -60.6","z2 = 4.99<br />y2 = -47.71<br />y2_hat = -34.33","z2 = 2.99<br />y2 = -4.52<br />y2_hat = -18.03","z2 = 3.65<br />y2 = -44.1<br />y2_hat = -41.52","z2 = 6.97<br />y2 = -29.68<br />y2_hat = -29.79","z2 = 6.26<br />y2 = -77.29<br />y2_hat = -79.07","z2 = 3.74<br />y2 = 25.69<br />y2_hat = 30.66","z2 = 3.34<br />y2 = -50.04<br />y2_hat = -44.82","z2 = 7.58<br />y2 = -30.92<br />y2_hat = -41.76","z2 = 2.38<br />y2 = 41.91<br />y2_hat = 29.86","z2 = 6.84<br />y2 = -26.62<br />y2_hat = -25.51","z2 = 6.3<br />y2 = -21.36<br />y2_hat = -22.5","z2 = 5.27<br />y2 = 11.43<br />y2_hat = 2.73","z2 = 4.68<br />y2 = -17.55<br />y2_hat = -26.75","z2 = 5.87<br />y2 = -58.44<br />y2_hat = -56.11","z2 = 7.27<br />y2 = -68.66<br />y2_hat = -66.94","z2 = 2.59<br />y2 = -41.16<br />y2_hat = -46.3","z2 = 5.37<br />y2 = -116.46<br />y2_hat = -113.73","z2 = 6.1<br />y2 = -36.03<br />y2_hat = -29.96","z2 = 6.75<br />y2 = -42.5<br />y2_hat = -48.51","z2 = 2.59<br />y2 = -46.13<br />y2_hat = -33.43","z2 = 2.9<br />y2 = -54.15<br />y2_hat = -44.98","z2 = 4.97<br />y2 = -43.83<br />y2_hat = -33.02","z2 = 7.07<br />y2 = -40.1<br />y2_hat = -36.5","z2 = 3.69<br />y2 = -25.07<br />y2_hat = -25.09","z2 = 5.72<br />y2 = -48.64<br />y2_hat = -52.94","z2 = 5.92<br />y2 = -59.98<br />y2_hat = -54.46","z2 = 6.35<br />y2 = -54.3<br />y2_hat = -64.2","z2 = 5.77<br />y2 = -33.54<br />y2_hat = -22.29","z2 = 6.12<br />y2 = -55.19<br />y2_hat = -48.15","z2 = 6.32<br />y2 = 5.74<br />y2_hat = 8.11","z2 = 5.34<br />y2 = -59.01<br />y2_hat = -56.23","z2 = 3.71<br />y2 = 19.28<br />y2_hat = 13.73","z2 = 6.08<br />y2 = -60.51<br />y2_hat = -62.3","z2 = 5.33<br />y2 = -35.2<br />y2_hat = -43.27","z2 = 6.08<br />y2 = -32.65<br />y2_hat = -34.13","z2 = 4.71<br />y2 = -45.81<br />y2_hat = -47.02","z2 = 1.94<br />y2 = -24.69<br />y2_hat = -19.28","z2 = 6.38<br />y2 = -46.31<br />y2_hat = -41.4","z2 = 5.16<br />y2 = -37.23<br />y2_hat = -41.01","z2 = 3.14<br />y2 = -7.86<br />y2_hat = -12.49","z2 = 4.12<br />y2 = -5.57<br />y2_hat = 1.76","z2 = 5.03<br />y2 = -60.81<br />y2_hat = -59.68","z2 = 5.36<br />y2 = -50.72<br />y2_hat = -53.13","z2 = 3.13<br />y2 = -26.96<br />y2_hat = -27.6","z2 = 4.71<br />y2 = -11.29<br />y2_hat = -23.84","z2 = 2.58<br />y2 = -24.29<br />y2_hat = -31.43","z2 = 6.49<br />y2 = -73.63<br />y2_hat = -77.35","z2 = 5.99<br />y2 = -14.86<br />y2_hat = -14.11","z2 = 4.87<br />y2 = -0.86<br />y2_hat = 19.34","z2 = 5.74<br />y2 = -23.8<br />y2_hat = -31.31","z2 = 4.52<br />y2 = -70.11<br />y2_hat = -61.33","z2 = 5.76<br />y2 = -61.69<br />y2_hat = -60.19","z2 = 6.79<br />y2 = -24.86<br />y2_hat = -31.09","z2 = 6.37<br />y2 = -74.98<br />y2_hat = -79.14","z2 = 3.8<br />y2 = 27.4<br />y2_hat = 18.38","z2 = 6.55<br />y2 = -51.13<br />y2_hat = -49.84","z2 = 3.72<br />y2 = -30.03<br />y2_hat = -40.96","z2 = 1.42<br />y2 = -54.11<br />y2_hat = -45.56","z2 = 5.29<br />y2 = -32.03<br />y2_hat = -40.67","z2 = 7.62<br />y2 = -69.14<br />y2_hat = -73.25","z2 = 6.11<br />y2 = -78.79<br />y2_hat = -77.15","z2 = 5.28<br />y2 = -69.67<br />y2_hat = -63.81","z2 = 2.57<br />y2 = -55.33<br />y2_hat = -46.19","z2 = 5.53<br />y2 = -60.79<br />y2_hat = -63.81","z2 = 5.38<br />y2 = -88.79<br />y2_hat = -91.61","z2 = 6.93<br />y2 = -62.39<br />y2_hat = -66.5","z2 = 7.42<br />y2 = -74.67<br />y2_hat = -80.92","z2 = 5.52<br />y2 = -58.15<br />y2_hat = -55.44","z2 = 7.01<br />y2 = -33.82<br />y2_hat = -35.69","z2 = 5.46<br />y2 = -23.27<br />y2_hat = -10.23","z2 = 4.74<br />y2 = 2.8<br />y2_hat = -1.6","z2 = 3.5<br />y2 = -27.37<br />y2_hat = -24.15","z2 = 5.03<br />y2 = -7.85<br />y2_hat = -4.89","z2 = 5.7<br />y2 = -51.94<br />y2_hat = -44.98","z2 = 3.43<br />y2 = -39.12<br />y2_hat = -42.91","z2 = 4.74<br />y2 = -23.5<br />y2_hat = -30.7","z2 = 4.13<br />y2 = -0.9<br />y2_hat = -3.67","z2 = 5.33<br />y2 = -36.71<br />y2_hat = -40.44","z2 = 5.46<br />y2 = -31.18<br />y2_hat = -33.2","z2 = 6.85<br />y2 = -20.49<br />y2_hat = -17.61","z2 = 1.86<br />y2 = -9.62<br />y2_hat = -19","z2 = 5.54<br />y2 = -77.1<br />y2_hat = -73.71","z2 = 2.32<br />y2 = 41.82<br />y2_hat = 34.36","z2 = 0.9<br />y2 = 4.19<br />y2_hat = -2.29","z2 = 5.76<br />y2 = 1.27<br />y2_hat = -1.43","z2 = 7.58<br />y2 = -19.38<br />y2_hat = -22.97","z2 = 5.75<br />y2 = -23.95<br />y2_hat = -23.34","z2 = 5.26<br />y2 = -3.85<br />y2_hat = -0.39","z2 = 4.95<br />y2 = -3.62<br />y2_hat = -2.4","z2 = 5.33<br />y2 = -3.11<br />y2_hat = 2.52","z2 = 8.46<br />y2 = -118.53<br />y2_hat = -113.77","z2 = 5.36<br />y2 = -66.8<br />y2_hat = -61.63","z2 = 4.19<br />y2 = -71.8<br />y2_hat = -72.56","z2 = 1.73<br />y2 = 11.91<br />y2_hat = 5.11","z2 = 7.13<br />y2 = -76.57<br />y2_hat = -73.92","z2 = 6.89<br />y2 = -22.62<br />y2_hat = -33.87","z2 = 2.86<br />y2 = -64.17<br />y2_hat = -59.89","z2 = 4.6<br />y2 = -5.64<br />y2_hat = -6.34","z2 = 8.02<br />y2 = -57.12<br />y2_hat = -70.81","z2 = 6.04<br />y2 = -43.82<br />y2_hat = -52.7","z2 = 7.18<br />y2 = -34.78<br />y2_hat = -34.82","z2 = 4.86<br />y2 = -41.03<br />y2_hat = -19.51","z2 = 3.45<br />y2 = -23.39<br />y2_hat = -30.42","z2 = 3.7<br />y2 = -5.26<br />y2_hat = -11.66","z2 = 3.66<br />y2 = -3.82<br />y2_hat = -2.86","z2 = 2.71<br />y2 = -38.13<br />y2_hat = -40.22","z2 = 4.88<br />y2 = -63.23<br />y2_hat = -70.48","z2 = 4.68<br />y2 = -14.22<br />y2_hat = -4.23","z2 = 4.28<br />y2 = -49.42<br />y2_hat = -49.46","z2 = 2.89<br />y2 = -59.77<br />y2_hat = -54.9","z2 = 3.43<br />y2 = -48.99<br />y2_hat = -46.36","z2 = 4.18<br />y2 = -34.95<br />y2_hat = -34.45","z2 = 2.32<br />y2 = -33.97<br />y2_hat = -36.43","z2 = 4.6<br />y2 = -4.23<br />y2_hat = -10.99","z2 = 4.5<br />y2 = -27.79<br />y2_hat = -31.49","z2 = 1.82<br />y2 = -51.62<br />y2_hat = -49.17","z2 = 3.83<br />y2 = -48.93<br />y2_hat = -38.06","z2 = 4.72<br />y2 = -26.5<br />y2_hat = -19.9","z2 = 6.34<br />y2 = -35.45<br />y2_hat = -48.2","z2 = 6.22<br />y2 = -37.64<br />y2_hat = -25.89","z2 = 5.64<br />y2 = 13.02<br />y2_hat = 6.07","z2 = 6.97<br />y2 = -28.56<br />y2_hat = -28.33","z2 = 3.73<br />y2 = -52<br />y2_hat = -54.28","z2 = 2.93<br />y2 = -1.92<br />y2_hat = -5.98","z2 = 6.01<br />y2 = -32.02<br />y2_hat = -24.39","z2 = 4.73<br />y2 = -30.64<br />y2_hat = -38.94"],"type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(153,153,153,1)","opacity":0.29999999999999999,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(153,153,153,1)"}},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"visible":false,"showlegend":false,"xaxis":null,"yaxis":null,"hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> First stage: instrument z2 predicts endogenous y2 <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.067490540946040678,9.5488811144102961],"tickmode":"array","ticktext":["2.5","5.0","7.5"],"tickvals":[2.5,4.9999999999999982,7.5],"categoryorder":"array","categoryarray":["2.5","5.0","7.5"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Instrument z2 (regulatory shock to firm 2)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-126.55507095000164,49.927618573930999],"tickmode":"array","ticktext":["-100","-50","0"],"tickvals":[-100,-50,0],"categoryorder":"array","categoryarray":["-100","-50","0"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Endogenous variable y2 (firm 2 entry intensity)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top"},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"4205601be847":{"x":{},"y":{},"text":{},"type":"scatter"},"420533dea2a":{"x":{},"y":{},"text":{}}},"cur_data":"4205601be847","visdat":{"4205601be847":["function (y) ","x"],"420533dea2a":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-iv-first-stage-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The simulation makes the endogeneity problem concrete: because both firms respond to the same unobserved market conditions (the common shock), OLS confounds the causal effect of firm 2’s entry with the spurious correlation induced by shared unobservables. The common shock creates a positive association between <span class="math inline">\(y_2\)</span> and <span class="math inline">\(u_1\)</span> that attenuates the negative causal effect, biasing OLS toward zero. The 2SLS estimator eliminates this bias by isolating variation in <span class="math inline">\(y_2\)</span> that comes only from the instrument (firm 2’s regulatory shock), which by construction is independent of the common market shock. The Monte Carlo exercise demonstrates that while OLS is systematically biased across all 500 replications, 2SLS is centred on the true parameter, confirming consistency. The first-stage F-statistic well above 10 rules out weak instrument concerns in this simulation. In practice, finding valid instruments in game-theoretic settings is the central challenge. The exclusion restriction — that the instrument affects the outcome only through the endogenous variable — is untestable and must be defended on institutional grounds. In empirical IO, BLP-style instruments (characteristics of rival products in other markets) exploit the insight that a firm’s pricing depends on competitors’ characteristics but those characteristics affect demand only through their influence on equilibrium prices. Other common instruments include regulatory changes that differentially affect players, geographic variation in costs, and lagged values under sequential timing assumptions. Over-identification tests (Sargan/Hansen J-test) provide some diagnostic power when multiple instruments are available but cannot definitively validate exclusion.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../../bayesian-methods/bayesian-games-incomplete-information/">Bayesian games with incomplete information</a> — the theoretical framework for strategic uncertainty.</li>
+<li>
+<a href="../../auction-theory-deep-dive/first-price-sealed-bid/">First-price sealed-bid auction</a> — equilibrium bidding with private information.</li>
+<li>
+<a href="../regression-discontinuity/">Regression discontinuity in strategic environments</a> — alternative causal design for thresholds.</li>
+<li>
+<a href="../difference-in-differences/">Difference-in-differences for policy evaluation</a> — panel methods with strategic agents.</li>
+<li>
+<a href="../../statistical-foundations/structural-estimation/">Structural estimation of games</a> — full model-based approaches.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Instrumental Variables for Causal Effects in Strategic
+    Settings},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/causal-inference/instrumental-variables-game-theory/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Instrumental Variables for Causal Effects in
+Strategic Settings.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/causal-inference/instrumental-variables-game-theory/">https://r-heller.github.io/equilibria/tutorials/causal-inference/instrumental-variables-game-theory/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Instrumental variables for causal effects in strategic settings"</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Use instrumental variable methods to estimate causal effects when strategic interaction creates endogeneity, implement two-stage least squares (2SLS) in R, and apply the approach to a game-theoretic model of market entry."</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - causal-inference</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - instrumental-variables</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - endogeneity</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["instrumental variables", "2SLS", "endogeneity", "causal inference", "game theory", "strategic interaction", "simultaneous equations", "R"]</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["causal-methods", "applied-econometrics"]</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_causal-inference_instrumental-variables-game-theory"</span></span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Scatter plot comparing OLS and 2SLS estimates for causal effects in a strategic entry game"</span></span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/causal-inference/instrumental-variables-game-theory/</span></span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY-SA 4.0"</span></span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>)</span>
+<span id="cb25-50"><a href="#cb25-50" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb25-51"><a href="#cb25-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-52"><a href="#cb25-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-53"><a href="#cb25-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-54"><a href="#cb25-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-55"><a href="#cb25-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb25-56"><a href="#cb25-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-57"><a href="#cb25-57" aria-hidden="true" tabindex="-1"></a>In strategic settings, the actions of one player depend on the actions of others — and those actions, in turn, depend on shared unobservable factors like market conditions, common shocks, or private information. This **simultaneity** creates endogeneity that makes ordinary least squares (OLS) estimates of causal effects biased and inconsistent. For example, if we want to estimate how one firm's market entry affects a rival's profits, we cannot simply regress rival profits on entry decisions, because both are driven by unobserved market attractiveness. **Instrumental variables (IV)** resolve this by exploiting exogenous variation that shifts one player's strategy without directly affecting the outcome of interest. The two-stage least squares (2SLS) estimator first predicts the endogenous variable using instruments (the "first stage"), then uses these predictions in the outcome equation (the "second stage"), isolating the causal component of variation. IV methods are the workhorse of empirical industrial organisation and have been used to study market power, strategic entry deterrence, advertising effects, and the competitive impact of mergers. Finding valid instruments in game-theoretic settings requires deep institutional knowledge: cost shifters, regulatory changes, geographic variation, and characteristics of distant competitors (BLP-style instruments) are common sources. This tutorial simulates a strategic entry game with endogeneity, demonstrates the bias of naive OLS, implements 2SLS from scratch in R, and shows how valid instruments recover the true causal effect.</span>
+<span id="cb25-58"><a href="#cb25-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-59"><a href="#cb25-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-60"><a href="#cb25-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb25-61"><a href="#cb25-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-62"><a href="#cb25-62" aria-hidden="true" tabindex="-1"></a>Consider two firms deciding on entry intensity $y_1, y_2$ in a market. The structural model is:</span>
+<span id="cb25-63"><a href="#cb25-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-64"><a href="#cb25-64" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-65"><a href="#cb25-65" aria-hidden="true" tabindex="-1"></a>y_1 = \alpha_1 + \beta_1 y_2 + \gamma_1 x_1 + u_1</span>
+<span id="cb25-66"><a href="#cb25-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-67"><a href="#cb25-67" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-68"><a href="#cb25-68" aria-hidden="true" tabindex="-1"></a>y_2 = \alpha_2 + \beta_2 y_1 + \gamma_2 x_2 + u_2</span>
+<span id="cb25-69"><a href="#cb25-69" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-70"><a href="#cb25-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-71"><a href="#cb25-71" aria-hidden="true" tabindex="-1"></a>where $x_i$ are exogenous characteristics and $u_i$ are unobserved shocks. If $\text{Cov}(u_1, u_2) \neq 0$ (common unobserved market conditions), then $y_2$ is correlated with $u_1$, making OLS on the first equation inconsistent for $\beta_1$.</span>
+<span id="cb25-72"><a href="#cb25-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-73"><a href="#cb25-73" aria-hidden="true" tabindex="-1"></a>An **instrument** $z$ must satisfy:</span>
+<span id="cb25-74"><a href="#cb25-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-75"><a href="#cb25-75" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Relevance**: $\text{Cov}(z, y_2) \neq 0$ — the instrument predicts the endogenous variable</span>
+<span id="cb25-76"><a href="#cb25-76" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Exclusion**: $\text{Cov}(z, u_1) = 0$ — the instrument affects $y_1$ only through $y_2$</span>
+<span id="cb25-77"><a href="#cb25-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-78"><a href="#cb25-78" aria-hidden="true" tabindex="-1"></a>The **2SLS estimator** proceeds in two stages:</span>
+<span id="cb25-79"><a href="#cb25-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-80"><a href="#cb25-80" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-81"><a href="#cb25-81" aria-hidden="true" tabindex="-1"></a>\text{Stage 1: } \hat{y}_2 = z'\hat{\pi} \quad \text{(project } y_2 \text{ onto instruments)}</span>
+<span id="cb25-82"><a href="#cb25-82" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-83"><a href="#cb25-83" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-84"><a href="#cb25-84" aria-hidden="true" tabindex="-1"></a>\text{Stage 2: } \hat{\beta}_1 = (\hat{Y}'X)^{-1}\hat{Y}'y_1 \quad \text{(use fitted values)}</span>
+<span id="cb25-85"><a href="#cb25-85" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb25-86"><a href="#cb25-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-87"><a href="#cb25-87" aria-hidden="true" tabindex="-1"></a>where $\hat{Y}$ replaces $y_2$ with $\hat{y}_2$ from the first stage. The IV estimator is consistent when the instruments are valid, regardless of the correlation structure of the error terms.</span>
+<span id="cb25-88"><a href="#cb25-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-89"><a href="#cb25-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-90"><a href="#cb25-90" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb25-91"><a href="#cb25-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-94"><a href="#cb25-94" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-95"><a href="#cb25-95" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: iv-simulation</span></span>
+<span id="cb25-96"><a href="#cb25-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-97"><a href="#cb25-97" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb25-98"><a href="#cb25-98" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">2000</span></span>
+<span id="cb25-99"><a href="#cb25-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-100"><a href="#cb25-100" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Data generating process with simultaneity ---</span></span>
+<span id="cb25-101"><a href="#cb25-101" aria-hidden="true" tabindex="-1"></a><span class="co"># Firm-specific exogenous characteristics</span></span>
+<span id="cb25-102"><a href="#cb25-102" aria-hidden="true" tabindex="-1"></a>x1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">10</span>, <span class="at">sd =</span> <span class="dv">2</span>)   <span class="co"># Firm 1 cost shifter</span></span>
+<span id="cb25-103"><a href="#cb25-103" aria-hidden="true" tabindex="-1"></a>x2 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">8</span>, <span class="at">sd =</span> <span class="dv">2</span>)    <span class="co"># Firm 2 cost shifter</span></span>
+<span id="cb25-104"><a href="#cb25-104" aria-hidden="true" tabindex="-1"></a>z2 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">5</span>, <span class="at">sd =</span> <span class="fl">1.5</span>)  <span class="co"># Instrument: Firm 2 regulatory shock</span></span>
+<span id="cb25-105"><a href="#cb25-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-106"><a href="#cb25-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Correlated unobservables (common market shock)</span></span>
+<span id="cb25-107"><a href="#cb25-107" aria-hidden="true" tabindex="-1"></a>common_shock <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">3</span>)</span>
+<span id="cb25-108"><a href="#cb25-108" aria-hidden="true" tabindex="-1"></a>u1 <span class="ot">&lt;-</span> common_shock <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb25-109"><a href="#cb25-109" aria-hidden="true" tabindex="-1"></a>u2 <span class="ot">&lt;-</span> common_shock <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb25-110"><a href="#cb25-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-111"><a href="#cb25-111" aria-hidden="true" tabindex="-1"></a><span class="co"># True parameters</span></span>
+<span id="cb25-112"><a href="#cb25-112" aria-hidden="true" tabindex="-1"></a>beta_true <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">1.5</span>   <span class="co"># Causal effect of firm 2 entry on firm 1 profits</span></span>
+<span id="cb25-113"><a href="#cb25-113" aria-hidden="true" tabindex="-1"></a>gamma1 <span class="ot">&lt;-</span> <span class="fl">2.0</span></span>
+<span id="cb25-114"><a href="#cb25-114" aria-hidden="true" tabindex="-1"></a>gamma2 <span class="ot">&lt;-</span> <span class="fl">1.8</span></span>
+<span id="cb25-115"><a href="#cb25-115" aria-hidden="true" tabindex="-1"></a>delta_z <span class="ot">&lt;-</span> <span class="fl">1.2</span>      <span class="co"># Instrument effect on firm 2</span></span>
+<span id="cb25-116"><a href="#cb25-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-117"><a href="#cb25-117" aria-hidden="true" tabindex="-1"></a><span class="co"># Solve simultaneous system (reduced form)</span></span>
+<span id="cb25-118"><a href="#cb25-118" aria-hidden="true" tabindex="-1"></a><span class="co"># y2 = alpha2 + beta2*y1 + gamma2*x2 + delta*z2 + u2</span></span>
+<span id="cb25-119"><a href="#cb25-119" aria-hidden="true" tabindex="-1"></a><span class="co"># For simplicity, set beta2 = -0.8</span></span>
+<span id="cb25-120"><a href="#cb25-120" aria-hidden="true" tabindex="-1"></a>beta2 <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">0.8</span></span>
+<span id="cb25-121"><a href="#cb25-121" aria-hidden="true" tabindex="-1"></a>denom <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> beta_true <span class="sc">*</span> beta2</span>
+<span id="cb25-122"><a href="#cb25-122" aria-hidden="true" tabindex="-1"></a>y2 <span class="ot">&lt;-</span> (<span class="dv">5</span> <span class="sc">+</span> gamma2 <span class="sc">*</span> x2 <span class="sc">+</span> delta_z <span class="sc">*</span> z2 <span class="sc">+</span> u2 <span class="sc">+</span></span>
+<span id="cb25-123"><a href="#cb25-123" aria-hidden="true" tabindex="-1"></a>       beta2 <span class="sc">*</span> (<span class="dv">3</span> <span class="sc">+</span> gamma1 <span class="sc">*</span> x1 <span class="sc">+</span> u1)) <span class="sc">/</span> denom</span>
+<span id="cb25-124"><a href="#cb25-124" aria-hidden="true" tabindex="-1"></a>y1 <span class="ot">&lt;-</span> <span class="dv">3</span> <span class="sc">+</span> beta_true <span class="sc">*</span> y2 <span class="sc">+</span> gamma1 <span class="sc">*</span> x1 <span class="sc">+</span> u1</span>
+<span id="cb25-125"><a href="#cb25-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-126"><a href="#cb25-126" aria-hidden="true" tabindex="-1"></a>data_sim <span class="ot">&lt;-</span> <span class="fu">tibble</span>(y1, y2, x1, x2, z2)</span>
+<span id="cb25-127"><a href="#cb25-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-128"><a href="#cb25-128" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Naive OLS (biased) ---</span></span>
+<span id="cb25-129"><a href="#cb25-129" aria-hidden="true" tabindex="-1"></a>ols_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(y1 <span class="sc">~</span> y2 <span class="sc">+</span> x1, <span class="at">data =</span> data_sim)</span>
+<span id="cb25-130"><a href="#cb25-130" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== OLS (biased due to simultaneity) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-131"><a href="#cb25-131" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  beta_hat (OLS)  = %.4f</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">coef</span>(ols_fit)[<span class="st">"y2"</span>]))</span>
+<span id="cb25-132"><a href="#cb25-132" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  beta_true       = %.4f</span><span class="sc">\n</span><span class="st">"</span>, beta_true))</span>
+<span id="cb25-133"><a href="#cb25-133" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  OLS bias        = %.4f</span><span class="sc">\n\n</span><span class="st">"</span>, <span class="fu">coef</span>(ols_fit)[<span class="st">"y2"</span>] <span class="sc">-</span> beta_true))</span>
+<span id="cb25-134"><a href="#cb25-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-135"><a href="#cb25-135" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 2SLS (manual implementation) ---</span></span>
+<span id="cb25-136"><a href="#cb25-136" aria-hidden="true" tabindex="-1"></a><span class="co"># Stage 1: Regress y2 on instruments and exogenous variables</span></span>
+<span id="cb25-137"><a href="#cb25-137" aria-hidden="true" tabindex="-1"></a>stage1 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y2 <span class="sc">~</span> z2 <span class="sc">+</span> x1 <span class="sc">+</span> x2, <span class="at">data =</span> data_sim)</span>
+<span id="cb25-138"><a href="#cb25-138" aria-hidden="true" tabindex="-1"></a>data_sim<span class="sc">$</span>y2_hat <span class="ot">&lt;-</span> <span class="fu">fitted</span>(stage1)</span>
+<span id="cb25-139"><a href="#cb25-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-140"><a href="#cb25-140" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== First Stage: Instrument Relevance ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-141"><a href="#cb25-141" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  F-statistic on z2: %.1f (rule of thumb: F &gt; 10)</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb25-142"><a href="#cb25-142" aria-hidden="true" tabindex="-1"></a>            <span class="fu">summary</span>(stage1)<span class="sc">$</span>fstatistic[<span class="dv">1</span>]))</span>
+<span id="cb25-143"><a href="#cb25-143" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Coefficient on z2: %.4f (p &lt; 0.001)</span><span class="sc">\n\n</span><span class="st">"</span>, <span class="fu">coef</span>(stage1)[<span class="st">"z2"</span>]))</span>
+<span id="cb25-144"><a href="#cb25-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-145"><a href="#cb25-145" aria-hidden="true" tabindex="-1"></a><span class="co"># Stage 2: Regress y1 on fitted y2 and exogenous variables</span></span>
+<span id="cb25-146"><a href="#cb25-146" aria-hidden="true" tabindex="-1"></a>stage2 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y1 <span class="sc">~</span> y2_hat <span class="sc">+</span> x1, <span class="at">data =</span> data_sim)</span>
+<span id="cb25-147"><a href="#cb25-147" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== 2SLS (consistent) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-148"><a href="#cb25-148" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  beta_hat (2SLS) = %.4f</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">coef</span>(stage2)[<span class="st">"y2_hat"</span>]))</span>
+<span id="cb25-149"><a href="#cb25-149" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  beta_true       = %.4f</span><span class="sc">\n</span><span class="st">"</span>, beta_true))</span>
+<span id="cb25-150"><a href="#cb25-150" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  2SLS bias       = %.4f</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">coef</span>(stage2)[<span class="st">"y2_hat"</span>] <span class="sc">-</span> beta_true))</span>
+<span id="cb25-151"><a href="#cb25-151" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-152"><a href="#cb25-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-153"><a href="#cb25-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-154"><a href="#cb25-154" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb25-155"><a href="#cb25-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-158"><a href="#cb25-158" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-159"><a href="#cb25-159" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-iv-comparison</span></span>
+<span id="cb25-160"><a href="#cb25-160" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. OLS vs 2SLS estimates across 500 Monte Carlo replications. OLS (orange) is systematically biased toward zero due to simultaneity — common shocks induce a positive correlation between the endogenous regressor and the error. 2SLS (blue) is centred on the true parameter (dashed vertical line at -1.5), demonstrating consistency when instruments are valid. Okabe-Ito palette."</span></span>
+<span id="cb25-161"><a href="#cb25-161" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb25-162"><a href="#cb25-162" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 7</span></span>
+<span id="cb25-163"><a href="#cb25-163" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb25-164"><a href="#cb25-164" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb25-165"><a href="#cb25-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-166"><a href="#cb25-166" aria-hidden="true" tabindex="-1"></a><span class="co"># Monte Carlo comparison</span></span>
+<span id="cb25-167"><a href="#cb25-167" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb25-168"><a href="#cb25-168" aria-hidden="true" tabindex="-1"></a>n_mc <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb25-169"><a href="#cb25-169" aria-hidden="true" tabindex="-1"></a>mc_results <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span>n_mc, <span class="cf">function</span>(sim) {</span>
+<span id="cb25-170"><a href="#cb25-170" aria-hidden="true" tabindex="-1"></a>  x1_s <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">10</span>, <span class="dv">2</span>)</span>
+<span id="cb25-171"><a href="#cb25-171" aria-hidden="true" tabindex="-1"></a>  x2_s <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">8</span>, <span class="dv">2</span>)</span>
+<span id="cb25-172"><a href="#cb25-172" aria-hidden="true" tabindex="-1"></a>  z2_s <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="dv">5</span>, <span class="fl">1.5</span>)</span>
+<span id="cb25-173"><a href="#cb25-173" aria-hidden="true" tabindex="-1"></a>  cs <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">3</span>)</span>
+<span id="cb25-174"><a href="#cb25-174" aria-hidden="true" tabindex="-1"></a>  u1_s <span class="ot">&lt;-</span> cs <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb25-175"><a href="#cb25-175" aria-hidden="true" tabindex="-1"></a>  u2_s <span class="ot">&lt;-</span> cs <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">1</span>)</span>
+<span id="cb25-176"><a href="#cb25-176" aria-hidden="true" tabindex="-1"></a>  y2_s <span class="ot">&lt;-</span> (<span class="dv">5</span> <span class="sc">+</span> gamma2<span class="sc">*</span>x2_s <span class="sc">+</span> delta_z<span class="sc">*</span>z2_s <span class="sc">+</span> u2_s <span class="sc">+</span> beta2<span class="sc">*</span>(<span class="dv">3</span> <span class="sc">+</span> gamma1<span class="sc">*</span>x1_s <span class="sc">+</span> u1_s))<span class="sc">/</span>denom</span>
+<span id="cb25-177"><a href="#cb25-177" aria-hidden="true" tabindex="-1"></a>  y1_s <span class="ot">&lt;-</span> <span class="dv">3</span> <span class="sc">+</span> beta_true<span class="sc">*</span>y2_s <span class="sc">+</span> gamma1<span class="sc">*</span>x1_s <span class="sc">+</span> u1_s</span>
+<span id="cb25-178"><a href="#cb25-178" aria-hidden="true" tabindex="-1"></a>  ols_b <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y1_s <span class="sc">~</span> y2_s <span class="sc">+</span> x1_s))[<span class="st">"y2_s"</span>]</span>
+<span id="cb25-179"><a href="#cb25-179" aria-hidden="true" tabindex="-1"></a>  s1 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y2_s <span class="sc">~</span> z2_s <span class="sc">+</span> x1_s <span class="sc">+</span> x2_s)</span>
+<span id="cb25-180"><a href="#cb25-180" aria-hidden="true" tabindex="-1"></a>  y2h <span class="ot">&lt;-</span> <span class="fu">fitted</span>(s1)</span>
+<span id="cb25-181"><a href="#cb25-181" aria-hidden="true" tabindex="-1"></a>  iv_b <span class="ot">&lt;-</span> <span class="fu">coef</span>(<span class="fu">lm</span>(y1_s <span class="sc">~</span> y2h <span class="sc">+</span> x1_s))[<span class="st">"y2h"</span>]</span>
+<span id="cb25-182"><a href="#cb25-182" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">sim =</span> sim, <span class="at">OLS =</span> ols_b, <span class="st">`</span><span class="at">2SLS</span><span class="st">`</span> <span class="ot">=</span> iv_b)</span>
+<span id="cb25-183"><a href="#cb25-183" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb25-184"><a href="#cb25-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-185"><a href="#cb25-185" aria-hidden="true" tabindex="-1"></a>mc_long <span class="ot">&lt;-</span> mc_results <span class="sc">|&gt;</span></span>
+<span id="cb25-186"><a href="#cb25-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(OLS, <span class="st">`</span><span class="at">2SLS</span><span class="st">`</span>), <span class="at">names_to =</span> <span class="st">"method"</span>, <span class="at">values_to =</span> <span class="st">"estimate"</span>)</span>
+<span id="cb25-187"><a href="#cb25-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-188"><a href="#cb25-188" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(mc_long, <span class="fu">aes</span>(<span class="at">x =</span> estimate, <span class="at">fill =</span> method)) <span class="sc">+</span></span>
+<span id="cb25-189"><a href="#cb25-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">after_stat</span>(density)), <span class="at">bins =</span> <span class="dv">40</span>,</span>
+<span id="cb25-190"><a href="#cb25-190" aria-hidden="true" tabindex="-1"></a>                 <span class="at">alpha =</span> <span class="fl">0.6</span>, <span class="at">position =</span> <span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb25-191"><a href="#cb25-191" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> beta_true, <span class="at">linetype =</span> <span class="st">"dashed"</span>,</span>
+<span id="cb25-192"><a href="#cb25-192" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb25-193"><a href="#cb25-193" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> beta_true <span class="sc">-</span> <span class="fl">0.05</span>, <span class="at">y =</span> <span class="fl">3.5</span>,</span>
+<span id="cb25-194"><a href="#cb25-194" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="fu">paste0</span>(<span class="st">"True beta = "</span>, beta_true),</span>
+<span id="cb25-195"><a href="#cb25-195" aria-hidden="true" tabindex="-1"></a>           <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="fl">3.5</span>, <span class="at">color =</span> <span class="st">"grey30"</span>) <span class="sc">+</span></span>
+<span id="cb25-196"><a href="#cb25-196" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"OLS"</span> <span class="ot">=</span> okabe_ito[<span class="dv">1</span>], <span class="st">"2SLS"</span> <span class="ot">=</span> okabe_ito[<span class="dv">2</span>]),</span>
+<span id="cb25-197"><a href="#cb25-197" aria-hidden="true" tabindex="-1"></a>                    <span class="at">name =</span> <span class="st">"Estimator"</span>) <span class="sc">+</span></span>
+<span id="cb25-198"><a href="#cb25-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb25-199"><a href="#cb25-199" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"OLS vs 2SLS: Monte Carlo distribution of estimates"</span>,</span>
+<span id="cb25-200"><a href="#cb25-200" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"500 replications, n = 2000; OLS biased by simultaneity, 2SLS consistent"</span>,</span>
+<span id="cb25-201"><a href="#cb25-201" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Estimated coefficient on y2"</span>,</span>
+<span id="cb25-202"><a href="#cb25-202" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Density"</span></span>
+<span id="cb25-203"><a href="#cb25-203" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb25-204"><a href="#cb25-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb25-205"><a href="#cb25-205" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-206"><a href="#cb25-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-207"><a href="#cb25-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-208"><a href="#cb25-208" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb25-209"><a href="#cb25-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-212"><a href="#cb25-212" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-213"><a href="#cb25-213" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-iv-first-stage-interactive</span></span>
+<span id="cb25-214"><a href="#cb25-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-215"><a href="#cb25-215" aria-hidden="true" tabindex="-1"></a>data_sim <span class="ot">&lt;-</span> data_sim <span class="sc">|&gt;</span></span>
+<span id="cb25-216"><a href="#cb25-216" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"z2 = "</span>, <span class="fu">round</span>(z2, <span class="dv">2</span>),</span>
+<span id="cb25-217"><a href="#cb25-217" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">y2 = "</span>, <span class="fu">round</span>(y2, <span class="dv">2</span>),</span>
+<span id="cb25-218"><a href="#cb25-218" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">y2_hat = "</span>, <span class="fu">round</span>(y2_hat, <span class="dv">2</span>)))</span>
+<span id="cb25-219"><a href="#cb25-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-220"><a href="#cb25-220" aria-hidden="true" tabindex="-1"></a>p_fs <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data_sim <span class="sc">|&gt;</span> <span class="fu">sample_n</span>(<span class="dv">500</span>),</span>
+<span id="cb25-221"><a href="#cb25-221" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">x =</span> z2, <span class="at">y =</span> y2, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb25-222"><a href="#cb25-222" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>, <span class="at">color =</span> okabe_ito[<span class="dv">8</span>], <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb25-223"><a href="#cb25-223" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"lm"</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">color =</span> okabe_ito[<span class="dv">5</span>],</span>
+<span id="cb25-224"><a href="#cb25-224" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="fl">1.2</span>) <span class="sc">+</span></span>
+<span id="cb25-225"><a href="#cb25-225" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb25-226"><a href="#cb25-226" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"First stage: instrument z2 predicts endogenous y2"</span>,</span>
+<span id="cb25-227"><a href="#cb25-227" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Strong first-stage relationship is necessary for valid IV estimation"</span>,</span>
+<span id="cb25-228"><a href="#cb25-228" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Instrument z2 (regulatory shock to firm 2)"</span>,</span>
+<span id="cb25-229"><a href="#cb25-229" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Endogenous variable y2 (firm 2 entry intensity)"</span></span>
+<span id="cb25-230"><a href="#cb25-230" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb25-231"><a href="#cb25-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb25-232"><a href="#cb25-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-233"><a href="#cb25-233" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_fs, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb25-234"><a href="#cb25-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb25-235"><a href="#cb25-235" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb25-236"><a href="#cb25-236" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-237"><a href="#cb25-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-238"><a href="#cb25-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-239"><a href="#cb25-239" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb25-240"><a href="#cb25-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-241"><a href="#cb25-241" aria-hidden="true" tabindex="-1"></a>The simulation makes the endogeneity problem concrete: because both firms respond to the same unobserved market conditions (the common shock), OLS confounds the causal effect of firm 2's entry with the spurious correlation induced by shared unobservables. The common shock creates a positive association between $y_2$ and $u_1$ that attenuates the negative causal effect, biasing OLS toward zero. The 2SLS estimator eliminates this bias by isolating variation in $y_2$ that comes only from the instrument (firm 2's regulatory shock), which by construction is independent of the common market shock. The Monte Carlo exercise demonstrates that while OLS is systematically biased across all 500 replications, 2SLS is centred on the true parameter, confirming consistency. The first-stage F-statistic well above 10 rules out weak instrument concerns in this simulation. In practice, finding valid instruments in game-theoretic settings is the central challenge. The exclusion restriction — that the instrument affects the outcome only through the endogenous variable — is untestable and must be defended on institutional grounds. In empirical IO, BLP-style instruments (characteristics of rival products in other markets) exploit the insight that a firm's pricing depends on competitors' characteristics but those characteristics affect demand only through their influence on equilibrium prices. Other common instruments include regulatory changes that differentially affect players, geographic variation in costs, and lagged values under sequential timing assumptions. Over-identification tests (Sargan/Hansen J-test) provide some diagnostic power when multiple instruments are available but cannot definitively validate exclusion.</span>
+<span id="cb25-242"><a href="#cb25-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-243"><a href="#cb25-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-244"><a href="#cb25-244" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb25-245"><a href="#cb25-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-246"><a href="#cb25-246" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Bayesian games with incomplete information</span><span class="co">](../../bayesian-methods/bayesian-games-incomplete-information/)</span> — the theoretical framework for strategic uncertainty.</span>
+<span id="cb25-247"><a href="#cb25-247" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">First-price sealed-bid auction</span><span class="co">](../../auction-theory-deep-dive/first-price-sealed-bid/)</span> — equilibrium bidding with private information.</span>
+<span id="cb25-248"><a href="#cb25-248" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Regression discontinuity in strategic environments</span><span class="co">](../regression-discontinuity/)</span> — alternative causal design for thresholds.</span>
+<span id="cb25-249"><a href="#cb25-249" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Difference-in-differences for policy evaluation</span><span class="co">](../difference-in-differences/)</span> — panel methods with strategic agents.</span>
+<span id="cb25-250"><a href="#cb25-250" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Structural estimation of games</span><span class="co">](../../statistical-foundations/structural-estimation/)</span> — full model-based approaches.</span>
+<span id="cb25-251"><a href="#cb25-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-252"><a href="#cb25-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-253"><a href="#cb25-253" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb25-254"><a href="#cb25-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-255"><a href="#cb25-255" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb25-256"><a href="#cb25-256" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/causal-inference/instrumental-variables-game-theory/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/causal-inference/instrumental-variables-game-theory/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>
