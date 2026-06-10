@@ -157,7 +157,7 @@ image-alt: <string>
 citation:
   type: webpage
   url: <canonical-url>
-license: "CC BY-SA 4.0"
+license: "CC BY 4.0"
 draft: <bool>
 has_static_fig: <bool>
 has_interactive_fig: <bool>
