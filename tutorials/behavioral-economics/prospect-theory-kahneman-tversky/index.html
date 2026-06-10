@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="prospect theory, loss aversion, probability weighting, Kahneman, Tversky, value function, decision under risk, R">
+<meta name="description" content="Implement Kahneman &amp; Tversky’s prospect theory value function and probability weighting in R, compare expected utility vs prospect theory predictions for common gambles, and visualize the S-shaped value function interactively.">
+<title>Prospect theory — loss aversion and probability weighting – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-fc5d92e916961bc5153a81caa5a35c44.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Prospect theory — loss aversion and probability weighting</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">behavioral-economics</div>
+    <div class="quarto-category">prospect-theory</div>
+    <div class="quarto-category">loss-aversion</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Implement Kahneman &amp; Tversky’s prospect theory value function and probability weighting in R, compare expected utility vs prospect theory predictions for common gambles, and visualize the S-shaped value function interactively.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>prospect theory, loss aversion, probability weighting, Kahneman, Tversky, value function, decision under risk, R</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Standard expected utility theory assumes that people evaluate outcomes using a concave utility function applied to final wealth, weighting each outcome by its objective probability. Daniel Kahneman and Amos Tversky’s <strong>prospect theory</strong> (1979) overturned this framework with three key insights drawn from systematic laboratory evidence. First, people evaluate outcomes as <strong>gains and losses</strong> relative to a reference point, not as final wealth levels. Second, the value function is <strong>concave for gains but convex for losses</strong> — diminishing sensitivity in both directions — and steeper for losses than gains, capturing <strong>loss aversion</strong> (losses loom roughly twice as large as equivalent gains). Third, people do not weight outcomes by raw probabilities but instead apply a <strong>probability weighting function</strong> that overweights small probabilities and underweights large ones, explaining both lottery ticket purchases and excessive insurance buying. Prospect theory resolves the Allais paradox, predicts the disposition effect in finance (holding losers too long, selling winners too early), and underpins much of behavioural economics and nudge policy. This tutorial implements both the value function and the probability weighting function of cumulative prospect theory in R, computes prospect-theory valuations for classic gambles, and contrasts the predictions with standard expected utility to show exactly where and why the two theories diverge.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>In <strong>cumulative prospect theory</strong> (Tversky &amp; Kahneman, 1992), a prospect is evaluated by:</p>
+<p><span class="math display">\[
+V = \sum_{i} \pi(p_i) \cdot v(x_i)
+\]</span></p>
+<p>where <span class="math inline">\(v(\cdot)\)</span> is the <strong>value function</strong> defined over gains and losses relative to a reference point:</p>
+<p><span class="math display">\[
+v(x) = \begin{cases} x^{\alpha} &amp; \text{if } x \geq 0 \\ -\lambda \, (-x)^{\beta} &amp; \text{if } x &lt; 0 \end{cases}
+\]</span></p>
+<p>with <span class="math inline">\(\alpha, \beta \in (0,1)\)</span> governing diminishing sensitivity and <span class="math inline">\(\lambda &gt; 1\)</span> capturing loss aversion. Kahneman and Tversky estimated <span class="math inline">\(\alpha = \beta = 0.88\)</span> and <span class="math inline">\(\lambda = 2.25\)</span>.</p>
+<p>The <strong>probability weighting function</strong> is:</p>
+<p><span class="math display">\[
+w(p) = \frac{p^{\gamma}}{(p^{\gamma} + (1-p)^{\gamma})^{1/\gamma}}
+\]</span></p>
+<p>with <span class="math inline">\(\gamma = 0.61\)</span> for gains and <span class="math inline">\(\gamma = 0.69\)</span> for losses. This function is inverse-S-shaped: it overweights small probabilities (<span class="math inline">\(w(p) &gt; p\)</span> for small <span class="math inline">\(p\)</span>) and underweights moderate-to-large probabilities (<span class="math inline">\(w(p) &lt; p\)</span> for large <span class="math inline">\(p\)</span>), producing the characteristic fourfold pattern of risk attitudes.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Prospect theory value function ---</span></span>
+<span><span class="va">pt_value</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">alpha</span> <span class="op">=</span> <span class="fl">0.88</span>, <span class="va">beta</span> <span class="op">=</span> <span class="fl">0.88</span>, <span class="va">lambda</span> <span class="op">=</span> <span class="fl">2.25</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">x</span> <span class="op">&gt;=</span> <span class="fl">0</span>, <span class="va">x</span><span class="op">^</span><span class="va">alpha</span>, <span class="op">-</span><span class="va">lambda</span> <span class="op">*</span> <span class="op">(</span><span class="op">-</span><span class="va">x</span><span class="op">)</span><span class="op">^</span><span class="va">beta</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Probability weighting function ---</span></span>
+<span><span class="va">pt_weight</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">p</span>, <span class="va">gamma</span> <span class="op">=</span> <span class="fl">0.61</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">p</span><span class="op">^</span><span class="va">gamma</span> <span class="op">/</span> <span class="op">(</span><span class="va">p</span><span class="op">^</span><span class="va">gamma</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">p</span><span class="op">)</span><span class="op">^</span><span class="va">gamma</span><span class="op">)</span><span class="op">^</span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="va">gamma</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Expected utility (risk-neutral benchmark) ---</span></span>
+<span><span class="va">eu_value</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">outcomes</span>, <span class="va">probs</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">outcomes</span> <span class="op">*</span> <span class="va">probs</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Prospect theory valuation ---</span></span>
+<span><span class="va">pt_valuation</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">outcomes</span>, <span class="va">probs</span>, <span class="va">alpha</span> <span class="op">=</span> <span class="fl">0.88</span>, <span class="va">beta</span> <span class="op">=</span> <span class="fl">0.88</span>,</span>
+<span>                         <span class="va">lambda</span> <span class="op">=</span> <span class="fl">2.25</span>, <span class="va">gamma_gain</span> <span class="op">=</span> <span class="fl">0.61</span>, <span class="va">gamma_loss</span> <span class="op">=</span> <span class="fl">0.69</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">values</span> <span class="op">&lt;-</span> <span class="fu">pt_value</span><span class="op">(</span><span class="va">outcomes</span>, <span class="va">alpha</span>, <span class="va">beta</span>, <span class="va">lambda</span><span class="op">)</span></span>
+<span>  <span class="va">weights</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">outcomes</span> <span class="op">&gt;=</span> <span class="fl">0</span>,</span>
+<span>                    <span class="fu">pt_weight</span><span class="op">(</span><span class="va">probs</span>, <span class="va">gamma_gain</span><span class="op">)</span>,</span>
+<span>                    <span class="fu">pt_weight</span><span class="op">(</span><span class="va">probs</span>, <span class="va">gamma_loss</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">weights</span> <span class="op">*</span> <span class="va">values</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Classic gambles comparison ---</span></span>
+<span><span class="va">gambles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>  <span class="st">"Certainty effect\n(Allais)"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>    A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3000</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">4000</span>, <span class="fl">0</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.80</span>, <span class="fl">0.20</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="st">"Small probability\ngain"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>    A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">5000</span>, <span class="fl">0</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.001</span>, <span class="fl">0.999</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">0</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">0.0</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="st">"Loss aversion\nsymmetric"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>    A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="op">-</span><span class="fl">100</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.50</span>, <span class="fl">0.50</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="st">"Insurance\n(small prob loss)"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>    A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">5000</span>, <span class="fl">0</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.001</span>, <span class="fl">0.999</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>outcomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">5</span><span class="op">)</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">0.0</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">gambles</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">g</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">A</span> <span class="op">&lt;-</span> <span class="va">gambles</span><span class="op">[[</span><span class="va">g</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">A</span>; <span class="va">B</span> <span class="op">&lt;-</span> <span class="va">gambles</span><span class="op">[[</span><span class="va">g</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">B</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span></span>
+<span>    gamble <span class="op">=</span> <span class="va">g</span>,</span>
+<span>    EU_A <span class="op">=</span> <span class="fu">eu_value</span><span class="op">(</span><span class="va">A</span><span class="op">$</span><span class="va">outcomes</span>, <span class="va">A</span><span class="op">$</span><span class="va">probs</span><span class="op">)</span>,</span>
+<span>    EU_B <span class="op">=</span> <span class="fu">eu_value</span><span class="op">(</span><span class="va">B</span><span class="op">$</span><span class="va">outcomes</span>, <span class="va">B</span><span class="op">$</span><span class="va">probs</span><span class="op">)</span>,</span>
+<span>    EU_choice <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">EU_A</span> <span class="op">&gt;=</span> <span class="va">EU_B</span>, <span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span>,</span>
+<span>    PT_A <span class="op">=</span> <span class="fu">pt_valuation</span><span class="op">(</span><span class="va">A</span><span class="op">$</span><span class="va">outcomes</span>, <span class="va">A</span><span class="op">$</span><span class="va">probs</span><span class="op">)</span>,</span>
+<span>    PT_B <span class="op">=</span> <span class="fu">pt_valuation</span><span class="op">(</span><span class="va">B</span><span class="op">$</span><span class="va">outcomes</span>, <span class="va">B</span><span class="op">$</span><span class="va">probs</span><span class="op">)</span>,</span>
+<span>    PT_choice <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">PT_A</span> <span class="op">&gt;=</span> <span class="va">PT_B</span>, <span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Expected Utility vs Prospect Theory: Gamble Predictions ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Expected Utility vs Prospect Theory: Gamble Predictions ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="va">results</span>, width <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 7
+  gamble                          EU_A  EU_B EU_choice   PT_A   PT_B PT_choice
+  &lt;chr&gt;                          &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;      &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;    
+1 "Certainty effect\n(Allais)"    3000  3200 B         1148.  898.   A        
+2 "Small probability\ngain"          5     5 A           26.0   4.12 A        
+3 "Loss aversion\nsymmetric"         0     0 A          -34.6   0    B        
+4 "Insurance\n(small prob loss)"    -5    -5 A          -34.1  -9.27 B        </code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">x_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">100</span>, <span class="fl">100</span>, by <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">vf_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="va">x_seq</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu">pt_value</span><span class="op">(</span><span class="va">x_seq</span>, alpha <span class="op">=</span> <span class="fl">0.88</span>, beta <span class="op">=</span> <span class="fl">0.88</span>, lambda <span class="op">=</span> <span class="fl">2.25</span><span class="op">)</span>,</span>
+<span>            <span class="fu">pt_value</span><span class="op">(</span><span class="va">x_seq</span>, alpha <span class="op">=</span> <span class="fl">0.88</span>, beta <span class="op">=</span> <span class="fl">0.88</span>, lambda <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>            <span class="va">x_seq</span><span class="op">)</span>,</span>
+<span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"PT (lambda = 2.25)"</span>, <span class="st">"PT (lambda = 1.0, no loss aversion)"</span>, <span class="st">"Linear (risk neutral)"</span><span class="op">)</span>,</span>
+<span>             each <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">x_seq</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="va">vf_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">value</span>, color <span class="op">=</span> <span class="va">type</span>, linetype <span class="op">=</span> <span class="va">type</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">0</span>, color <span class="op">=</span> <span class="st">"grey60"</span>, linewidth <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_vline</span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0</span>, color <span class="op">=</span> <span class="st">"grey60"</span>, linewidth <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="st">"grey50"</span><span class="op">)</span>,</span>
+<span>    name <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_linetype_manual</span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"solid"</span>, <span class="st">"solid"</span>, <span class="st">"dashed"</span><span class="op">)</span>,</span>
+<span>    name <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Prospect theory value function"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Concave for gains, convex for losses, steeper in the loss domain"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Outcome (gain/loss relative to reference point)"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Subjective value v(x)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-pt-value-function" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-pt-value-function-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-pt-value-function-1.png" class="img-fluid figure-img" width="2100">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pt-value-function-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. The prospect theory value function compared with a standard utility function. The PT value function (orange) is concave for gains and convex for losses, with a steeper slope in the loss domain reflecting loss aversion (lambda = 2.25). The linear reference (grey dashed) shows risk neutrality. Parameters: alpha = beta = 0.88, lambda = 2.25 (Tversky &amp; Kahneman 1992). Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">p_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0.01</span>, <span class="fl">0.99</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span><span class="va">pw_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  p <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="va">p_seq</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  weighted <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fu">pt_weight</span><span class="op">(</span><span class="va">p_seq</span>, gamma <span class="op">=</span> <span class="fl">0.61</span><span class="op">)</span>,</span>
+<span>               <span class="fu">pt_weight</span><span class="op">(</span><span class="va">p_seq</span>, gamma <span class="op">=</span> <span class="fl">0.69</span><span class="op">)</span>,</span>
+<span>               <span class="va">p_seq</span><span class="op">)</span>,</span>
+<span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Gains (gamma = 0.61)"</span>, <span class="st">"Losses (gamma = 0.69)"</span>, <span class="st">"Identity (no distortion)"</span><span class="op">)</span>,</span>
+<span>             each <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">p_seq</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">pw_df</span> <span class="op">&lt;-</span> <span class="va">pw_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Objective p = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">p</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                       <span class="st">"\nWeighted w(p) = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">weighted</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>                       <span class="st">"\n"</span>, <span class="va">type</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_pw</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">pw_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">p</span>, y <span class="op">=</span> <span class="va">weighted</span>, color <span class="op">=</span> <span class="va">type</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="st">"grey50"</span><span class="op">)</span>,</span>
+<span>    name <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Probability weighting functions"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Overweighting of small probabilities, underweighting of large ones"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Objective probability p"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Decision weight w(p)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_pw</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-pt-weighting-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-pt-weighting-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-a1b5562055d088208584" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-a1b5562055d088208584">{"x":{"data":[{"x":[0.01,null,0.02,null,0.029999999999999999,null,0.040000000000000001,null,0.050000000000000003,null,0.060000000000000005,null,0.069999999999999993,null,0.080000000000000002,null,0.089999999999999997,null,0.099999999999999992,null,0.11,null,0.12,null,0.13,null,0.14000000000000001,null,0.15000000000000002,null,0.16,null,0.17000000000000001,null,0.18000000000000002,null,0.19,null,0.20000000000000001,null,0.21000000000000002,null,0.22,null,0.23000000000000001,null,0.24000000000000002,null,0.25,null,0.26000000000000001,null,0.27000000000000002,null,0.28000000000000003,null,0.29000000000000004,null,0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.33000000000000002,null,0.34000000000000002,null,0.35000000000000003,null,0.36000000000000004,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.41000000000000003,null,0.42000000000000004,null,0.42999999999999999,null,0.44,null,0.45000000000000001,null,0.46000000000000002,null,0.47000000000000003,null,0.48000000000000004,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.66000000000000003,null,0.67000000000000004,null,0.68000000000000005,null,0.69000000000000006,null,0.70000000000000007,null,0.71000000000000008,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004,null,0.81000000000000005,null,0.82000000000000006,null,0.83000000000000007,null,0.84000000000000008,null,0.84999999999999998,null,0.85999999999999999,null,0.87,null,0.88,null,0.89000000000000001,null,0.90000000000000002,null,0.91000000000000003,null,0.92000000000000004,null,0.93000000000000005,null,0.94000000000000006,null,0.95000000000000007,null,0.96000000000000008,null,0.96999999999999997,null,0.97999999999999998,null,0.98999999999999999],"y":[0.055266136751708515,null,0.081100038006576392,null,0.10083211986836178,null,0.11729111001407612,null,0.13162570115457084,null,0.14444238643702878,null,0.15610879024948027,null,0.16686800815513073,null,0.17689079666612245,null,0.18630256637717416,null,0.19519864351573696,null,0.2036534970575806,null,0.21172661802089293,null,0.21946642738270281,null,0.22691296571910682,null,0.23409979927109315,null,0.24105540477216755,null,0.24780419742651227,null,0.25436730842854749,null,0.26076318283468641,null,0.26700804608796008,null,0.27311627286439943,null,0.27910068216863021,null,0.28497277598043846,null,0.29074293416024793,null,0.2964205750807189,null,0.30201428912928197,null,0.30753195053810439,null,0.31298081175444153,null,0.31836758363730877,null,0.32369850406765527,null,0.32897939702714019,null,0.3342157237916088,null,0.33941262756824531,null,0.34457497265751813,null,0.34970737902589683,null,0.35481425302065839,null,0.35989981483479233,null,0.36496812323118483,null,0.37002309795570909,null,0.37506854020458491,null,0.38010815145934918,null,0.38514555096063086,null,0.39018429205782351,null,0.39522787764427264,null,0.40027977486562966,null,0.40534342927172579,null,0.41042227856900637,null,0.41551976612076758,null,0.42063935433575617,null,0.42578453808190353,null,0.43095885826089081,null,0.43616591568083385,null,0.44140938536864821,null,0.44669303147071698,null,0.45202072290053941,null,0.45739644990538231,null,0.46282434174100034,null,0.46830868566479122,null,0.47385394748399429,null,0.47946479392764946,null,0.48514611715013539,null,0.49090306172166348,null,0.49674105451895606,null,0.50266583799982645,null,0.50868350743150637,null,0.51480055274815584,null,0.5210239058430195,null,0.52736099426158523,null,0.53381980246226812,null,0.54040894206168666,null,0.54713773279723643,null,0.55401629634012683,null,0.56105566560401809,null,0.56826791285430434,null,0.57566630078124803,null,0.58326546182679373,null,0.59108161254928226,null,0.59913281181467026,null,0.60743927432394806,null,0.61602375472942583,null,0.6249120228156414,null,0.63413345762487261,null,0.64372179908722971,null,0.65371611141925656,null,0.66416203614581815,null,0.67511344889928782,null,0.68663469153716639,null,0.69880364468642153,null,0.71171606388420638,null,0.72549188072731563,null,0.74028468461515828,null,0.75629660772195118,null,0.77380295356730244,null,0.79319577859778667,null,0.81506820825002868,null,0.84039931607913587,null,0.87104514924145149,null,0.91158375257869106],"text":["Objective p = 0.01<br />Weighted w(p) = 0.055<br />Gains (gamma = 0.61)",null,"Objective p = 0.02<br />Weighted w(p) = 0.081<br />Gains (gamma = 0.61)",null,"Objective p = 0.03<br />Weighted w(p) = 0.101<br />Gains (gamma = 0.61)",null,"Objective p = 0.04<br />Weighted w(p) = 0.117<br />Gains (gamma = 0.61)",null,"Objective p = 0.05<br />Weighted w(p) = 0.132<br />Gains (gamma = 0.61)",null,"Objective p = 0.06<br />Weighted w(p) = 0.144<br />Gains (gamma = 0.61)",null,"Objective p = 0.07<br />Weighted w(p) = 0.156<br />Gains (gamma = 0.61)",null,"Objective p = 0.08<br />Weighted w(p) = 0.167<br />Gains (gamma = 0.61)",null,"Objective p = 0.09<br />Weighted w(p) = 0.177<br />Gains (gamma = 0.61)",null,"Objective p = 0.1<br />Weighted w(p) = 0.186<br />Gains (gamma = 0.61)",null,"Objective p = 0.11<br />Weighted w(p) = 0.195<br />Gains (gamma = 0.61)",null,"Objective p = 0.12<br />Weighted w(p) = 0.204<br />Gains (gamma = 0.61)",null,"Objective p = 0.13<br />Weighted w(p) = 0.212<br />Gains (gamma = 0.61)",null,"Objective p = 0.14<br />Weighted w(p) = 0.219<br />Gains (gamma = 0.61)",null,"Objective p = 0.15<br />Weighted w(p) = 0.227<br />Gains (gamma = 0.61)",null,"Objective p = 0.16<br />Weighted w(p) = 0.234<br />Gains (gamma = 0.61)",null,"Objective p = 0.17<br />Weighted w(p) = 0.241<br />Gains (gamma = 0.61)",null,"Objective p = 0.18<br />Weighted w(p) = 0.248<br />Gains (gamma = 0.61)",null,"Objective p = 0.19<br />Weighted w(p) = 0.254<br />Gains (gamma = 0.61)",null,"Objective p = 0.2<br />Weighted w(p) = 0.261<br />Gains (gamma = 0.61)",null,"Objective p = 0.21<br />Weighted w(p) = 0.267<br />Gains (gamma = 0.61)",null,"Objective p = 0.22<br />Weighted w(p) = 0.273<br />Gains (gamma = 0.61)",null,"Objective p = 0.23<br />Weighted w(p) = 0.279<br />Gains (gamma = 0.61)",null,"Objective p = 0.24<br />Weighted w(p) = 0.285<br />Gains (gamma = 0.61)",null,"Objective p = 0.25<br />Weighted w(p) = 0.291<br />Gains (gamma = 0.61)",null,"Objective p = 0.26<br />Weighted w(p) = 0.296<br />Gains (gamma = 0.61)",null,"Objective p = 0.27<br />Weighted w(p) = 0.302<br />Gains (gamma = 0.61)",null,"Objective p = 0.28<br />Weighted w(p) = 0.308<br />Gains (gamma = 0.61)",null,"Objective p = 0.29<br />Weighted w(p) = 0.313<br />Gains (gamma = 0.61)",null,"Objective p = 0.3<br />Weighted w(p) = 0.318<br />Gains (gamma = 0.61)",null,"Objective p = 0.31<br />Weighted w(p) = 0.324<br />Gains (gamma = 0.61)",null,"Objective p = 0.32<br />Weighted w(p) = 0.329<br />Gains (gamma = 0.61)",null,"Objective p = 0.33<br />Weighted w(p) = 0.334<br />Gains (gamma = 0.61)",null,"Objective p = 0.34<br />Weighted w(p) = 0.339<br />Gains (gamma = 0.61)",null,"Objective p = 0.35<br />Weighted w(p) = 0.345<br />Gains (gamma = 0.61)",null,"Objective p = 0.36<br />Weighted w(p) = 0.35<br />Gains (gamma = 0.61)",null,"Objective p = 0.37<br />Weighted w(p) = 0.355<br />Gains (gamma = 0.61)",null,"Objective p = 0.38<br />Weighted w(p) = 0.36<br />Gains (gamma = 0.61)",null,"Objective p = 0.39<br />Weighted w(p) = 0.365<br />Gains (gamma = 0.61)",null,"Objective p = 0.4<br />Weighted w(p) = 0.37<br />Gains (gamma = 0.61)",null,"Objective p = 0.41<br />Weighted w(p) = 0.375<br />Gains (gamma = 0.61)",null,"Objective p = 0.42<br />Weighted w(p) = 0.38<br />Gains (gamma = 0.61)",null,"Objective p = 0.43<br />Weighted w(p) = 0.385<br />Gains (gamma = 0.61)",null,"Objective p = 0.44<br />Weighted w(p) = 0.39<br />Gains (gamma = 0.61)",null,"Objective p = 0.45<br />Weighted w(p) = 0.395<br />Gains (gamma = 0.61)",null,"Objective p = 0.46<br />Weighted w(p) = 0.4<br />Gains (gamma = 0.61)",null,"Objective p = 0.47<br />Weighted w(p) = 0.405<br />Gains (gamma = 0.61)",null,"Objective p = 0.48<br />Weighted w(p) = 0.41<br />Gains (gamma = 0.61)",null,"Objective p = 0.49<br />Weighted w(p) = 0.416<br />Gains (gamma = 0.61)",null,"Objective p = 0.5<br />Weighted w(p) = 0.421<br />Gains (gamma = 0.61)",null,"Objective p = 0.51<br />Weighted w(p) = 0.426<br />Gains (gamma = 0.61)",null,"Objective p = 0.52<br />Weighted w(p) = 0.431<br />Gains (gamma = 0.61)",null,"Objective p = 0.53<br />Weighted w(p) = 0.436<br />Gains (gamma = 0.61)",null,"Objective p = 0.54<br />Weighted w(p) = 0.441<br />Gains (gamma = 0.61)",null,"Objective p = 0.55<br />Weighted w(p) = 0.447<br />Gains (gamma = 0.61)",null,"Objective p = 0.56<br />Weighted w(p) = 0.452<br />Gains (gamma = 0.61)",null,"Objective p = 0.57<br />Weighted w(p) = 0.457<br />Gains (gamma = 0.61)",null,"Objective p = 0.58<br />Weighted w(p) = 0.463<br />Gains (gamma = 0.61)",null,"Objective p = 0.59<br />Weighted w(p) = 0.468<br />Gains (gamma = 0.61)",null,"Objective p = 0.6<br />Weighted w(p) = 0.474<br />Gains (gamma = 0.61)",null,"Objective p = 0.61<br />Weighted w(p) = 0.479<br />Gains (gamma = 0.61)",null,"Objective p = 0.62<br />Weighted w(p) = 0.485<br />Gains (gamma = 0.61)",null,"Objective p = 0.63<br />Weighted w(p) = 0.491<br />Gains (gamma = 0.61)",null,"Objective p = 0.64<br />Weighted w(p) = 0.497<br />Gains (gamma = 0.61)",null,"Objective p = 0.65<br />Weighted w(p) = 0.503<br />Gains (gamma = 0.61)",null,"Objective p = 0.66<br />Weighted w(p) = 0.509<br />Gains (gamma = 0.61)",null,"Objective p = 0.67<br />Weighted w(p) = 0.515<br />Gains (gamma = 0.61)",null,"Objective p = 0.68<br />Weighted w(p) = 0.521<br />Gains (gamma = 0.61)",null,"Objective p = 0.69<br />Weighted w(p) = 0.527<br />Gains (gamma = 0.61)",null,"Objective p = 0.7<br />Weighted w(p) = 0.534<br />Gains (gamma = 0.61)",null,"Objective p = 0.71<br />Weighted w(p) = 0.54<br />Gains (gamma = 0.61)",null,"Objective p = 0.72<br />Weighted w(p) = 0.547<br />Gains (gamma = 0.61)",null,"Objective p = 0.73<br />Weighted w(p) = 0.554<br />Gains (gamma = 0.61)",null,"Objective p = 0.74<br />Weighted w(p) = 0.561<br />Gains (gamma = 0.61)",null,"Objective p = 0.75<br />Weighted w(p) = 0.568<br />Gains (gamma = 0.61)",null,"Objective p = 0.76<br />Weighted w(p) = 0.576<br />Gains (gamma = 0.61)",null,"Objective p = 0.77<br />Weighted w(p) = 0.583<br />Gains (gamma = 0.61)",null,"Objective p = 0.78<br />Weighted w(p) = 0.591<br />Gains (gamma = 0.61)",null,"Objective p = 0.79<br />Weighted w(p) = 0.599<br />Gains (gamma = 0.61)",null,"Objective p = 0.8<br />Weighted w(p) = 0.607<br />Gains (gamma = 0.61)",null,"Objective p = 0.81<br />Weighted w(p) = 0.616<br />Gains (gamma = 0.61)",null,"Objective p = 0.82<br />Weighted w(p) = 0.625<br />Gains (gamma = 0.61)",null,"Objective p = 0.83<br />Weighted w(p) = 0.634<br />Gains (gamma = 0.61)",null,"Objective p = 0.84<br />Weighted w(p) = 0.644<br />Gains (gamma = 0.61)",null,"Objective p = 0.85<br />Weighted w(p) = 0.654<br />Gains (gamma = 0.61)",null,"Objective p = 0.86<br />Weighted w(p) = 0.664<br />Gains (gamma = 0.61)",null,"Objective p = 0.87<br />Weighted w(p) = 0.675<br />Gains (gamma = 0.61)",null,"Objective p = 0.88<br />Weighted w(p) = 0.687<br />Gains (gamma = 0.61)",null,"Objective p = 0.89<br />Weighted w(p) = 0.699<br />Gains (gamma = 0.61)",null,"Objective p = 0.9<br />Weighted w(p) = 0.712<br />Gains (gamma = 0.61)",null,"Objective p = 0.91<br />Weighted w(p) = 0.725<br />Gains (gamma = 0.61)",null,"Objective p = 0.92<br />Weighted w(p) = 0.74<br />Gains (gamma = 0.61)",null,"Objective p = 0.93<br />Weighted w(p) = 0.756<br />Gains (gamma = 0.61)",null,"Objective p = 0.94<br />Weighted w(p) = 0.774<br />Gains (gamma = 0.61)",null,"Objective p = 0.95<br />Weighted w(p) = 0.793<br />Gains (gamma = 0.61)",null,"Objective p = 0.96<br />Weighted w(p) = 0.815<br />Gains (gamma = 0.61)",null,"Objective p = 0.97<br />Weighted w(p) = 0.84<br />Gains (gamma = 0.61)",null,"Objective p = 0.98<br />Weighted w(p) = 0.871<br />Gains (gamma = 0.61)",null,"Objective p = 0.99<br />Weighted w(p) = 0.912<br />Gains (gamma = 0.61)"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"Gains (gamma = 0.61)","legendgroup":"Gains (gamma = 0.61)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.01,null,0.02,null,0.029999999999999999,null,0.040000000000000001,null,0.050000000000000003,null,0.060000000000000005,null,0.069999999999999993,null,0.080000000000000002,null,0.089999999999999997,null,0.099999999999999992,null,0.11,null,0.12,null,0.13,null,0.14000000000000001,null,0.15000000000000002,null,0.16,null,0.17000000000000001,null,0.18000000000000002,null,0.19,null,0.20000000000000001,null,0.21000000000000002,null,0.22,null,0.23000000000000001,null,0.24000000000000002,null,0.25,null,0.26000000000000001,null,0.27000000000000002,null,0.28000000000000003,null,0.29000000000000004,null,0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.33000000000000002,null,0.34000000000000002,null,0.35000000000000003,null,0.36000000000000004,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.41000000000000003,null,0.42000000000000004,null,0.42999999999999999,null,0.44,null,0.45000000000000001,null,0.46000000000000002,null,0.47000000000000003,null,0.48000000000000004,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.66000000000000003,null,0.67000000000000004,null,0.68000000000000005,null,0.69000000000000006,null,0.70000000000000007,null,0.71000000000000008,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004,null,0.81000000000000005,null,0.82000000000000006,null,0.83000000000000007,null,0.84000000000000008,null,0.84999999999999998,null,0.85999999999999999,null,0.87,null,0.88,null,0.89000000000000001,null,0.90000000000000002,null,0.91000000000000003,null,0.92000000000000004,null,0.93000000000000005,null,0.94000000000000006,null,0.95000000000000007,null,0.96000000000000008,null,0.96999999999999997,null,0.97999999999999998,null,0.98999999999999999],"y":[0.01,null,0.02,null,0.029999999999999999,null,0.040000000000000001,null,0.050000000000000003,null,0.060000000000000005,null,0.069999999999999993,null,0.080000000000000002,null,0.089999999999999997,null,0.099999999999999992,null,0.11,null,0.12,null,0.13,null,0.14000000000000001,null,0.15000000000000002,null,0.16,null,0.17000000000000001,null,0.18000000000000002,null,0.19,null,0.20000000000000001,null,0.21000000000000002,null,0.22,null,0.23000000000000001,null,0.24000000000000002,null,0.25,null,0.26000000000000001,null,0.27000000000000002,null,0.28000000000000003,null,0.29000000000000004,null,0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.33000000000000002,null,0.34000000000000002,null,0.35000000000000003,null,0.36000000000000004,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.41000000000000003,null,0.42000000000000004,null,0.42999999999999999,null,0.44,null,0.45000000000000001,null,0.46000000000000002,null,0.47000000000000003,null,0.48000000000000004,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.66000000000000003,null,0.67000000000000004,null,0.68000000000000005,null,0.69000000000000006,null,0.70000000000000007,null,0.71000000000000008,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004,null,0.81000000000000005,null,0.82000000000000006,null,0.83000000000000007,null,0.84000000000000008,null,0.84999999999999998,null,0.85999999999999999,null,0.87,null,0.88,null,0.89000000000000001,null,0.90000000000000002,null,0.91000000000000003,null,0.92000000000000004,null,0.93000000000000005,null,0.94000000000000006,null,0.95000000000000007,null,0.96000000000000008,null,0.96999999999999997,null,0.97999999999999998,null,0.98999999999999999],"text":["Objective p = 0.01<br />Weighted w(p) = 0.01<br />Identity (no distortion)",null,"Objective p = 0.02<br />Weighted w(p) = 0.02<br />Identity (no distortion)",null,"Objective p = 0.03<br />Weighted w(p) = 0.03<br />Identity (no distortion)",null,"Objective p = 0.04<br />Weighted w(p) = 0.04<br />Identity (no distortion)",null,"Objective p = 0.05<br />Weighted w(p) = 0.05<br />Identity (no distortion)",null,"Objective p = 0.06<br />Weighted w(p) = 0.06<br />Identity (no distortion)",null,"Objective p = 0.07<br />Weighted w(p) = 0.07<br />Identity (no distortion)",null,"Objective p = 0.08<br />Weighted w(p) = 0.08<br />Identity (no distortion)",null,"Objective p = 0.09<br />Weighted w(p) = 0.09<br />Identity (no distortion)",null,"Objective p = 0.1<br />Weighted w(p) = 0.1<br />Identity (no distortion)",null,"Objective p = 0.11<br />Weighted w(p) = 0.11<br />Identity (no distortion)",null,"Objective p = 0.12<br />Weighted w(p) = 0.12<br />Identity (no distortion)",null,"Objective p = 0.13<br />Weighted w(p) = 0.13<br />Identity (no distortion)",null,"Objective p = 0.14<br />Weighted w(p) = 0.14<br />Identity (no distortion)",null,"Objective p = 0.15<br />Weighted w(p) = 0.15<br />Identity (no distortion)",null,"Objective p = 0.16<br />Weighted w(p) = 0.16<br />Identity (no distortion)",null,"Objective p = 0.17<br />Weighted w(p) = 0.17<br />Identity (no distortion)",null,"Objective p = 0.18<br />Weighted w(p) = 0.18<br />Identity (no distortion)",null,"Objective p = 0.19<br />Weighted w(p) = 0.19<br />Identity (no distortion)",null,"Objective p = 0.2<br />Weighted w(p) = 0.2<br />Identity (no distortion)",null,"Objective p = 0.21<br />Weighted w(p) = 0.21<br />Identity (no distortion)",null,"Objective p = 0.22<br />Weighted w(p) = 0.22<br />Identity (no distortion)",null,"Objective p = 0.23<br />Weighted w(p) = 0.23<br />Identity (no distortion)",null,"Objective p = 0.24<br />Weighted w(p) = 0.24<br />Identity (no distortion)",null,"Objective p = 0.25<br />Weighted w(p) = 0.25<br />Identity (no distortion)",null,"Objective p = 0.26<br />Weighted w(p) = 0.26<br />Identity (no distortion)",null,"Objective p = 0.27<br />Weighted w(p) = 0.27<br />Identity (no distortion)",null,"Objective p = 0.28<br />Weighted w(p) = 0.28<br />Identity (no distortion)",null,"Objective p = 0.29<br />Weighted w(p) = 0.29<br />Identity (no distortion)",null,"Objective p = 0.3<br />Weighted w(p) = 0.3<br />Identity (no distortion)",null,"Objective p = 0.31<br />Weighted w(p) = 0.31<br />Identity (no distortion)",null,"Objective p = 0.32<br />Weighted w(p) = 0.32<br />Identity (no distortion)",null,"Objective p = 0.33<br />Weighted w(p) = 0.33<br />Identity (no distortion)",null,"Objective p = 0.34<br />Weighted w(p) = 0.34<br />Identity (no distortion)",null,"Objective p = 0.35<br />Weighted w(p) = 0.35<br />Identity (no distortion)",null,"Objective p = 0.36<br />Weighted w(p) = 0.36<br />Identity (no distortion)",null,"Objective p = 0.37<br />Weighted w(p) = 0.37<br />Identity (no distortion)",null,"Objective p = 0.38<br />Weighted w(p) = 0.38<br />Identity (no distortion)",null,"Objective p = 0.39<br />Weighted w(p) = 0.39<br />Identity (no distortion)",null,"Objective p = 0.4<br />Weighted w(p) = 0.4<br />Identity (no distortion)",null,"Objective p = 0.41<br />Weighted w(p) = 0.41<br />Identity (no distortion)",null,"Objective p = 0.42<br />Weighted w(p) = 0.42<br />Identity (no distortion)",null,"Objective p = 0.43<br />Weighted w(p) = 0.43<br />Identity (no distortion)",null,"Objective p = 0.44<br />Weighted w(p) = 0.44<br />Identity (no distortion)",null,"Objective p = 0.45<br />Weighted w(p) = 0.45<br />Identity (no distortion)",null,"Objective p = 0.46<br />Weighted w(p) = 0.46<br />Identity (no distortion)",null,"Objective p = 0.47<br />Weighted w(p) = 0.47<br />Identity (no distortion)",null,"Objective p = 0.48<br />Weighted w(p) = 0.48<br />Identity (no distortion)",null,"Objective p = 0.49<br />Weighted w(p) = 0.49<br />Identity (no distortion)",null,"Objective p = 0.5<br />Weighted w(p) = 0.5<br />Identity (no distortion)",null,"Objective p = 0.51<br />Weighted w(p) = 0.51<br />Identity (no distortion)",null,"Objective p = 0.52<br />Weighted w(p) = 0.52<br />Identity (no distortion)",null,"Objective p = 0.53<br />Weighted w(p) = 0.53<br />Identity (no distortion)",null,"Objective p = 0.54<br />Weighted w(p) = 0.54<br />Identity (no distortion)",null,"Objective p = 0.55<br />Weighted w(p) = 0.55<br />Identity (no distortion)",null,"Objective p = 0.56<br />Weighted w(p) = 0.56<br />Identity (no distortion)",null,"Objective p = 0.57<br />Weighted w(p) = 0.57<br />Identity (no distortion)",null,"Objective p = 0.58<br />Weighted w(p) = 0.58<br />Identity (no distortion)",null,"Objective p = 0.59<br />Weighted w(p) = 0.59<br />Identity (no distortion)",null,"Objective p = 0.6<br />Weighted w(p) = 0.6<br />Identity (no distortion)",null,"Objective p = 0.61<br />Weighted w(p) = 0.61<br />Identity (no distortion)",null,"Objective p = 0.62<br />Weighted w(p) = 0.62<br />Identity (no distortion)",null,"Objective p = 0.63<br />Weighted w(p) = 0.63<br />Identity (no distortion)",null,"Objective p = 0.64<br />Weighted w(p) = 0.64<br />Identity (no distortion)",null,"Objective p = 0.65<br />Weighted w(p) = 0.65<br />Identity (no distortion)",null,"Objective p = 0.66<br />Weighted w(p) = 0.66<br />Identity (no distortion)",null,"Objective p = 0.67<br />Weighted w(p) = 0.67<br />Identity (no distortion)",null,"Objective p = 0.68<br />Weighted w(p) = 0.68<br />Identity (no distortion)",null,"Objective p = 0.69<br />Weighted w(p) = 0.69<br />Identity (no distortion)",null,"Objective p = 0.7<br />Weighted w(p) = 0.7<br />Identity (no distortion)",null,"Objective p = 0.71<br />Weighted w(p) = 0.71<br />Identity (no distortion)",null,"Objective p = 0.72<br />Weighted w(p) = 0.72<br />Identity (no distortion)",null,"Objective p = 0.73<br />Weighted w(p) = 0.73<br />Identity (no distortion)",null,"Objective p = 0.74<br />Weighted w(p) = 0.74<br />Identity (no distortion)",null,"Objective p = 0.75<br />Weighted w(p) = 0.75<br />Identity (no distortion)",null,"Objective p = 0.76<br />Weighted w(p) = 0.76<br />Identity (no distortion)",null,"Objective p = 0.77<br />Weighted w(p) = 0.77<br />Identity (no distortion)",null,"Objective p = 0.78<br />Weighted w(p) = 0.78<br />Identity (no distortion)",null,"Objective p = 0.79<br />Weighted w(p) = 0.79<br />Identity (no distortion)",null,"Objective p = 0.8<br />Weighted w(p) = 0.8<br />Identity (no distortion)",null,"Objective p = 0.81<br />Weighted w(p) = 0.81<br />Identity (no distortion)",null,"Objective p = 0.82<br />Weighted w(p) = 0.82<br />Identity (no distortion)",null,"Objective p = 0.83<br />Weighted w(p) = 0.83<br />Identity (no distortion)",null,"Objective p = 0.84<br />Weighted w(p) = 0.84<br />Identity (no distortion)",null,"Objective p = 0.85<br />Weighted w(p) = 0.85<br />Identity (no distortion)",null,"Objective p = 0.86<br />Weighted w(p) = 0.86<br />Identity (no distortion)",null,"Objective p = 0.87<br />Weighted w(p) = 0.87<br />Identity (no distortion)",null,"Objective p = 0.88<br />Weighted w(p) = 0.88<br />Identity (no distortion)",null,"Objective p = 0.89<br />Weighted w(p) = 0.89<br />Identity (no distortion)",null,"Objective p = 0.9<br />Weighted w(p) = 0.9<br />Identity (no distortion)",null,"Objective p = 0.91<br />Weighted w(p) = 0.91<br />Identity (no distortion)",null,"Objective p = 0.92<br />Weighted w(p) = 0.92<br />Identity (no distortion)",null,"Objective p = 0.93<br />Weighted w(p) = 0.93<br />Identity (no distortion)",null,"Objective p = 0.94<br />Weighted w(p) = 0.94<br />Identity (no distortion)",null,"Objective p = 0.95<br />Weighted w(p) = 0.95<br />Identity (no distortion)",null,"Objective p = 0.96<br />Weighted w(p) = 0.96<br />Identity (no distortion)",null,"Objective p = 0.97<br />Weighted w(p) = 0.97<br />Identity (no distortion)",null,"Objective p = 0.98<br />Weighted w(p) = 0.98<br />Identity (no distortion)",null,"Objective p = 0.99<br />Weighted w(p) = 0.99<br />Identity (no distortion)"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"Identity (no distortion)","legendgroup":"Identity (no distortion)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.01,null,0.02,null,0.029999999999999999,null,0.040000000000000001,null,0.050000000000000003,null,0.060000000000000005,null,0.069999999999999993,null,0.080000000000000002,null,0.089999999999999997,null,0.099999999999999992,null,0.11,null,0.12,null,0.13,null,0.14000000000000001,null,0.15000000000000002,null,0.16,null,0.17000000000000001,null,0.18000000000000002,null,0.19,null,0.20000000000000001,null,0.21000000000000002,null,0.22,null,0.23000000000000001,null,0.24000000000000002,null,0.25,null,0.26000000000000001,null,0.27000000000000002,null,0.28000000000000003,null,0.29000000000000004,null,0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.33000000000000002,null,0.34000000000000002,null,0.35000000000000003,null,0.36000000000000004,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.41000000000000003,null,0.42000000000000004,null,0.42999999999999999,null,0.44,null,0.45000000000000001,null,0.46000000000000002,null,0.47000000000000003,null,0.48000000000000004,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.66000000000000003,null,0.67000000000000004,null,0.68000000000000005,null,0.69000000000000006,null,0.70000000000000007,null,0.71000000000000008,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004,null,0.81000000000000005,null,0.82000000000000006,null,0.83000000000000007,null,0.84000000000000008,null,0.84999999999999998,null,0.85999999999999999,null,0.87,null,0.88,null,0.89000000000000001,null,0.90000000000000002,null,0.91000000000000003,null,0.92000000000000004,null,0.93000000000000005,null,0.94000000000000006,null,0.95000000000000007,null,0.96000000000000008,null,0.96999999999999997,null,0.97999999999999998,null,0.98999999999999999],"y":[0.039671939690679857,null,0.062367878631610724,null,0.080855214836150296,null,0.096952614408935087,null,0.11143417019617445,null,0.12472304921916443,null,0.13708317169861176,null,0.14869339074388913,null,0.15968209210174053,null,0.17014542807717592,null,0.18015780044132768,null,0.18977829533359075,null,0.19905484113423769,null,0.20802700831601337,null,0.2167279600576387,null,0.22518585053680212,null,0.23342485194285345,null,0.24146592476377024,null,0.24932740617357271,null,0.25702546676249449,null,0.26457447017024749,null,0.27198725990858558,null,0.27927539076717339,null,0.28644931747473251,null,0.29351854999041305,null,0.30049178245860675,null,0.30737700117120081,null,0.31418157564541893,null,0.32091233600947033,null,0.32757563920132149,null,0.33417742596510364,null,0.34072327023082066,null,0.3472184221547317,null,0.35366784585743261,null,0.36007625270781207,null,0.36644813085159283,null,0.37278777156409448,null,0.37909929291143485,null,0.38538666112751568,null,0.39165371005194444,null,0.39790415892353592,null,0.40414162878292875,null,0.41036965770434863,null,0.41659171504926962,null,0.42281121491257262,null,0.42903152891393909,null,0.43525599847297003,null,0.44148794669538527,null,0.44773068998923132,null,0.45398754952402959,null,0.46026186264199509,null,0.46655699432874914,null,0.47287634885123625,null,0.47922338167284811,null,0.48560161176011057,null,0.49201463440182097,null,0.49846613467041823,null,0.50495990166691318,null,0.51149984370524071,null,0.51809000460990295,null,0.52473458132284079,null,0.53143794304237746,null,0.53820465214977242,null,0.5450394872186386,null,0.55194746845076936,null,0.5589338859407541,null,0.56600433124369143,null,0.5731647328085494,null,0.58042139594853137,null,0.58778104815462062,null,0.59525089072653192,null,0.60283865790607849,null,0.61055268496419324,null,0.61840198703159643,null,0.62639635089763923,null,0.63454644256408821,null,0.64286393407495201,null,0.65136165411230362,null,0.66005376814041483,null,0.66895599562506725,null,0.67808587424054489,null,0.68746308428570857,null,0.69710985119183022,null,0.70705145068469855,null,0.71731685091924624,null,0.72793954045716891,null,0.73895861318493961,null,0.75042021613868737,null,0.76237952259455155,null,0.77490348723073499,null,0.78807480491818183,null,0.8019977961892798,null,0.81680752675652757,null,0.83268468322876765,null,0.84988148499131655,null,0.86877093187633359,null,0.8899525796969634,null,0.91452644331851118,null,0.94508684768193629],"text":["Objective p = 0.01<br />Weighted w(p) = 0.04<br />Losses (gamma = 0.69)",null,"Objective p = 0.02<br />Weighted w(p) = 0.062<br />Losses (gamma = 0.69)",null,"Objective p = 0.03<br />Weighted w(p) = 0.081<br />Losses (gamma = 0.69)",null,"Objective p = 0.04<br />Weighted w(p) = 0.097<br />Losses (gamma = 0.69)",null,"Objective p = 0.05<br />Weighted w(p) = 0.111<br />Losses (gamma = 0.69)",null,"Objective p = 0.06<br />Weighted w(p) = 0.125<br />Losses (gamma = 0.69)",null,"Objective p = 0.07<br />Weighted w(p) = 0.137<br />Losses (gamma = 0.69)",null,"Objective p = 0.08<br />Weighted w(p) = 0.149<br />Losses (gamma = 0.69)",null,"Objective p = 0.09<br />Weighted w(p) = 0.16<br />Losses (gamma = 0.69)",null,"Objective p = 0.1<br />Weighted w(p) = 0.17<br />Losses (gamma = 0.69)",null,"Objective p = 0.11<br />Weighted w(p) = 0.18<br />Losses (gamma = 0.69)",null,"Objective p = 0.12<br />Weighted w(p) = 0.19<br />Losses (gamma = 0.69)",null,"Objective p = 0.13<br />Weighted w(p) = 0.199<br />Losses (gamma = 0.69)",null,"Objective p = 0.14<br />Weighted w(p) = 0.208<br />Losses (gamma = 0.69)",null,"Objective p = 0.15<br />Weighted w(p) = 0.217<br />Losses (gamma = 0.69)",null,"Objective p = 0.16<br />Weighted w(p) = 0.225<br />Losses (gamma = 0.69)",null,"Objective p = 0.17<br />Weighted w(p) = 0.233<br />Losses (gamma = 0.69)",null,"Objective p = 0.18<br />Weighted w(p) = 0.241<br />Losses (gamma = 0.69)",null,"Objective p = 0.19<br />Weighted w(p) = 0.249<br />Losses (gamma = 0.69)",null,"Objective p = 0.2<br />Weighted w(p) = 0.257<br />Losses (gamma = 0.69)",null,"Objective p = 0.21<br />Weighted w(p) = 0.265<br />Losses (gamma = 0.69)",null,"Objective p = 0.22<br />Weighted w(p) = 0.272<br />Losses (gamma = 0.69)",null,"Objective p = 0.23<br />Weighted w(p) = 0.279<br />Losses (gamma = 0.69)",null,"Objective p = 0.24<br />Weighted w(p) = 0.286<br />Losses (gamma = 0.69)",null,"Objective p = 0.25<br />Weighted w(p) = 0.294<br />Losses (gamma = 0.69)",null,"Objective p = 0.26<br />Weighted w(p) = 0.3<br />Losses (gamma = 0.69)",null,"Objective p = 0.27<br />Weighted w(p) = 0.307<br />Losses (gamma = 0.69)",null,"Objective p = 0.28<br />Weighted w(p) = 0.314<br />Losses (gamma = 0.69)",null,"Objective p = 0.29<br />Weighted w(p) = 0.321<br />Losses (gamma = 0.69)",null,"Objective p = 0.3<br />Weighted w(p) = 0.328<br />Losses (gamma = 0.69)",null,"Objective p = 0.31<br />Weighted w(p) = 0.334<br />Losses (gamma = 0.69)",null,"Objective p = 0.32<br />Weighted w(p) = 0.341<br />Losses (gamma = 0.69)",null,"Objective p = 0.33<br />Weighted w(p) = 0.347<br />Losses (gamma = 0.69)",null,"Objective p = 0.34<br />Weighted w(p) = 0.354<br />Losses (gamma = 0.69)",null,"Objective p = 0.35<br />Weighted w(p) = 0.36<br />Losses (gamma = 0.69)",null,"Objective p = 0.36<br />Weighted w(p) = 0.366<br />Losses (gamma = 0.69)",null,"Objective p = 0.37<br />Weighted w(p) = 0.373<br />Losses (gamma = 0.69)",null,"Objective p = 0.38<br />Weighted w(p) = 0.379<br />Losses (gamma = 0.69)",null,"Objective p = 0.39<br />Weighted w(p) = 0.385<br />Losses (gamma = 0.69)",null,"Objective p = 0.4<br />Weighted w(p) = 0.392<br />Losses (gamma = 0.69)",null,"Objective p = 0.41<br />Weighted w(p) = 0.398<br />Losses (gamma = 0.69)",null,"Objective p = 0.42<br />Weighted w(p) = 0.404<br />Losses (gamma = 0.69)",null,"Objective p = 0.43<br />Weighted w(p) = 0.41<br />Losses (gamma = 0.69)",null,"Objective p = 0.44<br />Weighted w(p) = 0.417<br />Losses (gamma = 0.69)",null,"Objective p = 0.45<br />Weighted w(p) = 0.423<br />Losses (gamma = 0.69)",null,"Objective p = 0.46<br />Weighted w(p) = 0.429<br />Losses (gamma = 0.69)",null,"Objective p = 0.47<br />Weighted w(p) = 0.435<br />Losses (gamma = 0.69)",null,"Objective p = 0.48<br />Weighted w(p) = 0.441<br />Losses (gamma = 0.69)",null,"Objective p = 0.49<br />Weighted w(p) = 0.448<br />Losses (gamma = 0.69)",null,"Objective p = 0.5<br />Weighted w(p) = 0.454<br />Losses (gamma = 0.69)",null,"Objective p = 0.51<br />Weighted w(p) = 0.46<br />Losses (gamma = 0.69)",null,"Objective p = 0.52<br />Weighted w(p) = 0.467<br />Losses (gamma = 0.69)",null,"Objective p = 0.53<br />Weighted w(p) = 0.473<br />Losses (gamma = 0.69)",null,"Objective p = 0.54<br />Weighted w(p) = 0.479<br />Losses (gamma = 0.69)",null,"Objective p = 0.55<br />Weighted w(p) = 0.486<br />Losses (gamma = 0.69)",null,"Objective p = 0.56<br />Weighted w(p) = 0.492<br />Losses (gamma = 0.69)",null,"Objective p = 0.57<br />Weighted w(p) = 0.498<br />Losses (gamma = 0.69)",null,"Objective p = 0.58<br />Weighted w(p) = 0.505<br />Losses (gamma = 0.69)",null,"Objective p = 0.59<br />Weighted w(p) = 0.511<br />Losses (gamma = 0.69)",null,"Objective p = 0.6<br />Weighted w(p) = 0.518<br />Losses (gamma = 0.69)",null,"Objective p = 0.61<br />Weighted w(p) = 0.525<br />Losses (gamma = 0.69)",null,"Objective p = 0.62<br />Weighted w(p) = 0.531<br />Losses (gamma = 0.69)",null,"Objective p = 0.63<br />Weighted w(p) = 0.538<br />Losses (gamma = 0.69)",null,"Objective p = 0.64<br />Weighted w(p) = 0.545<br />Losses (gamma = 0.69)",null,"Objective p = 0.65<br />Weighted w(p) = 0.552<br />Losses (gamma = 0.69)",null,"Objective p = 0.66<br />Weighted w(p) = 0.559<br />Losses (gamma = 0.69)",null,"Objective p = 0.67<br />Weighted w(p) = 0.566<br />Losses (gamma = 0.69)",null,"Objective p = 0.68<br />Weighted w(p) = 0.573<br />Losses (gamma = 0.69)",null,"Objective p = 0.69<br />Weighted w(p) = 0.58<br />Losses (gamma = 0.69)",null,"Objective p = 0.7<br />Weighted w(p) = 0.588<br />Losses (gamma = 0.69)",null,"Objective p = 0.71<br />Weighted w(p) = 0.595<br />Losses (gamma = 0.69)",null,"Objective p = 0.72<br />Weighted w(p) = 0.603<br />Losses (gamma = 0.69)",null,"Objective p = 0.73<br />Weighted w(p) = 0.611<br />Losses (gamma = 0.69)",null,"Objective p = 0.74<br />Weighted w(p) = 0.618<br />Losses (gamma = 0.69)",null,"Objective p = 0.75<br />Weighted w(p) = 0.626<br />Losses (gamma = 0.69)",null,"Objective p = 0.76<br />Weighted w(p) = 0.635<br />Losses (gamma = 0.69)",null,"Objective p = 0.77<br />Weighted w(p) = 0.643<br />Losses (gamma = 0.69)",null,"Objective p = 0.78<br />Weighted w(p) = 0.651<br />Losses (gamma = 0.69)",null,"Objective p = 0.79<br />Weighted w(p) = 0.66<br />Losses (gamma = 0.69)",null,"Objective p = 0.8<br />Weighted w(p) = 0.669<br />Losses (gamma = 0.69)",null,"Objective p = 0.81<br />Weighted w(p) = 0.678<br />Losses (gamma = 0.69)",null,"Objective p = 0.82<br />Weighted w(p) = 0.687<br />Losses (gamma = 0.69)",null,"Objective p = 0.83<br />Weighted w(p) = 0.697<br />Losses (gamma = 0.69)",null,"Objective p = 0.84<br />Weighted w(p) = 0.707<br />Losses (gamma = 0.69)",null,"Objective p = 0.85<br />Weighted w(p) = 0.717<br />Losses (gamma = 0.69)",null,"Objective p = 0.86<br />Weighted w(p) = 0.728<br />Losses (gamma = 0.69)",null,"Objective p = 0.87<br />Weighted w(p) = 0.739<br />Losses (gamma = 0.69)",null,"Objective p = 0.88<br />Weighted w(p) = 0.75<br />Losses (gamma = 0.69)",null,"Objective p = 0.89<br />Weighted w(p) = 0.762<br />Losses (gamma = 0.69)",null,"Objective p = 0.9<br />Weighted w(p) = 0.775<br />Losses (gamma = 0.69)",null,"Objective p = 0.91<br />Weighted w(p) = 0.788<br />Losses (gamma = 0.69)",null,"Objective p = 0.92<br />Weighted w(p) = 0.802<br />Losses (gamma = 0.69)",null,"Objective p = 0.93<br />Weighted w(p) = 0.817<br />Losses (gamma = 0.69)",null,"Objective p = 0.94<br />Weighted w(p) = 0.833<br />Losses (gamma = 0.69)",null,"Objective p = 0.95<br />Weighted w(p) = 0.85<br />Losses (gamma = 0.69)",null,"Objective p = 0.96<br />Weighted w(p) = 0.869<br />Losses (gamma = 0.69)",null,"Objective p = 0.97<br />Weighted w(p) = 0.89<br />Losses (gamma = 0.69)",null,"Objective p = 0.98<br />Weighted w(p) = 0.915<br />Losses (gamma = 0.69)",null,"Objective p = 0.99<br />Weighted w(p) = 0.945<br />Losses (gamma = 0.69)"],"type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(127,127,127,1)","dash":"solid"},"hoveron":"points","name":"Losses (gamma = 0.69)","legendgroup":"Losses (gamma = 0.69)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Probability weighting functions <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.039,1.0389999999999999],"tickmode":"array","ticktext":["0.00","0.25","0.50","0.75","1.00"],"tickvals":[0,0.24999999999999997,0.5,0.75,0.99999999999999989],"categoryorder":"array","categoryarray":["0.00","0.25","0.50","0.75","1.00"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Objective probability p","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.039,1.0389999999999999],"tickmode":"array","ticktext":["0.00","0.25","0.50","0.75","1.00"],"tickvals":[0,0.24999999999999997,0.5,0.75,0.99999999999999989],"categoryorder":"array","categoryarray":["0.00","0.25","0.50","0.75","1.00"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Decision weight w(p)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"373936c8888e":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"}},"cur_data":"373936c8888e","visdat":{"373936c8888e":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-pt-weighting-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>Prospect theory’s two departures from expected utility — the S-shaped value function and the inverse-S probability weighting — together generate the <strong>fourfold pattern</strong> of risk attitudes that EU theory cannot accommodate. For gains with moderate-to-high probabilities, the concave value function produces risk aversion (preferring a sure $3000 over an 80% chance at $4000). For gains with small probabilities, overweighting dominates and produces risk seeking (buying lottery tickets). For losses with moderate-to-high probabilities, the convex value function produces risk seeking (gambling to avoid a sure loss). For losses with small probabilities, overweighting again dominates and produces risk aversion (buying insurance against rare catastrophes). The loss aversion parameter <span class="math inline">\(\lambda \approx 2.25\)</span> means that losing $100 feels about as bad as gaining $225 feels good, explaining why people reject symmetric coin-flip gambles that EU theory says they should accept. These predictions have been confirmed in hundreds of experiments and field studies across cultures. Prospect theory’s influence extends well beyond academic psychology: it underpins regulatory nudge units (like the UK’s Behavioural Insights Team), explains financial anomalies such as the equity premium puzzle and disposition effect, and informs the design of insurance products, tax policy, and marketing strategies. The reference-dependence insight alone has reshaped how economists think about preferences, revealing that context and framing matter as much as final outcomes.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../../behavioral-gt/ultimatum-game-fairness/">The ultimatum game and fairness</a> — behavioural deviations from rationality in strategic settings.</li>
+<li>
+<a href="../../foundations/risk-dominance/">Risk dominance and equilibrium selection</a> — how risk attitudes shape equilibrium play.</li>
+<li>
+<a href="../../bayesian-methods/bayesian-games-incomplete-information/">Bayesian games with incomplete information</a> — modelling uncertainty about preferences.</li>
+<li>
+<a href="../nudge-libertarian-paternalism/">Nudge design and libertarian paternalism</a> — policy applications of prospect theory.</li>
+<li>
+<a href="../mental-accounting/">Mental accounting and narrow framing</a> — extensions of reference-dependent preferences.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Prospect Theory — Loss Aversion and Probability Weighting},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Prospect Theory — Loss Aversion and
+Probability Weighting.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/">https://r-heller.github.io/equilibria/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Prospect theory — loss aversion and probability weighting"</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Implement Kahneman &amp; Tversky's prospect theory value function and probability weighting in R, compare expected utility vs prospect theory predictions for common gambles, and visualize the S-shaped value function interactively."</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - behavioral-economics</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - prospect-theory</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - loss-aversion</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["prospect theory", "loss aversion", "probability weighting", "Kahneman", "Tversky", "value function", "decision under risk", "R"]</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["behavioral-econ", "decision-theory"]</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_behavioral-economics_prospect-theory-kahneman-tversky"</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "S-shaped prospect theory value function showing loss aversion and diminishing sensitivity"</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>)</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>Standard expected utility theory assumes that people evaluate outcomes using a concave utility function applied to final wealth, weighting each outcome by its objective probability. Daniel Kahneman and Amos Tversky's **prospect theory** (1979) overturned this framework with three key insights drawn from systematic laboratory evidence. First, people evaluate outcomes as **gains and losses** relative to a reference point, not as final wealth levels. Second, the value function is **concave for gains but convex for losses** — diminishing sensitivity in both directions — and steeper for losses than gains, capturing **loss aversion** (losses loom roughly twice as large as equivalent gains). Third, people do not weight outcomes by raw probabilities but instead apply a **probability weighting function** that overweights small probabilities and underweights large ones, explaining both lottery ticket purchases and excessive insurance buying. Prospect theory resolves the Allais paradox, predicts the disposition effect in finance (holding losers too long, selling winners too early), and underpins much of behavioural economics and nudge policy. This tutorial implements both the value function and the probability weighting function of cumulative prospect theory in R, computes prospect-theory valuations for classic gambles, and contrasts the predictions with standard expected utility to show exactly where and why the two theories diverge.</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>In **cumulative prospect theory** (Tversky &amp; Kahneman, 1992), a prospect is evaluated by:</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>V = \sum_{i} \pi(p_i) \cdot v(x_i)</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>where $v(\cdot)$ is the **value function** defined over gains and losses relative to a reference point:</span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>v(x) = \begin{cases} x^{\alpha} &amp; \text{if } x \geq 0 <span class="sc">\\</span> -\lambda \, (-x)^{\beta} &amp; \text{if } x &lt; 0 \end{cases}</span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true" tabindex="-1"></a>with $\alpha, \beta \in (0,1)$ governing diminishing sensitivity and $\lambda &gt; 1$ capturing loss aversion. Kahneman and Tversky estimated $\alpha = \beta = 0.88$ and $\lambda = 2.25$.</span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true" tabindex="-1"></a>The **probability weighting function** is:</span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a>w(p) = \frac{p^{\gamma}}{(p^{\gamma} + (1-p)^{\gamma})^{1/\gamma}}</span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>with $\gamma = 0.61$ for gains and $\gamma = 0.69$ for losses. This function is inverse-S-shaped: it overweights small probabilities ($w(p) &gt; p$ for small $p$) and underweights moderate-to-large probabilities ($w(p) &lt; p$ for large $p$), producing the characteristic fourfold pattern of risk attitudes.</span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: pt-implementation</span></span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Prospect theory value function ---</span></span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true" tabindex="-1"></a>pt_value <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">alpha =</span> <span class="fl">0.88</span>, <span class="at">beta =</span> <span class="fl">0.88</span>, <span class="at">lambda =</span> <span class="fl">2.25</span>) {</span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(x <span class="sc">&gt;=</span> <span class="dv">0</span>, x<span class="sc">^</span>alpha, <span class="sc">-</span>lambda <span class="sc">*</span> (<span class="sc">-</span>x)<span class="sc">^</span>beta)</span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Probability weighting function ---</span></span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true" tabindex="-1"></a>pt_weight <span class="ot">&lt;-</span> <span class="cf">function</span>(p, <span class="at">gamma =</span> <span class="fl">0.61</span>) {</span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true" tabindex="-1"></a>  p<span class="sc">^</span>gamma <span class="sc">/</span> (p<span class="sc">^</span>gamma <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> p)<span class="sc">^</span>gamma)<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">/</span> gamma)</span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Expected utility (risk-neutral benchmark) ---</span></span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a>eu_value <span class="ot">&lt;-</span> <span class="cf">function</span>(outcomes, probs) {</span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sum</span>(outcomes <span class="sc">*</span> probs)</span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-106"><a href="#cb7-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-107"><a href="#cb7-107" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Prospect theory valuation ---</span></span>
+<span id="cb7-108"><a href="#cb7-108" aria-hidden="true" tabindex="-1"></a>pt_valuation <span class="ot">&lt;-</span> <span class="cf">function</span>(outcomes, probs, <span class="at">alpha =</span> <span class="fl">0.88</span>, <span class="at">beta =</span> <span class="fl">0.88</span>,</span>
+<span id="cb7-109"><a href="#cb7-109" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lambda =</span> <span class="fl">2.25</span>, <span class="at">gamma_gain =</span> <span class="fl">0.61</span>, <span class="at">gamma_loss =</span> <span class="fl">0.69</span>) {</span>
+<span id="cb7-110"><a href="#cb7-110" aria-hidden="true" tabindex="-1"></a>  values <span class="ot">&lt;-</span> <span class="fu">pt_value</span>(outcomes, alpha, beta, lambda)</span>
+<span id="cb7-111"><a href="#cb7-111" aria-hidden="true" tabindex="-1"></a>  weights <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(outcomes <span class="sc">&gt;=</span> <span class="dv">0</span>,</span>
+<span id="cb7-112"><a href="#cb7-112" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">pt_weight</span>(probs, gamma_gain),</span>
+<span id="cb7-113"><a href="#cb7-113" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">pt_weight</span>(probs, gamma_loss))</span>
+<span id="cb7-114"><a href="#cb7-114" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sum</span>(weights <span class="sc">*</span> values)</span>
+<span id="cb7-115"><a href="#cb7-115" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-116"><a href="#cb7-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-117"><a href="#cb7-117" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Classic gambles comparison ---</span></span>
+<span id="cb7-118"><a href="#cb7-118" aria-hidden="true" tabindex="-1"></a>gambles <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb7-119"><a href="#cb7-119" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Certainty effect</span><span class="sc">\n</span><span class="st">(Allais)"</span> <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb7-120"><a href="#cb7-120" aria-hidden="true" tabindex="-1"></a>    <span class="at">A =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">3000</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">1.0</span>)),</span>
+<span id="cb7-121"><a href="#cb7-121" aria-hidden="true" tabindex="-1"></a>    <span class="at">B =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">4000</span>, <span class="dv">0</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.80</span>, <span class="fl">0.20</span>))</span>
+<span id="cb7-122"><a href="#cb7-122" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb7-123"><a href="#cb7-123" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Small probability</span><span class="sc">\n</span><span class="st">gain"</span> <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb7-124"><a href="#cb7-124" aria-hidden="true" tabindex="-1"></a>    <span class="at">A =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">5000</span>, <span class="dv">0</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.001</span>, <span class="fl">0.999</span>)),</span>
+<span id="cb7-125"><a href="#cb7-125" aria-hidden="true" tabindex="-1"></a>    <span class="at">B =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">0</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">1.0</span>, <span class="fl">0.0</span>))</span>
+<span id="cb7-126"><a href="#cb7-126" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb7-127"><a href="#cb7-127" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Loss aversion</span><span class="sc">\n</span><span class="st">symmetric"</span> <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb7-128"><a href="#cb7-128" aria-hidden="true" tabindex="-1"></a>    <span class="at">A =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">100</span>, <span class="sc">-</span><span class="dv">100</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.50</span>, <span class="fl">0.50</span>)),</span>
+<span id="cb7-129"><a href="#cb7-129" aria-hidden="true" tabindex="-1"></a>    <span class="at">B =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="dv">0</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">1.0</span>))</span>
+<span id="cb7-130"><a href="#cb7-130" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb7-131"><a href="#cb7-131" aria-hidden="true" tabindex="-1"></a>  <span class="st">"Insurance</span><span class="sc">\n</span><span class="st">(small prob loss)"</span> <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb7-132"><a href="#cb7-132" aria-hidden="true" tabindex="-1"></a>    <span class="at">A =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5000</span>, <span class="dv">0</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">0.001</span>, <span class="fl">0.999</span>)),</span>
+<span id="cb7-133"><a href="#cb7-133" aria-hidden="true" tabindex="-1"></a>    <span class="at">B =</span> <span class="fu">list</span>(<span class="at">outcomes =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>), <span class="at">probs =</span> <span class="fu">c</span>(<span class="fl">1.0</span>, <span class="fl">0.0</span>))</span>
+<span id="cb7-134"><a href="#cb7-134" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-135"><a href="#cb7-135" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-136"><a href="#cb7-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-137"><a href="#cb7-137" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">names</span>(gambles), <span class="cf">function</span>(g) {</span>
+<span id="cb7-138"><a href="#cb7-138" aria-hidden="true" tabindex="-1"></a>  A <span class="ot">&lt;-</span> gambles[[g]]<span class="sc">$</span>A; B <span class="ot">&lt;-</span> gambles[[g]]<span class="sc">$</span>B</span>
+<span id="cb7-139"><a href="#cb7-139" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb7-140"><a href="#cb7-140" aria-hidden="true" tabindex="-1"></a>    <span class="at">gamble =</span> g,</span>
+<span id="cb7-141"><a href="#cb7-141" aria-hidden="true" tabindex="-1"></a>    <span class="at">EU_A =</span> <span class="fu">eu_value</span>(A<span class="sc">$</span>outcomes, A<span class="sc">$</span>probs),</span>
+<span id="cb7-142"><a href="#cb7-142" aria-hidden="true" tabindex="-1"></a>    <span class="at">EU_B =</span> <span class="fu">eu_value</span>(B<span class="sc">$</span>outcomes, B<span class="sc">$</span>probs),</span>
+<span id="cb7-143"><a href="#cb7-143" aria-hidden="true" tabindex="-1"></a>    <span class="at">EU_choice =</span> <span class="fu">ifelse</span>(EU_A <span class="sc">&gt;=</span> EU_B, <span class="st">"A"</span>, <span class="st">"B"</span>),</span>
+<span id="cb7-144"><a href="#cb7-144" aria-hidden="true" tabindex="-1"></a>    <span class="at">PT_A =</span> <span class="fu">pt_valuation</span>(A<span class="sc">$</span>outcomes, A<span class="sc">$</span>probs),</span>
+<span id="cb7-145"><a href="#cb7-145" aria-hidden="true" tabindex="-1"></a>    <span class="at">PT_B =</span> <span class="fu">pt_valuation</span>(B<span class="sc">$</span>outcomes, B<span class="sc">$</span>probs),</span>
+<span id="cb7-146"><a href="#cb7-146" aria-hidden="true" tabindex="-1"></a>    <span class="at">PT_choice =</span> <span class="fu">ifelse</span>(PT_A <span class="sc">&gt;=</span> PT_B, <span class="st">"A"</span>, <span class="st">"B"</span>)</span>
+<span id="cb7-147"><a href="#cb7-147" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-148"><a href="#cb7-148" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb7-149"><a href="#cb7-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-150"><a href="#cb7-150" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Expected Utility vs Prospect Theory: Gamble Predictions ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb7-151"><a href="#cb7-151" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(results, <span class="at">width =</span> <span class="dv">100</span>)</span>
+<span id="cb7-152"><a href="#cb7-152" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-153"><a href="#cb7-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-154"><a href="#cb7-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-155"><a href="#cb7-155" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb7-156"><a href="#cb7-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-159"><a href="#cb7-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb7-160"><a href="#cb7-160" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-pt-value-function</span></span>
+<span id="cb7-161"><a href="#cb7-161" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. The prospect theory value function compared with a standard utility function. The PT value function (orange) is concave for gains and convex for losses, with a steeper slope in the loss domain reflecting loss aversion (lambda = 2.25). The linear reference (grey dashed) shows risk neutrality. Parameters: alpha = beta = 0.88, lambda = 2.25 (Tversky &amp; Kahneman 1992). Okabe-Ito palette."</span></span>
+<span id="cb7-162"><a href="#cb7-162" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb7-163"><a href="#cb7-163" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 7</span></span>
+<span id="cb7-164"><a href="#cb7-164" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb7-165"><a href="#cb7-165" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb7-166"><a href="#cb7-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-167"><a href="#cb7-167" aria-hidden="true" tabindex="-1"></a>x_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">100</span>, <span class="dv">100</span>, <span class="at">by =</span> <span class="fl">0.5</span>)</span>
+<span id="cb7-168"><a href="#cb7-168" aria-hidden="true" tabindex="-1"></a>vf_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb7-169"><a href="#cb7-169" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">rep</span>(x_seq, <span class="dv">3</span>),</span>
+<span id="cb7-170"><a href="#cb7-170" aria-hidden="true" tabindex="-1"></a>  <span class="at">value =</span> <span class="fu">c</span>(<span class="fu">pt_value</span>(x_seq, <span class="at">alpha =</span> <span class="fl">0.88</span>, <span class="at">beta =</span> <span class="fl">0.88</span>, <span class="at">lambda =</span> <span class="fl">2.25</span>),</span>
+<span id="cb7-171"><a href="#cb7-171" aria-hidden="true" tabindex="-1"></a>            <span class="fu">pt_value</span>(x_seq, <span class="at">alpha =</span> <span class="fl">0.88</span>, <span class="at">beta =</span> <span class="fl">0.88</span>, <span class="at">lambda =</span> <span class="fl">1.0</span>),</span>
+<span id="cb7-172"><a href="#cb7-172" aria-hidden="true" tabindex="-1"></a>            x_seq),</span>
+<span id="cb7-173"><a href="#cb7-173" aria-hidden="true" tabindex="-1"></a>  <span class="at">type =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"PT (lambda = 2.25)"</span>, <span class="st">"PT (lambda = 1.0, no loss aversion)"</span>, <span class="st">"Linear (risk neutral)"</span>),</span>
+<span id="cb7-174"><a href="#cb7-174" aria-hidden="true" tabindex="-1"></a>             <span class="at">each =</span> <span class="fu">length</span>(x_seq))</span>
+<span id="cb7-175"><a href="#cb7-175" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-176"><a href="#cb7-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-177"><a href="#cb7-177" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(vf_df, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> value, <span class="at">color =</span> type, <span class="at">linetype =</span> type)) <span class="sc">+</span></span>
+<span id="cb7-178"><a href="#cb7-178" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb7-179"><a href="#cb7-179" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"grey60"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb7-180"><a href="#cb7-180" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"grey60"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb7-181"><a href="#cb7-181" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
+<span id="cb7-182"><a href="#cb7-182" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(okabe_ito[<span class="dv">1</span>], okabe_ito[<span class="dv">2</span>], <span class="st">"grey50"</span>),</span>
+<span id="cb7-183"><a href="#cb7-183" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="cn">NULL</span></span>
+<span id="cb7-184"><a href="#cb7-184" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-185"><a href="#cb7-185" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_linetype_manual</span>(</span>
+<span id="cb7-186"><a href="#cb7-186" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"solid"</span>, <span class="st">"solid"</span>, <span class="st">"dashed"</span>),</span>
+<span id="cb7-187"><a href="#cb7-187" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="cn">NULL</span></span>
+<span id="cb7-188"><a href="#cb7-188" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-189"><a href="#cb7-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-190"><a href="#cb7-190" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Prospect theory value function"</span>,</span>
+<span id="cb7-191"><a href="#cb7-191" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Concave for gains, convex for losses, steeper in the loss domain"</span>,</span>
+<span id="cb7-192"><a href="#cb7-192" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Outcome (gain/loss relative to reference point)"</span>,</span>
+<span id="cb7-193"><a href="#cb7-193" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Subjective value v(x)"</span></span>
+<span id="cb7-194"><a href="#cb7-194" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-195"><a href="#cb7-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb7-196"><a href="#cb7-196" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-197"><a href="#cb7-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-198"><a href="#cb7-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-199"><a href="#cb7-199" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb7-200"><a href="#cb7-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-203"><a href="#cb7-203" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb7-204"><a href="#cb7-204" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-pt-weighting-interactive</span></span>
+<span id="cb7-205"><a href="#cb7-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-206"><a href="#cb7-206" aria-hidden="true" tabindex="-1"></a>p_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.01</span>, <span class="fl">0.99</span>, <span class="at">by =</span> <span class="fl">0.01</span>)</span>
+<span id="cb7-207"><a href="#cb7-207" aria-hidden="true" tabindex="-1"></a>pw_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb7-208"><a href="#cb7-208" aria-hidden="true" tabindex="-1"></a>  <span class="at">p =</span> <span class="fu">rep</span>(p_seq, <span class="dv">3</span>),</span>
+<span id="cb7-209"><a href="#cb7-209" aria-hidden="true" tabindex="-1"></a>  <span class="at">weighted =</span> <span class="fu">c</span>(<span class="fu">pt_weight</span>(p_seq, <span class="at">gamma =</span> <span class="fl">0.61</span>),</span>
+<span id="cb7-210"><a href="#cb7-210" aria-hidden="true" tabindex="-1"></a>               <span class="fu">pt_weight</span>(p_seq, <span class="at">gamma =</span> <span class="fl">0.69</span>),</span>
+<span id="cb7-211"><a href="#cb7-211" aria-hidden="true" tabindex="-1"></a>               p_seq),</span>
+<span id="cb7-212"><a href="#cb7-212" aria-hidden="true" tabindex="-1"></a>  <span class="at">type =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Gains (gamma = 0.61)"</span>, <span class="st">"Losses (gamma = 0.69)"</span>, <span class="st">"Identity (no distortion)"</span>),</span>
+<span id="cb7-213"><a href="#cb7-213" aria-hidden="true" tabindex="-1"></a>             <span class="at">each =</span> <span class="fu">length</span>(p_seq))</span>
+<span id="cb7-214"><a href="#cb7-214" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-215"><a href="#cb7-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-216"><a href="#cb7-216" aria-hidden="true" tabindex="-1"></a>pw_df <span class="ot">&lt;-</span> pw_df <span class="sc">|&gt;</span></span>
+<span id="cb7-217"><a href="#cb7-217" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Objective p = "</span>, <span class="fu">round</span>(p, <span class="dv">2</span>),</span>
+<span id="cb7-218"><a href="#cb7-218" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Weighted w(p) = "</span>, <span class="fu">round</span>(weighted, <span class="dv">3</span>),</span>
+<span id="cb7-219"><a href="#cb7-219" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, type))</span>
+<span id="cb7-220"><a href="#cb7-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-221"><a href="#cb7-221" aria-hidden="true" tabindex="-1"></a>p_pw <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(pw_df, <span class="fu">aes</span>(<span class="at">x =</span> p, <span class="at">y =</span> weighted, <span class="at">color =</span> type, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb7-222"><a href="#cb7-222" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb7-223"><a href="#cb7-223" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
+<span id="cb7-224"><a href="#cb7-224" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(okabe_ito[<span class="dv">1</span>], okabe_ito[<span class="dv">3</span>], <span class="st">"grey50"</span>),</span>
+<span id="cb7-225"><a href="#cb7-225" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="cn">NULL</span></span>
+<span id="cb7-226"><a href="#cb7-226" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-227"><a href="#cb7-227" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-228"><a href="#cb7-228" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Probability weighting functions"</span>,</span>
+<span id="cb7-229"><a href="#cb7-229" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Overweighting of small probabilities, underweighting of large ones"</span>,</span>
+<span id="cb7-230"><a href="#cb7-230" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Objective probability p"</span>,</span>
+<span id="cb7-231"><a href="#cb7-231" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Decision weight w(p)"</span></span>
+<span id="cb7-232"><a href="#cb7-232" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-233"><a href="#cb7-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb7-234"><a href="#cb7-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-235"><a href="#cb7-235" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_pw, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb7-236"><a href="#cb7-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb7-237"><a href="#cb7-237" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb7-238"><a href="#cb7-238" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb7-239"><a href="#cb7-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-240"><a href="#cb7-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-241"><a href="#cb7-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb7-242"><a href="#cb7-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-243"><a href="#cb7-243" aria-hidden="true" tabindex="-1"></a>Prospect theory's two departures from expected utility — the S-shaped value function and the inverse-S probability weighting — together generate the **fourfold pattern** of risk attitudes that EU theory cannot accommodate. For gains with moderate-to-high probabilities, the concave value function produces risk aversion (preferring a sure $3000 over an 80% chance at $4000). For gains with small probabilities, overweighting dominates and produces risk seeking (buying lottery tickets). For losses with moderate-to-high probabilities, the convex value function produces risk seeking (gambling to avoid a sure loss). For losses with small probabilities, overweighting again dominates and produces risk aversion (buying insurance against rare catastrophes). The loss aversion parameter $\lambda \approx 2.25$ means that losing $100 feels about as bad as gaining $225 feels good, explaining why people reject symmetric coin-flip gambles that EU theory says they should accept. These predictions have been confirmed in hundreds of experiments and field studies across cultures. Prospect theory's influence extends well beyond academic psychology: it underpins regulatory nudge units (like the UK's Behavioural Insights Team), explains financial anomalies such as the equity premium puzzle and disposition effect, and informs the design of insurance products, tax policy, and marketing strategies. The reference-dependence insight alone has reshaped how economists think about preferences, revealing that context and framing matter as much as final outcomes.</span>
+<span id="cb7-244"><a href="#cb7-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-245"><a href="#cb7-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-246"><a href="#cb7-246" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb7-247"><a href="#cb7-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-248"><a href="#cb7-248" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The ultimatum game and fairness</span><span class="co">](../../behavioral-gt/ultimatum-game-fairness/)</span> — behavioural deviations from rationality in strategic settings.</span>
+<span id="cb7-249"><a href="#cb7-249" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Risk dominance and equilibrium selection</span><span class="co">](../../foundations/risk-dominance/)</span> — how risk attitudes shape equilibrium play.</span>
+<span id="cb7-250"><a href="#cb7-250" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Bayesian games with incomplete information</span><span class="co">](../../bayesian-methods/bayesian-games-incomplete-information/)</span> — modelling uncertainty about preferences.</span>
+<span id="cb7-251"><a href="#cb7-251" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Nudge design and libertarian paternalism</span><span class="co">](../nudge-libertarian-paternalism/)</span> — policy applications of prospect theory.</span>
+<span id="cb7-252"><a href="#cb7-252" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Mental accounting and narrow framing</span><span class="co">](../mental-accounting/)</span> — extensions of reference-dependent preferences.</span>
+<span id="cb7-253"><a href="#cb7-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-254"><a href="#cb7-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-255"><a href="#cb7-255" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb7-256"><a href="#cb7-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-257"><a href="#cb7-257" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb7-258"><a href="#cb7-258" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/behavioral-economics/prospect-theory-kahneman-tversky/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

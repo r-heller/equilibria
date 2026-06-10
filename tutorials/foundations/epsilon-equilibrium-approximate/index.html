@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="epsilon-equilibrium, approximate Nash, bounded rationality, PPAD, computational game theory">
+<meta name="description" content="Implement epsilon-Nash equilibrium in R, analyse when approximate solutions suffice for practical predictions, compute the epsilon required for various games, and connect to computational complexity of exact Nash equilibrium finding.">
+<title>Epsilon-equilibrium and approximate Nash equilibria – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-fc5d92e916961bc5153a81caa5a35c44.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/foundations/epsilon-equilibrium-approximate/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/foundations/epsilon-equilibrium-approximate/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Epsilon-equilibrium and approximate Nash equilibria</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">foundations</div>
+    <div class="quarto-category">epsilon-equilibrium</div>
+    <div class="quarto-category">approximate-equilibrium</div>
+    <div class="quarto-category">computational-complexity</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Implement epsilon-Nash equilibrium in R, analyse when approximate solutions suffice for practical predictions, compute the epsilon required for various games, and connect to computational complexity of exact Nash equilibrium finding.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>epsilon-equilibrium, approximate Nash, bounded rationality, PPAD, computational game theory</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Nash equilibrium demands perfection: every player must play an exact best response to the others’ strategies. But in practice, players are boundedly rational, payoffs are estimated with error, and computation is costly. An <strong>epsilon-Nash equilibrium</strong> relaxes the best-response requirement: no player can gain more than <span class="math inline">\(\epsilon\)</span> by deviating. This seemingly minor relaxation has profound implications for both theory and practice.</p>
+<p>From a practical standpoint, epsilon-equilibrium acknowledges that small deviations from best-responding are inevitable in real strategic interactions. A firm that could increase profits by 0.01% by adjusting its price is unlikely to do so — the computational and attention costs exceed the gain. An experimental subject whose expected payoff from switching strategies is a few cents will not reliably switch. Epsilon-equilibrium captures the idea that “close enough” to best-responding is all we can expect from real agents, and provides a framework for asking: how close is close enough?</p>
+<p>From a computational standpoint, epsilon-equilibrium is central to the theory of algorithmic game theory. Finding an exact Nash equilibrium in a bimatrix game is PPAD-complete — believed to require exponential time in the worst case. But finding an epsilon-Nash equilibrium with <span class="math inline">\(\epsilon = O(1/\text{poly}(n))\)</span> is potentially easier, and the Lipton-Markakis-Mehta algorithm shows that an epsilon-equilibrium with logarithmic-size support always exists. This connects the computational difficulty of equilibrium to the precision required: if we are willing to accept approximate solutions, the problem may become tractable.</p>
+<p>The concept also bridges to learning dynamics: many natural learning algorithms (fictitious play, no-regret learning, replicator dynamics) converge to epsilon-equilibria but not necessarily to exact Nash equilibria. Understanding the epsilon-equilibrium structure of a game tells us what learning algorithms can achieve and how quickly. This tutorial implements epsilon-equilibrium computation, visualises the set of approximate equilibria as epsilon varies, and analyses the relationship between game structure and the “cost of approximation.”</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p><strong>Epsilon-Nash equilibrium</strong>: A strategy profile <span class="math inline">\(\sigma^*\)</span> is an <span class="math inline">\(\epsilon\)</span>-Nash equilibrium if for every player <span class="math inline">\(i\)</span> and every strategy <span class="math inline">\(s_i\)</span>:</p>
+<p><span class="math display">\[u_i(\sigma^*_i, \sigma^*_{-i}) \geq u_i(s_i, \sigma^*_{-i}) - \epsilon\]</span></p>
+<p><strong>Epsilon-regret</strong>: The regret of player <span class="math inline">\(i\)</span> at profile <span class="math inline">\(\sigma\)</span> is:</p>
+<p><span class="math display">\[r_i(\sigma) = \max_{s_i} u_i(s_i, \sigma_{-i}) - u_i(\sigma_i, \sigma_{-i})\]</span></p>
+<p>Profile <span class="math inline">\(\sigma\)</span> is an <span class="math inline">\(\epsilon\)</span>-NE iff <span class="math inline">\(\max_i r_i(\sigma) \leq \epsilon\)</span>.</p>
+<p><strong>Properties</strong>: (1) Every Nash equilibrium is a 0-NE. (2) The set of <span class="math inline">\(\epsilon\)</span>-NE is monotone: if <span class="math inline">\(\epsilon_1 &lt; \epsilon_2\)</span>, then <span class="math inline">\(\text{NE}_{\epsilon_1} \subseteq \text{NE}_{\epsilon_2}\)</span>. (3) Every game has an <span class="math inline">\(\epsilon\)</span>-NE in pure strategies for sufficiently large <span class="math inline">\(\epsilon\)</span>.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Epsilon-Nash Equilibrium ===\n\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Epsilon-Nash Equilibrium ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Compute epsilon-regret for a strategy profile ===</span></span>
+<span><span class="va">compute_regret</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="va">p</span>, <span class="va">q</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># p = P(Top) for row, q = P(Left) for col</span></span>
+<span>  <span class="co"># Row player's payoffs</span></span>
+<span>  <span class="va">eu_top</span> <span class="op">&lt;-</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span><span class="op">*</span><span class="va">q</span> <span class="op">+</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">q</span><span class="op">)</span></span>
+<span>  <span class="va">eu_bot</span> <span class="op">&lt;-</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span><span class="op">*</span><span class="va">q</span> <span class="op">+</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">q</span><span class="op">)</span></span>
+<span>  <span class="va">eu_row</span> <span class="op">&lt;-</span> <span class="va">p</span><span class="op">*</span><span class="va">eu_top</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">p</span><span class="op">)</span><span class="op">*</span><span class="va">eu_bot</span></span>
+<span>  <span class="va">regret_row</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">eu_top</span>, <span class="va">eu_bot</span><span class="op">)</span> <span class="op">-</span> <span class="va">eu_row</span></span>
+<span></span>
+<span>  <span class="co"># Column player's payoffs</span></span>
+<span>  <span class="va">eu_left</span> <span class="op">&lt;-</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span><span class="op">*</span><span class="va">p</span> <span class="op">+</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span><span class="op">*</span><span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">p</span><span class="op">)</span></span>
+<span>  <span class="va">eu_right</span> <span class="op">&lt;-</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="va">p</span> <span class="op">+</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span><span class="op">*</span><span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">p</span><span class="op">)</span></span>
+<span>  <span class="va">eu_col</span> <span class="op">&lt;-</span> <span class="va">q</span><span class="op">*</span><span class="va">eu_left</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="va">q</span><span class="op">)</span><span class="op">*</span><span class="va">eu_right</span></span>
+<span>  <span class="va">regret_col</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">eu_left</span>, <span class="va">eu_right</span><span class="op">)</span> <span class="op">-</span> <span class="va">eu_col</span></span>
+<span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>row <span class="op">=</span> <span class="va">regret_row</span>, col <span class="op">=</span> <span class="va">regret_col</span>, max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">regret_row</span>, <span class="va">regret_col</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># === Game 1: Prisoner's Dilemma ===</span></span>
+<span><span class="va">A_pd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">B_pd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"--- Prisoner's Dilemma ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Prisoner's Dilemma ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"  Nash: (Defect, Defect) = pure strategy (0, 0)\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Nash: (Defect, Defect) = pure strategy (0, 0)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Check various strategy profiles</span></span>
+<span><span class="va">profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>p<span class="op">=</span><span class="fl">0</span>, q<span class="op">=</span><span class="fl">0</span>, name<span class="op">=</span><span class="st">"(D,D) — Nash"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>p<span class="op">=</span><span class="fl">1</span>, q<span class="op">=</span><span class="fl">1</span>, name<span class="op">=</span><span class="st">"(C,C) — mutual cooperation"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>p<span class="op">=</span><span class="fl">0.5</span>, q<span class="op">=</span><span class="fl">0.5</span>, name<span class="op">=</span><span class="st">"(0.5, 0.5) — uniform"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>p<span class="op">=</span><span class="fl">0.1</span>, q<span class="op">=</span><span class="fl">0.1</span>, name<span class="op">=</span><span class="st">"(0.1, 0.1) — mostly defect"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>p<span class="op">=</span><span class="fl">0.3</span>, q<span class="op">=</span><span class="fl">0.3</span>, name<span class="op">=</span><span class="st">"(0.3, 0.3) — some cooperation"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">prof</span> <span class="kw">in</span> <span class="va">profiles</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">reg</span> <span class="op">&lt;-</span> <span class="fu">compute_regret</span><span class="op">(</span><span class="va">A_pd</span>, <span class="va">B_pd</span>, <span class="va">prof</span><span class="op">$</span><span class="va">p</span>, <span class="va">prof</span><span class="op">$</span><span class="va">q</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  %-28s regret = (%.3f, %.3f), ε = %.3f\n"</span>,</span>
+<span>              <span class="va">prof</span><span class="op">$</span><span class="va">name</span>, <span class="va">reg</span><span class="op">[</span><span class="st">"row"</span><span class="op">]</span>, <span class="va">reg</span><span class="op">[</span><span class="st">"col"</span><span class="op">]</span>, <span class="va">reg</span><span class="op">[</span><span class="st">"max"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  (D,D) — Nash               regret = (4.000, 4.000), ε = 4.000
+  (C,C) — mutual cooperation regret = (0.000, 0.000), ε = 0.000
+  (0.5, 0.5) — uniform       regret = (1.750, 1.750), ε = 1.750
+  (0.1, 0.1) — mostly defect regret = (3.510, 3.510), ε = 3.510
+  (0.3, 0.3) — some cooperation regret = (2.590, 2.590), ε = 2.590</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Game 2: Matching Pennies ===</span></span>
+<span><span class="va">A_mp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="op">-</span><span class="fl">1</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">B_mp</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="va">A_mp</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Matching Pennies ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Matching Pennies ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"  Nash: (0.5, 0.5)\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Nash: (0.5, 0.5)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">p</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0.4</span>, <span class="fl">0.45</span>, <span class="fl">0.5</span>, <span class="fl">0.55</span>, <span class="fl">0.6</span>, <span class="fl">0.7</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">reg</span> <span class="op">&lt;-</span> <span class="fu">compute_regret</span><span class="op">(</span><span class="va">A_mp</span>, <span class="va">B_mp</span>, <span class="va">p</span>, <span class="fl">0.5</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  p=%.2f, q=0.50: ε = %.4f\n"</span>, <span class="va">p</span>, <span class="va">reg</span><span class="op">[</span><span class="st">"max"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  p=0.30, q=0.50: ε = 0.4000
+  p=0.40, q=0.50: ε = 0.2000
+  p=0.45, q=0.50: ε = 0.1000
+  p=0.50, q=0.50: ε = 0.0000
+  p=0.55, q=0.50: ε = 0.1000
+  p=0.60, q=0.50: ε = 0.2000
+  p=0.70, q=0.50: ε = 0.4000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Map epsilon-NE regions ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Epsilon-NE Region Size ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Epsilon-NE Region Size ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">map_epsilon_ne</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="va">eps</span>, <span class="va">grid_size</span> <span class="op">=</span> <span class="fl">101</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">p_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="va">grid_size</span><span class="op">)</span></span>
+<span>  <span class="va">q_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="va">grid_size</span><span class="op">)</span></span>
+<span>  <span class="va">count</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">p</span> <span class="kw">in</span> <span class="va">p_seq</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">q</span> <span class="kw">in</span> <span class="va">q_seq</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">reg</span> <span class="op">&lt;-</span> <span class="fu">compute_regret</span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="va">p</span>, <span class="va">q</span><span class="op">)</span></span>
+<span>      <span class="kw">if</span> <span class="op">(</span><span class="va">reg</span><span class="op">[</span><span class="st">"max"</span><span class="op">]</span> <span class="op">&lt;=</span> <span class="va">eps</span><span class="op">)</span> <span class="va">count</span> <span class="op">&lt;-</span> <span class="va">count</span> <span class="op">+</span> <span class="fl">1</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="va">count</span> <span class="op">/</span> <span class="va">grid_size</span><span class="op">^</span><span class="fl">2</span>  <span class="co"># fraction of strategy space</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Battle of the Sexes</span></span>
+<span><span class="va">A_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">B_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eps_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.5</span>, <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="va">region_sizes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">eps_seq</span>, <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu">map_epsilon_ne</span><span class="op">(</span><span class="va">A_bos</span>, <span class="va">B_bos</span>, <span class="va">e</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"  Battle of the Sexes:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Battle of the Sexes:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">eps_seq</span><span class="op">)</span>, by <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"    ε = %.1f: %.1f%% of strategy space is ε-NE\n"</span>,</span>
+<span>              <span class="va">eps_seq</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>, <span class="fl">100</span> <span class="op">*</span> <span class="va">region_sizes</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    ε = 0.0: 0.0% of strategy space is ε-NE
+    ε = 0.3: 12.1% of strategy space is ε-NE
+    ε = 0.6: 42.0% of strategy space is ε-NE
+    ε = 0.9: 62.0% of strategy space is ε-NE
+    ε = 1.2: 76.1% of strategy space is ε-NE
+    ε = 1.5: 85.8% of strategy space is ε-NE</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">grid_size</span> <span class="op">&lt;-</span> <span class="fl">81</span></span>
+<span><span class="va">p_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="va">grid_size</span><span class="op">)</span></span>
+<span><span class="va">q_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="va">grid_size</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">A_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">B_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eps_panels</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">1.0</span><span class="op">)</span></span>
+<span><span class="va">region_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html">expand.grid</a></span><span class="op">(</span>p <span class="op">=</span> <span class="va">p_seq</span>, q <span class="op">=</span> <span class="va">q_seq</span>, epsilon <span class="op">=</span> <span class="va">eps_panels</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">as_tibble</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">rowwise</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span></span>
+<span>    regret <span class="op">=</span> <span class="fu">compute_regret</span><span class="op">(</span><span class="va">A_bos</span>, <span class="va">B_bos</span>, <span class="va">p</span>, <span class="va">q</span><span class="op">)</span><span class="op">[</span><span class="st">"max"</span><span class="op">]</span>,</span>
+<span>    is_eps_ne <span class="op">=</span> <span class="va">regret</span> <span class="op">&lt;=</span> <span class="va">epsilon</span>,</span>
+<span>    eps_label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"ε = "</span>, <span class="va">epsilon</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">ungroup</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="va">region_data</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">p</span>, y <span class="op">=</span> <span class="va">q</span>, fill <span class="op">=</span> <span class="va">is_eps_ne</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_tile</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">facet_wrap</span><span class="op">(</span><span class="op">~</span><span class="va">eps_label</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"FALSE"</span> <span class="op">=</span> <span class="st">"grey90"</span>, <span class="st">"TRUE"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                     name <span class="op">=</span> <span class="st">"ε-NE?"</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"No"</span>, <span class="st">"Yes"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Epsilon-Nash equilibrium regions expand as ε increases"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Battle of the Sexes: three NE at ε=0; continuous regions grow from each"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"P(Top) for row player"</span>, y <span class="op">=</span> <span class="st">"P(Left) for column player"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme</span><span class="op">(</span>strip.text <span class="op">=</span> <span class="fu">element_text</span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-epsilon-regions" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-epsilon-regions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-epsilon-regions-1.png" class="img-fluid figure-img" width="3000">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-epsilon-regions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Epsilon-Nash equilibrium regions for the Battle of the Sexes game. Each panel shows the strategy space (p, q) with shading indicating whether each profile is an epsilon-NE. At epsilon=0, only the three Nash equilibria qualify (two pure corners and one mixed). As epsilon increases, the epsilon-NE regions expand from the equilibria, eventually covering the entire strategy space. The mixed NE (p≈0.6, q≈0.4) has a larger basin of approximate equilibrium than the pure NE. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Region size vs epsilon for multiple games</span></span>
+<span><span class="va">games</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">A_pd</span>, B <span class="op">=</span> <span class="va">B_pd</span>, name <span class="op">=</span> <span class="st">"Prisoner's Dilemma"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">A_bos</span>, B <span class="op">=</span> <span class="va">B_bos</span>, name <span class="op">=</span> <span class="st">"Battle of the Sexes"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">A_mp</span>, B <span class="op">=</span> <span class="va">B_mp</span>, name <span class="op">=</span> <span class="st">"Matching Pennies"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>,<span class="fl">0</span>,<span class="fl">0</span>,<span class="fl">1</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, B <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">0</span>,<span class="fl">0</span>,<span class="fl">2</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, name <span class="op">=</span> <span class="st">"Anti-coordination"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eps_fine</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">fraction_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">games</span>, <span class="kw">function</span><span class="op">(</span><span class="va">g</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">fracs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">eps_fine</span>, <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu">map_epsilon_ne</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">A</span>, <span class="va">g</span><span class="op">$</span><span class="va">B</span>, <span class="va">e</span>, <span class="fl">51</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>epsilon <span class="op">=</span> <span class="va">eps_fine</span>, fraction <span class="op">=</span> <span class="va">fracs</span>, game <span class="op">=</span> <span class="va">g</span><span class="op">$</span><span class="va">name</span>,</span>
+<span>         text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"ε = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">eps_fine</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"\n"</span>, <span class="va">g</span><span class="op">$</span><span class="va">name</span>,</span>
+<span>                       <span class="st">"\nFraction: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">fracs</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_frac</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">fraction_data</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">epsilon</span>, y <span class="op">=</span> <span class="va">fraction</span>,</span>
+<span>                                     color <span class="op">=</span> <span class="va">game</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.9</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">6</span>, <span class="fl">5</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span><span class="op">]</span>, name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_y_continuous</span><span class="op">(</span>labels <span class="op">=</span> <span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/percent_format.html">percent_format</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Fraction of strategy space that is ε-Nash equilibrium"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Games with unique NE expand faster; multiple NE merge at moderate ε"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Epsilon (ε)"</span>, y <span class="op">=</span> <span class="st">"Fraction of (p, q) space"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_frac</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>, modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-epsilon-fraction-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-epsilon-fraction-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-30e4409849e39179307f" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-30e4409849e39179307f">{"x":{"data":[{"x":[0,null,0.050000000000000003,null,0.10000000000000001,null,0.15000000000000002,null,0.20000000000000001,null,0.25,null,0.30000000000000004,null,0.35000000000000003,null,0.40000000000000002,null,0.45000000000000001,null,0.5,null,0.55000000000000004,null,0.60000000000000009,null,0.65000000000000002,null,0.70000000000000007,null,0.75,null,0.80000000000000004,null,0.85000000000000009,null,0.90000000000000002,null,0.95000000000000007,null,1,null,1.05,null,1.1000000000000001,null,1.1500000000000001,null,1.2000000000000002,null,1.25,null,1.3,null,1.3500000000000001,null,1.4000000000000001,null,1.4500000000000002,null,1.5,null,1.55,null,1.6000000000000001,null,1.6500000000000001,null,1.7000000000000002,null,1.75,null,1.8,null,1.8500000000000001,null,1.9000000000000001,null,1.9500000000000002,null,2],"y":[0.00076893502499038834,null,0.0096116878123798533,null,0.03613994617454825,null,0.086505190311418678,null,0.17993079584775087,null,0.26682045367166474,null,0.34294502114571318,null,0.41214917339484813,null,0.47520184544405997,null,0.52825836216839672,null,0.57900807381776243,null,0.62399077277970016,null,0.66320645905420994,null,0.70088427527873898,null,0.73510188389081121,null,0.76163014225297965,null,0.79008073817762403,null,0.81391772395232598,null,0.83467896962706656,null,0.85313341022683586,null,0.87004998077662432,null,0.8835063437139562,null,0.89734717416378318,null,0.90772779700115336,null,0.91887735486351407,null,0.93041138023836989,null,0.93848519800076891,null,0.94694348327566324,null,0.95578623606305269,null,0.96232218377547096,null,0.96847366397539403,null,0.97424067666282199,null,0.97962322183775474,null,0.98385236447520186,null,0.98769703960015376,null,0.99115724721261056,null,0.99423298731257204,null,0.9961553248750481,null,0.99769319492502884,null,0.99884659746251436,null,1],"text":["ε = 0<br />Anti-coordination<br />Fraction: 0.1%",null,"ε = 0.05<br />Anti-coordination<br />Fraction: 1%",null,"ε = 0.1<br />Anti-coordination<br />Fraction: 3.6%",null,"ε = 0.15<br />Anti-coordination<br />Fraction: 8.7%",null,"ε = 0.2<br />Anti-coordination<br />Fraction: 18%",null,"ε = 0.25<br />Anti-coordination<br />Fraction: 26.7%",null,"ε = 0.3<br />Anti-coordination<br />Fraction: 34.3%",null,"ε = 0.35<br />Anti-coordination<br />Fraction: 41.2%",null,"ε = 0.4<br />Anti-coordination<br />Fraction: 47.5%",null,"ε = 0.45<br />Anti-coordination<br />Fraction: 52.8%",null,"ε = 0.5<br />Anti-coordination<br />Fraction: 57.9%",null,"ε = 0.55<br />Anti-coordination<br />Fraction: 62.4%",null,"ε = 0.6<br />Anti-coordination<br />Fraction: 66.3%",null,"ε = 0.65<br />Anti-coordination<br />Fraction: 70.1%",null,"ε = 0.7<br />Anti-coordination<br />Fraction: 73.5%",null,"ε = 0.75<br />Anti-coordination<br />Fraction: 76.2%",null,"ε = 0.8<br />Anti-coordination<br />Fraction: 79%",null,"ε = 0.85<br />Anti-coordination<br />Fraction: 81.4%",null,"ε = 0.9<br />Anti-coordination<br />Fraction: 83.5%",null,"ε = 0.95<br />Anti-coordination<br />Fraction: 85.3%",null,"ε = 1<br />Anti-coordination<br />Fraction: 87%",null,"ε = 1.05<br />Anti-coordination<br />Fraction: 88.4%",null,"ε = 1.1<br />Anti-coordination<br />Fraction: 89.7%",null,"ε = 1.15<br />Anti-coordination<br />Fraction: 90.8%",null,"ε = 1.2<br />Anti-coordination<br />Fraction: 91.9%",null,"ε = 1.25<br />Anti-coordination<br />Fraction: 93%",null,"ε = 1.3<br />Anti-coordination<br />Fraction: 93.8%",null,"ε = 1.35<br />Anti-coordination<br />Fraction: 94.7%",null,"ε = 1.4<br />Anti-coordination<br />Fraction: 95.6%",null,"ε = 1.45<br />Anti-coordination<br />Fraction: 96.2%",null,"ε = 1.5<br />Anti-coordination<br />Fraction: 96.8%",null,"ε = 1.55<br />Anti-coordination<br />Fraction: 97.4%",null,"ε = 1.6<br />Anti-coordination<br />Fraction: 98%",null,"ε = 1.65<br />Anti-coordination<br />Fraction: 98.4%",null,"ε = 1.7<br />Anti-coordination<br />Fraction: 98.8%",null,"ε = 1.75<br />Anti-coordination<br />Fraction: 99.1%",null,"ε = 1.8<br />Anti-coordination<br />Fraction: 99.4%",null,"ε = 1.85<br />Anti-coordination<br />Fraction: 99.6%",null,"ε = 1.9<br />Anti-coordination<br />Fraction: 99.8%",null,"ε = 1.95<br />Anti-coordination<br />Fraction: 99.9%",null,"ε = 2<br />Anti-coordination<br />Fraction: 100%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(213,94,0,1)","dash":"solid"},"hoveron":"points","name":"Anti-coordination","legendgroup":"Anti-coordination","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,0.050000000000000003,null,0.10000000000000001,null,0.15000000000000002,null,0.20000000000000001,null,0.25,null,0.30000000000000004,null,0.35000000000000003,null,0.40000000000000002,null,0.45000000000000001,null,0.5,null,0.55000000000000004,null,0.60000000000000009,null,0.65000000000000002,null,0.70000000000000007,null,0.75,null,0.80000000000000004,null,0.85000000000000009,null,0.90000000000000002,null,0.95000000000000007,null,1,null,1.05,null,1.1000000000000001,null,1.1500000000000001,null,1.2000000000000002,null,1.25,null,1.3,null,1.3500000000000001,null,1.4000000000000001,null,1.4500000000000002,null,1.5,null,1.55,null,1.6000000000000001,null,1.6500000000000001,null,1.7000000000000002,null,1.75,null,1.8,null,1.8500000000000001,null,1.9000000000000001,null,1.9500000000000002,null,2],"y":[0.0011534025374855825,null,0.0030757400999615533,null,0.010765090349865437,null,0.024605920799692427,null,0.048058439061899272,null,0.076124567474048443,null,0.11995386389850057,null,0.17493271818531334,null,0.23490965013456364,null,0.28642829680891962,null,0.32795078815840062,null,0.37524029219530952,null,0.41906958861976162,null,0.45713187235678587,null,0.48827374086889658,null,0.52287581699346408,null,0.55747789311803153,null,0.58746635909265665,null,0.61591695501730104,null,0.63936947327950788,null,0.66666666666666663,null,0.6908881199538639,null,0.71357170319108032,null,0.734717416378316,null,0.75816993464052285,null,0.7747020376778162,null,0.79354094579008072,null,0.81007304882737408,null,0.82429834678969627,null,0.84044598231449441,null,0.85313341022683586,null,0.86428296808919647,null,0.87889273356401387,null,0.88927335640138405,null,0.90042291426374477,null,0.91041906958861973,null,0.92041522491349481,null,0.92772010765090351,null,0.93425605536332179,null,0.94117647058823528,null,0.94809688581314877],"text":["ε = 0<br />Battle of the Sexes<br />Fraction: 0.1%",null,"ε = 0.05<br />Battle of the Sexes<br />Fraction: 0.3%",null,"ε = 0.1<br />Battle of the Sexes<br />Fraction: 1.1%",null,"ε = 0.15<br />Battle of the Sexes<br />Fraction: 2.5%",null,"ε = 0.2<br />Battle of the Sexes<br />Fraction: 4.8%",null,"ε = 0.25<br />Battle of the Sexes<br />Fraction: 7.6%",null,"ε = 0.3<br />Battle of the Sexes<br />Fraction: 12%",null,"ε = 0.35<br />Battle of the Sexes<br />Fraction: 17.5%",null,"ε = 0.4<br />Battle of the Sexes<br />Fraction: 23.5%",null,"ε = 0.45<br />Battle of the Sexes<br />Fraction: 28.6%",null,"ε = 0.5<br />Battle of the Sexes<br />Fraction: 32.8%",null,"ε = 0.55<br />Battle of the Sexes<br />Fraction: 37.5%",null,"ε = 0.6<br />Battle of the Sexes<br />Fraction: 41.9%",null,"ε = 0.65<br />Battle of the Sexes<br />Fraction: 45.7%",null,"ε = 0.7<br />Battle of the Sexes<br />Fraction: 48.8%",null,"ε = 0.75<br />Battle of the Sexes<br />Fraction: 52.3%",null,"ε = 0.8<br />Battle of the Sexes<br />Fraction: 55.7%",null,"ε = 0.85<br />Battle of the Sexes<br />Fraction: 58.7%",null,"ε = 0.9<br />Battle of the Sexes<br />Fraction: 61.6%",null,"ε = 0.95<br />Battle of the Sexes<br />Fraction: 63.9%",null,"ε = 1<br />Battle of the Sexes<br />Fraction: 66.7%",null,"ε = 1.05<br />Battle of the Sexes<br />Fraction: 69.1%",null,"ε = 1.1<br />Battle of the Sexes<br />Fraction: 71.4%",null,"ε = 1.15<br />Battle of the Sexes<br />Fraction: 73.5%",null,"ε = 1.2<br />Battle of the Sexes<br />Fraction: 75.8%",null,"ε = 1.25<br />Battle of the Sexes<br />Fraction: 77.5%",null,"ε = 1.3<br />Battle of the Sexes<br />Fraction: 79.4%",null,"ε = 1.35<br />Battle of the Sexes<br />Fraction: 81%",null,"ε = 1.4<br />Battle of the Sexes<br />Fraction: 82.4%",null,"ε = 1.45<br />Battle of the Sexes<br />Fraction: 84%",null,"ε = 1.5<br />Battle of the Sexes<br />Fraction: 85.3%",null,"ε = 1.55<br />Battle of the Sexes<br />Fraction: 86.4%",null,"ε = 1.6<br />Battle of the Sexes<br />Fraction: 87.9%",null,"ε = 1.65<br />Battle of the Sexes<br />Fraction: 88.9%",null,"ε = 1.7<br />Battle of the Sexes<br />Fraction: 90%",null,"ε = 1.75<br />Battle of the Sexes<br />Fraction: 91%",null,"ε = 1.8<br />Battle of the Sexes<br />Fraction: 92%",null,"ε = 1.85<br />Battle of the Sexes<br />Fraction: 92.8%",null,"ε = 1.9<br />Battle of the Sexes<br />Fraction: 93.4%",null,"ε = 1.95<br />Battle of the Sexes<br />Fraction: 94.1%",null,"ε = 2<br />Battle of the Sexes<br />Fraction: 94.8%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","name":"Battle of the Sexes","legendgroup":"Battle of the Sexes","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,0.050000000000000003,null,0.10000000000000001,null,0.15000000000000002,null,0.20000000000000001,null,0.25,null,0.30000000000000004,null,0.35000000000000003,null,0.40000000000000002,null,0.45000000000000001,null,0.5,null,0.55000000000000004,null,0.60000000000000009,null,0.65000000000000002,null,0.70000000000000007,null,0.75,null,0.80000000000000004,null,0.85000000000000009,null,0.90000000000000002,null,0.95000000000000007,null,1,null,1.05,null,1.1000000000000001,null,1.1500000000000001,null,1.2000000000000002,null,1.25,null,1.3,null,1.3500000000000001,null,1.4000000000000001,null,1.4500000000000002,null,1.5,null,1.55,null,1.6000000000000001,null,1.6500000000000001,null,1.7000000000000002,null,1.75,null,1.8,null,1.8500000000000001,null,1.9000000000000001,null,1.9500000000000002,null,2],"y":[0.00038446751249519417,null,0.0034602076124567475,null,0.0096116878123798533,null,0.021914648212226068,null,0.038831218762014612,null,0.060361399461745485,null,0.083429450211457132,null,0.11418685121107267,null,0.14571318723567858,null,0.18646674356016918,null,0.22645136485966935,null,0.26951172625913111,null,0.31564782775855438,null,0.36639753940792003,null,0.41868512110726641,null,0.47097270280661285,null,0.5163398692810458,null,0.56170703575547865,null,0.60322952710495958,null,0.63706266820453672,null,0.67704728950403692,null,0.70934256055363321,null,0.74009996155324875,null,0.76624375240292197,null,0.79853902345251826,null,0.82160707420222989,null,0.84313725490196079,null,0.86620530565167242,null,0.88619761630142257,null,0.90465205690119188,null,0.91849288735101886,null,0.93540945790080743,null,0.94771241830065356,null,0.95693963860053821,null,0.96924259900038445,null,0.97539407920030763,null,0.98308342945021143,null,0.99077277970011535,null,0.99384851980007693,null,0.99692425990003841,null,1],"text":["ε = 0<br />Matching Pennies<br />Fraction: 0%",null,"ε = 0.05<br />Matching Pennies<br />Fraction: 0.3%",null,"ε = 0.1<br />Matching Pennies<br />Fraction: 1%",null,"ε = 0.15<br />Matching Pennies<br />Fraction: 2.2%",null,"ε = 0.2<br />Matching Pennies<br />Fraction: 3.9%",null,"ε = 0.25<br />Matching Pennies<br />Fraction: 6%",null,"ε = 0.3<br />Matching Pennies<br />Fraction: 8.3%",null,"ε = 0.35<br />Matching Pennies<br />Fraction: 11.4%",null,"ε = 0.4<br />Matching Pennies<br />Fraction: 14.6%",null,"ε = 0.45<br />Matching Pennies<br />Fraction: 18.6%",null,"ε = 0.5<br />Matching Pennies<br />Fraction: 22.6%",null,"ε = 0.55<br />Matching Pennies<br />Fraction: 27%",null,"ε = 0.6<br />Matching Pennies<br />Fraction: 31.6%",null,"ε = 0.65<br />Matching Pennies<br />Fraction: 36.6%",null,"ε = 0.7<br />Matching Pennies<br />Fraction: 41.9%",null,"ε = 0.75<br />Matching Pennies<br />Fraction: 47.1%",null,"ε = 0.8<br />Matching Pennies<br />Fraction: 51.6%",null,"ε = 0.85<br />Matching Pennies<br />Fraction: 56.2%",null,"ε = 0.9<br />Matching Pennies<br />Fraction: 60.3%",null,"ε = 0.95<br />Matching Pennies<br />Fraction: 63.7%",null,"ε = 1<br />Matching Pennies<br />Fraction: 67.7%",null,"ε = 1.05<br />Matching Pennies<br />Fraction: 70.9%",null,"ε = 1.1<br />Matching Pennies<br />Fraction: 74%",null,"ε = 1.15<br />Matching Pennies<br />Fraction: 76.6%",null,"ε = 1.2<br />Matching Pennies<br />Fraction: 79.9%",null,"ε = 1.25<br />Matching Pennies<br />Fraction: 82.2%",null,"ε = 1.3<br />Matching Pennies<br />Fraction: 84.3%",null,"ε = 1.35<br />Matching Pennies<br />Fraction: 86.6%",null,"ε = 1.4<br />Matching Pennies<br />Fraction: 88.6%",null,"ε = 1.45<br />Matching Pennies<br />Fraction: 90.5%",null,"ε = 1.5<br />Matching Pennies<br />Fraction: 91.8%",null,"ε = 1.55<br />Matching Pennies<br />Fraction: 93.5%",null,"ε = 1.6<br />Matching Pennies<br />Fraction: 94.8%",null,"ε = 1.65<br />Matching Pennies<br />Fraction: 95.7%",null,"ε = 1.7<br />Matching Pennies<br />Fraction: 96.9%",null,"ε = 1.75<br />Matching Pennies<br />Fraction: 97.5%",null,"ε = 1.8<br />Matching Pennies<br />Fraction: 98.3%",null,"ε = 1.85<br />Matching Pennies<br />Fraction: 99.1%",null,"ε = 1.9<br />Matching Pennies<br />Fraction: 99.4%",null,"ε = 1.95<br />Matching Pennies<br />Fraction: 99.7%",null,"ε = 2<br />Matching Pennies<br />Fraction: 100%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"Matching Pennies","legendgroup":"Matching Pennies","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,0.050000000000000003,null,0.10000000000000001,null,0.15000000000000002,null,0.20000000000000001,null,0.25,null,0.30000000000000004,null,0.35000000000000003,null,0.40000000000000002,null,0.45000000000000001,null,0.5,null,0.55000000000000004,null,0.60000000000000009,null,0.65000000000000002,null,0.70000000000000007,null,0.75,null,0.80000000000000004,null,0.85000000000000009,null,0.90000000000000002,null,0.95000000000000007,null,1,null,1.05,null,1.1000000000000001,null,1.1500000000000001,null,1.2000000000000002,null,1.25,null,1.3,null,1.3500000000000001,null,1.4000000000000001,null,1.4500000000000002,null,1.5,null,1.55,null,1.6000000000000001,null,1.6500000000000001,null,1.7000000000000002,null,1.75,null,1.8,null,1.8500000000000001,null,1.9000000000000001,null,1.9500000000000002,null,2],"y":[0.00038446751249519417,null,0.00038446751249519417,null,0.0015378700499807767,null,0.0034602076124567475,null,0.0061514801999231067,null,0.0096116878123798533,null,0.010380622837370242,null,0.01384083044982699,null,0.018838908112264515,null,0.024605920799692427,null,0.029988465974625143,null,0.033448673587081888,null,0.039215686274509803,null,0.046520569011918492,null,0.054209919261822379,null,0.060745866974240677,null,0.068050749711649372,null,0.076893502499038827,null,0.084582852748942713,null,0.093425605536332182,null,0.10380622837370242,null,0.11380238369857747,null,0.12264513648596694,null,0.13379469434832755,null,0.144559784698193,null,0.15570934256055363,null,0.16762783544790466,null,0.17993079584775087,null,0.19261822376009227,null,0.20530565167243367,null,0.21914648212226068,null,0.23183391003460208,null,0.24605920799692427,null,0.25990003844675125,null,0.27489427143406381,null,0.29065743944636679,null,0.30526720492118414,null,0.32103037293348713,null,0.3364090734332949,null,0.35371011149557863,null,0.37024221453287198],"text":["ε = 0<br />Prisoner's Dilemma<br />Fraction: 0%",null,"ε = 0.05<br />Prisoner's Dilemma<br />Fraction: 0%",null,"ε = 0.1<br />Prisoner's Dilemma<br />Fraction: 0.2%",null,"ε = 0.15<br />Prisoner's Dilemma<br />Fraction: 0.3%",null,"ε = 0.2<br />Prisoner's Dilemma<br />Fraction: 0.6%",null,"ε = 0.25<br />Prisoner's Dilemma<br />Fraction: 1%",null,"ε = 0.3<br />Prisoner's Dilemma<br />Fraction: 1%",null,"ε = 0.35<br />Prisoner's Dilemma<br />Fraction: 1.4%",null,"ε = 0.4<br />Prisoner's Dilemma<br />Fraction: 1.9%",null,"ε = 0.45<br />Prisoner's Dilemma<br />Fraction: 2.5%",null,"ε = 0.5<br />Prisoner's Dilemma<br />Fraction: 3%",null,"ε = 0.55<br />Prisoner's Dilemma<br />Fraction: 3.3%",null,"ε = 0.6<br />Prisoner's Dilemma<br />Fraction: 3.9%",null,"ε = 0.65<br />Prisoner's Dilemma<br />Fraction: 4.7%",null,"ε = 0.7<br />Prisoner's Dilemma<br />Fraction: 5.4%",null,"ε = 0.75<br />Prisoner's Dilemma<br />Fraction: 6.1%",null,"ε = 0.8<br />Prisoner's Dilemma<br />Fraction: 6.8%",null,"ε = 0.85<br />Prisoner's Dilemma<br />Fraction: 7.7%",null,"ε = 0.9<br />Prisoner's Dilemma<br />Fraction: 8.5%",null,"ε = 0.95<br />Prisoner's Dilemma<br />Fraction: 9.3%",null,"ε = 1<br />Prisoner's Dilemma<br />Fraction: 10.4%",null,"ε = 1.05<br />Prisoner's Dilemma<br />Fraction: 11.4%",null,"ε = 1.1<br />Prisoner's Dilemma<br />Fraction: 12.3%",null,"ε = 1.15<br />Prisoner's Dilemma<br />Fraction: 13.4%",null,"ε = 1.2<br />Prisoner's Dilemma<br />Fraction: 14.5%",null,"ε = 1.25<br />Prisoner's Dilemma<br />Fraction: 15.6%",null,"ε = 1.3<br />Prisoner's Dilemma<br />Fraction: 16.8%",null,"ε = 1.35<br />Prisoner's Dilemma<br />Fraction: 18%",null,"ε = 1.4<br />Prisoner's Dilemma<br />Fraction: 19.3%",null,"ε = 1.45<br />Prisoner's Dilemma<br />Fraction: 20.5%",null,"ε = 1.5<br />Prisoner's Dilemma<br />Fraction: 21.9%",null,"ε = 1.55<br />Prisoner's Dilemma<br />Fraction: 23.2%",null,"ε = 1.6<br />Prisoner's Dilemma<br />Fraction: 24.6%",null,"ε = 1.65<br />Prisoner's Dilemma<br />Fraction: 26%",null,"ε = 1.7<br />Prisoner's Dilemma<br />Fraction: 27.5%",null,"ε = 1.75<br />Prisoner's Dilemma<br />Fraction: 29.1%",null,"ε = 1.8<br />Prisoner's Dilemma<br />Fraction: 30.5%",null,"ε = 1.85<br />Prisoner's Dilemma<br />Fraction: 32.1%",null,"ε = 1.9<br />Prisoner's Dilemma<br />Fraction: 33.6%",null,"ε = 1.95<br />Prisoner's Dilemma<br />Fraction: 35.4%",null,"ε = 2<br />Prisoner's Dilemma<br />Fraction: 37%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"Prisoner's Dilemma","legendgroup":"Prisoner's Dilemma","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Fraction of strategy space that is ε-Nash equilibrium <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.10000000000000001,2.1000000000000001],"tickmode":"array","ticktext":["0.0","0.5","1.0","1.5","2.0"],"tickvals":[0,0.5,1,1.5,2],"categoryorder":"array","categoryarray":["0.0","0.5","1.0","1.5","2.0"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Epsilon (ε)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.049596309111880052,1.0499807766243752],"tickmode":"array","ticktext":["0%","25%","50%","75%","100%"],"tickvals":[0,0.25,0.5,0.75,1],"categoryorder":"array","categoryarray":["0%","25%","50%","75%","100%"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Fraction of (p, q) space","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"40be29861bbb":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"}},"cur_data":"40be29861bbb","visdat":{"40be29861bbb":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-epsilon-fraction-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>Epsilon-equilibrium reveals the “robustness landscape” of strategic interactions. The visualisation of epsilon-NE regions shows that Nash equilibria are not isolated points in strategy space but rather centres of basins of approximate equilibrium. As epsilon increases, these basins expand and eventually merge, revealing which equilibria are most robust to perturbation. In the Battle of the Sexes, the mixed Nash equilibrium has a larger basin than either pure equilibrium at moderate epsilon values — this is surprising because the mixed NE is payoff-dominated and often considered “fragile.” But from an approximation standpoint, it is the most central point in strategy space, equidistant from the boundaries where one player’s regret becomes large.</p>
+<p>The Prisoner’s Dilemma illustrates an important asymmetry: mutual cooperation (C,C) is not a Nash equilibrium but becomes an epsilon-NE for relatively small epsilon. With epsilon = 2 (which is large relative to the payoff range), mutual cooperation qualifies. This connects to the experimental observation that subjects often cooperate in one-shot PDs — if the “cost of not best-responding” is small relative to the gains from mutual cooperation, epsilon-equilibrium provides a rationality-compatible explanation for cooperative play without invoking altruism or irrationality.</p>
+<p>The comparison across games reveals a structural pattern: games with a unique equilibrium (Matching Pennies, Prisoner’s Dilemma) have epsilon-NE regions that grow outward from a single centre, while games with multiple equilibria (Battle of the Sexes) have regions that start separate and merge at a critical epsilon. The merging point indicates the “distance between equilibria” in regret space — a measure of how different the equilibria are from a player’s perspective. Games where equilibria merge quickly are strategically simpler than games where they remain separated even at large epsilon.</p>
+<p>The computational perspective adds another dimension: since exact Nash equilibrium is PPAD-hard but approximate equilibrium may be easier, epsilon-equilibrium defines a natural “precision-complexity trade-off.” Algorithms that find epsilon-NE with epsilon = 0.5 (say, half the payoff range) run in polynomial time, while reducing epsilon to zero requires exponentially more computation in the worst case. This suggests that in large, complex strategic environments (markets with many participants, networks with many nodes), approximate equilibria are not just practically sufficient but computationally necessary — exact equilibria may be theoretically well-defined but practically uncomputable.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../nash-equilibrium-mixed/">Nash equilibrium in mixed strategies</a> — the exact equilibrium that epsilon-NE approximates.</li>
+<li>
+<a href="../../behavioral-gt/quantal-response-equilibrium/">Quantal response equilibrium</a> — a smooth approximation model with decision noise.</li>
+<li>
+<a href="../../ml-and-gt/fictitious-play-convergence/">Fictitious play and convergence</a> — learning dynamics that converge to epsilon-NE.</li>
+<li>
+<a href="../../ml-and-gt/no-regret-learning-games/">No-regret learning in games</a> — algorithms with epsilon-regret guarantees.</li>
+<li>
+<a href="../../optimization-numerical-methods/lemke-howson-algorithm/">Lemke-Howson algorithm</a> — exact NE computation (exponential worst case).</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Epsilon-Equilibrium and Approximate {Nash} Equilibria},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/foundations/epsilon-equilibrium-approximate/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Epsilon-Equilibrium and Approximate Nash
+Equilibria.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/foundations/epsilon-equilibrium-approximate/">https://r-heller.github.io/equilibria/tutorials/foundations/epsilon-equilibrium-approximate/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Epsilon-equilibrium and approximate Nash equilibria"</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Implement epsilon-Nash equilibrium in R, analyse when approximate solutions suffice for practical predictions, compute the epsilon required for various games, and connect to computational complexity of exact Nash equilibrium finding."</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - foundations</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - epsilon-equilibrium</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - approximate-equilibrium</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - computational-complexity</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["epsilon-equilibrium", "approximate Nash", "bounded rationality", "PPAD", "computational game theory"]</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["equilibrium-concepts", "computational-gt"]</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_foundations_epsilon-equilibrium-approximate"</span></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Epsilon-Nash equilibrium regions showing how the set of approximate equilibria expands as epsilon increases"</span></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/foundations/epsilon-equilibrium-approximate/</span></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb23-37"><a href="#cb23-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb23-38"><a href="#cb23-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb23-39"><a href="#cb23-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb23-40"><a href="#cb23-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb23-41"><a href="#cb23-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb23-42"><a href="#cb23-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb23-43"><a href="#cb23-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb23-44"><a href="#cb23-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb23-45"><a href="#cb23-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb23-46"><a href="#cb23-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb23-47"><a href="#cb23-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-48"><a href="#cb23-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-49"><a href="#cb23-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-50"><a href="#cb23-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-51"><a href="#cb23-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb23-52"><a href="#cb23-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-53"><a href="#cb23-53" aria-hidden="true" tabindex="-1"></a>Nash equilibrium demands perfection: every player must play an exact best response to the others' strategies. But in practice, players are boundedly rational, payoffs are estimated with error, and computation is costly. An **epsilon-Nash equilibrium** relaxes the best-response requirement: no player can gain more than $\epsilon$ by deviating. This seemingly minor relaxation has profound implications for both theory and practice.</span>
+<span id="cb23-54"><a href="#cb23-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-55"><a href="#cb23-55" aria-hidden="true" tabindex="-1"></a>From a practical standpoint, epsilon-equilibrium acknowledges that small deviations from best-responding are inevitable in real strategic interactions. A firm that could increase profits by 0.01% by adjusting its price is unlikely to do so — the computational and attention costs exceed the gain. An experimental subject whose expected payoff from switching strategies is a few cents will not reliably switch. Epsilon-equilibrium captures the idea that "close enough" to best-responding is all we can expect from real agents, and provides a framework for asking: how close is close enough?</span>
+<span id="cb23-56"><a href="#cb23-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-57"><a href="#cb23-57" aria-hidden="true" tabindex="-1"></a>From a computational standpoint, epsilon-equilibrium is central to the theory of algorithmic game theory. Finding an exact Nash equilibrium in a bimatrix game is PPAD-complete — believed to require exponential time in the worst case. But finding an epsilon-Nash equilibrium with $\epsilon = O(1/\text{poly}(n))$ is potentially easier, and the Lipton-Markakis-Mehta algorithm shows that an epsilon-equilibrium with logarithmic-size support always exists. This connects the computational difficulty of equilibrium to the precision required: if we are willing to accept approximate solutions, the problem may become tractable.</span>
+<span id="cb23-58"><a href="#cb23-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-59"><a href="#cb23-59" aria-hidden="true" tabindex="-1"></a>The concept also bridges to learning dynamics: many natural learning algorithms (fictitious play, no-regret learning, replicator dynamics) converge to epsilon-equilibria but not necessarily to exact Nash equilibria. Understanding the epsilon-equilibrium structure of a game tells us what learning algorithms can achieve and how quickly. This tutorial implements epsilon-equilibrium computation, visualises the set of approximate equilibria as epsilon varies, and analyses the relationship between game structure and the "cost of approximation."</span>
+<span id="cb23-60"><a href="#cb23-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-61"><a href="#cb23-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-62"><a href="#cb23-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb23-63"><a href="#cb23-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-64"><a href="#cb23-64" aria-hidden="true" tabindex="-1"></a>**Epsilon-Nash equilibrium**: A strategy profile $\sigma^*$ is an $\epsilon$-Nash equilibrium if for every player $i$ and every strategy $s_i$:</span>
+<span id="cb23-65"><a href="#cb23-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-66"><a href="#cb23-66" aria-hidden="true" tabindex="-1"></a>$$u_i(\sigma^*_i, \sigma^*_{-i}) \geq u_i(s_i, \sigma^*_{-i}) - \epsilon$$</span>
+<span id="cb23-67"><a href="#cb23-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-68"><a href="#cb23-68" aria-hidden="true" tabindex="-1"></a>**Epsilon-regret**: The regret of player $i$ at profile $\sigma$ is:</span>
+<span id="cb23-69"><a href="#cb23-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-70"><a href="#cb23-70" aria-hidden="true" tabindex="-1"></a>$$r_i(\sigma) = \max_{s_i} u_i(s_i, \sigma_{-i}) - u_i(\sigma_i, \sigma_{-i})$$</span>
+<span id="cb23-71"><a href="#cb23-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-72"><a href="#cb23-72" aria-hidden="true" tabindex="-1"></a>Profile $\sigma$ is an $\epsilon$-NE iff $\max_i r_i(\sigma) \leq \epsilon$.</span>
+<span id="cb23-73"><a href="#cb23-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-74"><a href="#cb23-74" aria-hidden="true" tabindex="-1"></a>**Properties**: (1) Every Nash equilibrium is a 0-NE. (2) The set of $\epsilon$-NE is monotone: if $\epsilon_1 &lt; \epsilon_2$, then $\text{NE}_{\epsilon_1} \subseteq \text{NE}_{\epsilon_2}$. (3) Every game has an $\epsilon$-NE in pure strategies for sufficiently large $\epsilon$.</span>
+<span id="cb23-75"><a href="#cb23-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-76"><a href="#cb23-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-77"><a href="#cb23-77" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb23-78"><a href="#cb23-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-81"><a href="#cb23-81" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb23-82"><a href="#cb23-82" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: epsilon-equilibrium</span></span>
+<span id="cb23-83"><a href="#cb23-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-84"><a href="#cb23-84" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb23-85"><a href="#cb23-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-86"><a href="#cb23-86" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Epsilon-Nash Equilibrium ===</span><span class="sc">\n\n</span><span class="st">"</span>)</span>
+<span id="cb23-87"><a href="#cb23-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-88"><a href="#cb23-88" aria-hidden="true" tabindex="-1"></a><span class="co"># === Compute epsilon-regret for a strategy profile ===</span></span>
+<span id="cb23-89"><a href="#cb23-89" aria-hidden="true" tabindex="-1"></a>compute_regret <span class="ot">&lt;-</span> <span class="cf">function</span>(A, B, p, q) {</span>
+<span id="cb23-90"><a href="#cb23-90" aria-hidden="true" tabindex="-1"></a>  <span class="co"># p = P(Top) for row, q = P(Left) for col</span></span>
+<span id="cb23-91"><a href="#cb23-91" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Row player's payoffs</span></span>
+<span id="cb23-92"><a href="#cb23-92" aria-hidden="true" tabindex="-1"></a>  eu_top <span class="ot">&lt;-</span> A[<span class="dv">1</span>,<span class="dv">1</span>]<span class="sc">*</span>q <span class="sc">+</span> A[<span class="dv">1</span>,<span class="dv">2</span>]<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>q)</span>
+<span id="cb23-93"><a href="#cb23-93" aria-hidden="true" tabindex="-1"></a>  eu_bot <span class="ot">&lt;-</span> A[<span class="dv">2</span>,<span class="dv">1</span>]<span class="sc">*</span>q <span class="sc">+</span> A[<span class="dv">2</span>,<span class="dv">2</span>]<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>q)</span>
+<span id="cb23-94"><a href="#cb23-94" aria-hidden="true" tabindex="-1"></a>  eu_row <span class="ot">&lt;-</span> p<span class="sc">*</span>eu_top <span class="sc">+</span> (<span class="dv">1</span><span class="sc">-</span>p)<span class="sc">*</span>eu_bot</span>
+<span id="cb23-95"><a href="#cb23-95" aria-hidden="true" tabindex="-1"></a>  regret_row <span class="ot">&lt;-</span> <span class="fu">max</span>(eu_top, eu_bot) <span class="sc">-</span> eu_row</span>
+<span id="cb23-96"><a href="#cb23-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-97"><a href="#cb23-97" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Column player's payoffs</span></span>
+<span id="cb23-98"><a href="#cb23-98" aria-hidden="true" tabindex="-1"></a>  eu_left <span class="ot">&lt;-</span> B[<span class="dv">1</span>,<span class="dv">1</span>]<span class="sc">*</span>p <span class="sc">+</span> B[<span class="dv">2</span>,<span class="dv">1</span>]<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>p)</span>
+<span id="cb23-99"><a href="#cb23-99" aria-hidden="true" tabindex="-1"></a>  eu_right <span class="ot">&lt;-</span> B[<span class="dv">1</span>,<span class="dv">2</span>]<span class="sc">*</span>p <span class="sc">+</span> B[<span class="dv">2</span>,<span class="dv">2</span>]<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>p)</span>
+<span id="cb23-100"><a href="#cb23-100" aria-hidden="true" tabindex="-1"></a>  eu_col <span class="ot">&lt;-</span> q<span class="sc">*</span>eu_left <span class="sc">+</span> (<span class="dv">1</span><span class="sc">-</span>q)<span class="sc">*</span>eu_right</span>
+<span id="cb23-101"><a href="#cb23-101" aria-hidden="true" tabindex="-1"></a>  regret_col <span class="ot">&lt;-</span> <span class="fu">max</span>(eu_left, eu_right) <span class="sc">-</span> eu_col</span>
+<span id="cb23-102"><a href="#cb23-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-103"><a href="#cb23-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="at">row =</span> regret_row, <span class="at">col =</span> regret_col, <span class="at">max =</span> <span class="fu">max</span>(regret_row, regret_col))</span>
+<span id="cb23-104"><a href="#cb23-104" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-105"><a href="#cb23-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-106"><a href="#cb23-106" aria-hidden="true" tabindex="-1"></a><span class="co"># === Game 1: Prisoner's Dilemma ===</span></span>
+<span id="cb23-107"><a href="#cb23-107" aria-hidden="true" tabindex="-1"></a>A_pd <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">5</span>, <span class="dv">1</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-108"><a href="#cb23-108" aria-hidden="true" tabindex="-1"></a>B_pd <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">0</span>, <span class="dv">1</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-109"><a href="#cb23-109" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"--- Prisoner's Dilemma ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-110"><a href="#cb23-110" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  Nash: (Defect, Defect) = pure strategy (0, 0)</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-111"><a href="#cb23-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-112"><a href="#cb23-112" aria-hidden="true" tabindex="-1"></a><span class="co"># Check various strategy profiles</span></span>
+<span id="cb23-113"><a href="#cb23-113" aria-hidden="true" tabindex="-1"></a>profiles <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb23-114"><a href="#cb23-114" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p=</span><span class="dv">0</span>, <span class="at">q=</span><span class="dv">0</span>, <span class="at">name=</span><span class="st">"(D,D) — Nash"</span>),</span>
+<span id="cb23-115"><a href="#cb23-115" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p=</span><span class="dv">1</span>, <span class="at">q=</span><span class="dv">1</span>, <span class="at">name=</span><span class="st">"(C,C) — mutual cooperation"</span>),</span>
+<span id="cb23-116"><a href="#cb23-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p=</span><span class="fl">0.5</span>, <span class="at">q=</span><span class="fl">0.5</span>, <span class="at">name=</span><span class="st">"(0.5, 0.5) — uniform"</span>),</span>
+<span id="cb23-117"><a href="#cb23-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p=</span><span class="fl">0.1</span>, <span class="at">q=</span><span class="fl">0.1</span>, <span class="at">name=</span><span class="st">"(0.1, 0.1) — mostly defect"</span>),</span>
+<span id="cb23-118"><a href="#cb23-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">p=</span><span class="fl">0.3</span>, <span class="at">q=</span><span class="fl">0.3</span>, <span class="at">name=</span><span class="st">"(0.3, 0.3) — some cooperation"</span>)</span>
+<span id="cb23-119"><a href="#cb23-119" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-120"><a href="#cb23-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-121"><a href="#cb23-121" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (prof <span class="cf">in</span> profiles) {</span>
+<span id="cb23-122"><a href="#cb23-122" aria-hidden="true" tabindex="-1"></a>  reg <span class="ot">&lt;-</span> <span class="fu">compute_regret</span>(A_pd, B_pd, prof<span class="sc">$</span>p, prof<span class="sc">$</span>q)</span>
+<span id="cb23-123"><a href="#cb23-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  %-28s regret = (%.3f, %.3f), ε = %.3f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb23-124"><a href="#cb23-124" aria-hidden="true" tabindex="-1"></a>              prof<span class="sc">$</span>name, reg[<span class="st">"row"</span>], reg[<span class="st">"col"</span>], reg[<span class="st">"max"</span>]))</span>
+<span id="cb23-125"><a href="#cb23-125" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-126"><a href="#cb23-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-127"><a href="#cb23-127" aria-hidden="true" tabindex="-1"></a><span class="co"># === Game 2: Matching Pennies ===</span></span>
+<span id="cb23-128"><a href="#cb23-128" aria-hidden="true" tabindex="-1"></a>A_mp <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-129"><a href="#cb23-129" aria-hidden="true" tabindex="-1"></a>B_mp <span class="ot">&lt;-</span> <span class="sc">-</span>A_mp</span>
+<span id="cb23-130"><a href="#cb23-130" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Matching Pennies ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-131"><a href="#cb23-131" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  Nash: (0.5, 0.5)</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-132"><a href="#cb23-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-133"><a href="#cb23-133" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (p <span class="cf">in</span> <span class="fu">c</span>(<span class="fl">0.3</span>, <span class="fl">0.4</span>, <span class="fl">0.45</span>, <span class="fl">0.5</span>, <span class="fl">0.55</span>, <span class="fl">0.6</span>, <span class="fl">0.7</span>)) {</span>
+<span id="cb23-134"><a href="#cb23-134" aria-hidden="true" tabindex="-1"></a>  reg <span class="ot">&lt;-</span> <span class="fu">compute_regret</span>(A_mp, B_mp, p, <span class="fl">0.5</span>)</span>
+<span id="cb23-135"><a href="#cb23-135" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  p=%.2f, q=0.50: ε = %.4f</span><span class="sc">\n</span><span class="st">"</span>, p, reg[<span class="st">"max"</span>]))</span>
+<span id="cb23-136"><a href="#cb23-136" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-137"><a href="#cb23-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-138"><a href="#cb23-138" aria-hidden="true" tabindex="-1"></a><span class="co"># === Map epsilon-NE regions ===</span></span>
+<span id="cb23-139"><a href="#cb23-139" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Epsilon-NE Region Size ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-140"><a href="#cb23-140" aria-hidden="true" tabindex="-1"></a>map_epsilon_ne <span class="ot">&lt;-</span> <span class="cf">function</span>(A, B, eps, <span class="at">grid_size =</span> <span class="dv">101</span>) {</span>
+<span id="cb23-141"><a href="#cb23-141" aria-hidden="true" tabindex="-1"></a>  p_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> grid_size)</span>
+<span id="cb23-142"><a href="#cb23-142" aria-hidden="true" tabindex="-1"></a>  q_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> grid_size)</span>
+<span id="cb23-143"><a href="#cb23-143" aria-hidden="true" tabindex="-1"></a>  count <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb23-144"><a href="#cb23-144" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (p <span class="cf">in</span> p_seq) {</span>
+<span id="cb23-145"><a href="#cb23-145" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (q <span class="cf">in</span> q_seq) {</span>
+<span id="cb23-146"><a href="#cb23-146" aria-hidden="true" tabindex="-1"></a>      reg <span class="ot">&lt;-</span> <span class="fu">compute_regret</span>(A, B, p, q)</span>
+<span id="cb23-147"><a href="#cb23-147" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (reg[<span class="st">"max"</span>] <span class="sc">&lt;=</span> eps) count <span class="ot">&lt;-</span> count <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb23-148"><a href="#cb23-148" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb23-149"><a href="#cb23-149" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb23-150"><a href="#cb23-150" aria-hidden="true" tabindex="-1"></a>  count <span class="sc">/</span> grid_size<span class="sc">^</span><span class="dv">2</span>  <span class="co"># fraction of strategy space</span></span>
+<span id="cb23-151"><a href="#cb23-151" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-152"><a href="#cb23-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-153"><a href="#cb23-153" aria-hidden="true" tabindex="-1"></a><span class="co"># Battle of the Sexes</span></span>
+<span id="cb23-154"><a href="#cb23-154" aria-hidden="true" tabindex="-1"></a>A_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">2</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-155"><a href="#cb23-155" aria-hidden="true" tabindex="-1"></a>B_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">3</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-156"><a href="#cb23-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-157"><a href="#cb23-157" aria-hidden="true" tabindex="-1"></a>eps_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="fl">0.1</span>)</span>
+<span id="cb23-158"><a href="#cb23-158" aria-hidden="true" tabindex="-1"></a>region_sizes <span class="ot">&lt;-</span> <span class="fu">sapply</span>(eps_seq, <span class="cf">function</span>(e) <span class="fu">map_epsilon_ne</span>(A_bos, B_bos, e))</span>
+<span id="cb23-159"><a href="#cb23-159" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  Battle of the Sexes:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb23-160"><a href="#cb23-160" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq</span>(<span class="dv">1</span>, <span class="fu">length</span>(eps_seq), <span class="at">by =</span> <span class="dv">3</span>)) {</span>
+<span id="cb23-161"><a href="#cb23-161" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"    ε = %.1f: %.1f%% of strategy space is ε-NE</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb23-162"><a href="#cb23-162" aria-hidden="true" tabindex="-1"></a>              eps_seq[i], <span class="dv">100</span> <span class="sc">*</span> region_sizes[i]))</span>
+<span id="cb23-163"><a href="#cb23-163" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb23-164"><a href="#cb23-164" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-165"><a href="#cb23-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-166"><a href="#cb23-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-167"><a href="#cb23-167" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb23-168"><a href="#cb23-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-171"><a href="#cb23-171" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb23-172"><a href="#cb23-172" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-epsilon-regions</span></span>
+<span id="cb23-173"><a href="#cb23-173" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Epsilon-Nash equilibrium regions for the Battle of the Sexes game. Each panel shows the strategy space (p, q) with shading indicating whether each profile is an epsilon-NE. At epsilon=0, only the three Nash equilibria qualify (two pure corners and one mixed). As epsilon increases, the epsilon-NE regions expand from the equilibria, eventually covering the entire strategy space. The mixed NE (p≈0.6, q≈0.4) has a larger basin of approximate equilibrium than the pure NE. Okabe-Ito palette."</span></span>
+<span id="cb23-174"><a href="#cb23-174" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb23-175"><a href="#cb23-175" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
+<span id="cb23-176"><a href="#cb23-176" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 4.5</span></span>
+<span id="cb23-177"><a href="#cb23-177" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb23-178"><a href="#cb23-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-179"><a href="#cb23-179" aria-hidden="true" tabindex="-1"></a>grid_size <span class="ot">&lt;-</span> <span class="dv">81</span></span>
+<span id="cb23-180"><a href="#cb23-180" aria-hidden="true" tabindex="-1"></a>p_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> grid_size)</span>
+<span id="cb23-181"><a href="#cb23-181" aria-hidden="true" tabindex="-1"></a>q_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> grid_size)</span>
+<span id="cb23-182"><a href="#cb23-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-183"><a href="#cb23-183" aria-hidden="true" tabindex="-1"></a>A_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">2</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-184"><a href="#cb23-184" aria-hidden="true" tabindex="-1"></a>B_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">3</span>), <span class="dv">2</span>, <span class="dv">2</span>)</span>
+<span id="cb23-185"><a href="#cb23-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-186"><a href="#cb23-186" aria-hidden="true" tabindex="-1"></a>eps_panels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">1.0</span>)</span>
+<span id="cb23-187"><a href="#cb23-187" aria-hidden="true" tabindex="-1"></a>region_data <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">p =</span> p_seq, <span class="at">q =</span> q_seq, <span class="at">epsilon =</span> eps_panels) <span class="sc">|&gt;</span></span>
+<span id="cb23-188"><a href="#cb23-188" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb23-189"><a href="#cb23-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rowwise</span>() <span class="sc">|&gt;</span></span>
+<span id="cb23-190"><a href="#cb23-190" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb23-191"><a href="#cb23-191" aria-hidden="true" tabindex="-1"></a>    <span class="at">regret =</span> <span class="fu">compute_regret</span>(A_bos, B_bos, p, q)[<span class="st">"max"</span>],</span>
+<span id="cb23-192"><a href="#cb23-192" aria-hidden="true" tabindex="-1"></a>    <span class="at">is_eps_ne =</span> regret <span class="sc">&lt;=</span> epsilon,</span>
+<span id="cb23-193"><a href="#cb23-193" aria-hidden="true" tabindex="-1"></a>    <span class="at">eps_label =</span> <span class="fu">paste0</span>(<span class="st">"ε = "</span>, epsilon)</span>
+<span id="cb23-194"><a href="#cb23-194" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb23-195"><a href="#cb23-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb23-196"><a href="#cb23-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-197"><a href="#cb23-197" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(region_data, <span class="fu">aes</span>(<span class="at">x =</span> p, <span class="at">y =</span> q, <span class="at">fill =</span> is_eps_ne)) <span class="sc">+</span></span>
+<span id="cb23-198"><a href="#cb23-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
+<span id="cb23-199"><a href="#cb23-199" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>eps_label) <span class="sc">+</span></span>
+<span id="cb23-200"><a href="#cb23-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"FALSE"</span> <span class="ot">=</span> <span class="st">"grey90"</span>, <span class="st">"TRUE"</span> <span class="ot">=</span> okabe_ito[<span class="dv">5</span>]),</span>
+<span id="cb23-201"><a href="#cb23-201" aria-hidden="true" tabindex="-1"></a>                     <span class="at">name =</span> <span class="st">"ε-NE?"</span>, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"No"</span>, <span class="st">"Yes"</span>)) <span class="sc">+</span></span>
+<span id="cb23-202"><a href="#cb23-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Epsilon-Nash equilibrium regions expand as ε increases"</span>,</span>
+<span id="cb23-203"><a href="#cb23-203" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Battle of the Sexes: three NE at ε=0; continuous regions grow from each"</span>,</span>
+<span id="cb23-204"><a href="#cb23-204" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"P(Top) for row player"</span>, <span class="at">y =</span> <span class="st">"P(Left) for column player"</span>) <span class="sc">+</span></span>
+<span id="cb23-205"><a href="#cb23-205" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>() <span class="sc">+</span></span>
+<span id="cb23-206"><a href="#cb23-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb23-207"><a href="#cb23-207" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-208"><a href="#cb23-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-209"><a href="#cb23-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-210"><a href="#cb23-210" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb23-211"><a href="#cb23-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-214"><a href="#cb23-214" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb23-215"><a href="#cb23-215" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-epsilon-fraction-interactive</span></span>
+<span id="cb23-216"><a href="#cb23-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-217"><a href="#cb23-217" aria-hidden="true" tabindex="-1"></a><span class="co"># Region size vs epsilon for multiple games</span></span>
+<span id="cb23-218"><a href="#cb23-218" aria-hidden="true" tabindex="-1"></a>games <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb23-219"><a href="#cb23-219" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">A =</span> A_pd, <span class="at">B =</span> B_pd, <span class="at">name =</span> <span class="st">"Prisoner's Dilemma"</span>),</span>
+<span id="cb23-220"><a href="#cb23-220" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">A =</span> A_bos, <span class="at">B =</span> B_bos, <span class="at">name =</span> <span class="st">"Battle of the Sexes"</span>),</span>
+<span id="cb23-221"><a href="#cb23-221" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">A =</span> A_mp, <span class="at">B =</span> B_mp, <span class="at">name =</span> <span class="st">"Matching Pennies"</span>),</span>
+<span id="cb23-222"><a href="#cb23-222" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">A =</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">1</span>), <span class="dv">2</span>, <span class="dv">2</span>), <span class="at">B =</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">2</span>), <span class="dv">2</span>, <span class="dv">2</span>), <span class="at">name =</span> <span class="st">"Anti-coordination"</span>)</span>
+<span id="cb23-223"><a href="#cb23-223" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-224"><a href="#cb23-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-225"><a href="#cb23-225" aria-hidden="true" tabindex="-1"></a>eps_fine <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">2</span>, <span class="fl">0.05</span>)</span>
+<span id="cb23-226"><a href="#cb23-226" aria-hidden="true" tabindex="-1"></a>fraction_data <span class="ot">&lt;-</span> <span class="fu">lapply</span>(games, <span class="cf">function</span>(g) {</span>
+<span id="cb23-227"><a href="#cb23-227" aria-hidden="true" tabindex="-1"></a>  fracs <span class="ot">&lt;-</span> <span class="fu">sapply</span>(eps_fine, <span class="cf">function</span>(e) <span class="fu">map_epsilon_ne</span>(g<span class="sc">$</span>A, g<span class="sc">$</span>B, e, <span class="dv">51</span>))</span>
+<span id="cb23-228"><a href="#cb23-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">epsilon =</span> eps_fine, <span class="at">fraction =</span> fracs, <span class="at">game =</span> g<span class="sc">$</span>name,</span>
+<span id="cb23-229"><a href="#cb23-229" aria-hidden="true" tabindex="-1"></a>         <span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"ε = "</span>, <span class="fu">round</span>(eps_fine, <span class="dv">2</span>), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, g<span class="sc">$</span>name,</span>
+<span id="cb23-230"><a href="#cb23-230" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Fraction: "</span>, <span class="fu">round</span>(fracs <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%"</span>))</span>
+<span id="cb23-231"><a href="#cb23-231" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb23-232"><a href="#cb23-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-233"><a href="#cb23-233" aria-hidden="true" tabindex="-1"></a>p_frac <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(fraction_data, <span class="fu">aes</span>(<span class="at">x =</span> epsilon, <span class="at">y =</span> fraction,</span>
+<span id="cb23-234"><a href="#cb23-234" aria-hidden="true" tabindex="-1"></a>                                     <span class="at">color =</span> game, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb23-235"><a href="#cb23-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.9</span>) <span class="sc">+</span></span>
+<span id="cb23-236"><a href="#cb23-236" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> okabe_ito[<span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">3</span>, <span class="dv">1</span>)], <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb23-237"><a href="#cb23-237" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>()) <span class="sc">+</span></span>
+<span id="cb23-238"><a href="#cb23-238" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Fraction of strategy space that is ε-Nash equilibrium"</span>,</span>
+<span id="cb23-239"><a href="#cb23-239" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Games with unique NE expand faster; multiple NE merge at moderate ε"</span>,</span>
+<span id="cb23-240"><a href="#cb23-240" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Epsilon (ε)"</span>, <span class="at">y =</span> <span class="st">"Fraction of (p, q) space"</span>) <span class="sc">+</span></span>
+<span id="cb23-241"><a href="#cb23-241" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb23-242"><a href="#cb23-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-243"><a href="#cb23-243" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_frac, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb23-244"><a href="#cb23-244" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>, <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb23-245"><a href="#cb23-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-246"><a href="#cb23-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-247"><a href="#cb23-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-248"><a href="#cb23-248" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb23-249"><a href="#cb23-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-250"><a href="#cb23-250" aria-hidden="true" tabindex="-1"></a>Epsilon-equilibrium reveals the "robustness landscape" of strategic interactions. The visualisation of epsilon-NE regions shows that Nash equilibria are not isolated points in strategy space but rather centres of basins of approximate equilibrium. As epsilon increases, these basins expand and eventually merge, revealing which equilibria are most robust to perturbation. In the Battle of the Sexes, the mixed Nash equilibrium has a larger basin than either pure equilibrium at moderate epsilon values — this is surprising because the mixed NE is payoff-dominated and often considered "fragile." But from an approximation standpoint, it is the most central point in strategy space, equidistant from the boundaries where one player's regret becomes large.</span>
+<span id="cb23-251"><a href="#cb23-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-252"><a href="#cb23-252" aria-hidden="true" tabindex="-1"></a>The Prisoner's Dilemma illustrates an important asymmetry: mutual cooperation (C,C) is not a Nash equilibrium but becomes an epsilon-NE for relatively small epsilon. With epsilon = 2 (which is large relative to the payoff range), mutual cooperation qualifies. This connects to the experimental observation that subjects often cooperate in one-shot PDs — if the "cost of not best-responding" is small relative to the gains from mutual cooperation, epsilon-equilibrium provides a rationality-compatible explanation for cooperative play without invoking altruism or irrationality.</span>
+<span id="cb23-253"><a href="#cb23-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-254"><a href="#cb23-254" aria-hidden="true" tabindex="-1"></a>The comparison across games reveals a structural pattern: games with a unique equilibrium (Matching Pennies, Prisoner's Dilemma) have epsilon-NE regions that grow outward from a single centre, while games with multiple equilibria (Battle of the Sexes) have regions that start separate and merge at a critical epsilon. The merging point indicates the "distance between equilibria" in regret space — a measure of how different the equilibria are from a player's perspective. Games where equilibria merge quickly are strategically simpler than games where they remain separated even at large epsilon.</span>
+<span id="cb23-255"><a href="#cb23-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-256"><a href="#cb23-256" aria-hidden="true" tabindex="-1"></a>The computational perspective adds another dimension: since exact Nash equilibrium is PPAD-hard but approximate equilibrium may be easier, epsilon-equilibrium defines a natural "precision-complexity trade-off." Algorithms that find epsilon-NE with epsilon = 0.5 (say, half the payoff range) run in polynomial time, while reducing epsilon to zero requires exponentially more computation in the worst case. This suggests that in large, complex strategic environments (markets with many participants, networks with many nodes), approximate equilibria are not just practically sufficient but computationally necessary — exact equilibria may be theoretically well-defined but practically uncomputable.</span>
+<span id="cb23-257"><a href="#cb23-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-258"><a href="#cb23-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-259"><a href="#cb23-259" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb23-260"><a href="#cb23-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-261"><a href="#cb23-261" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Nash equilibrium in mixed strategies</span><span class="co">](../nash-equilibrium-mixed/)</span> — the exact equilibrium that epsilon-NE approximates.</span>
+<span id="cb23-262"><a href="#cb23-262" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Quantal response equilibrium</span><span class="co">](../../behavioral-gt/quantal-response-equilibrium/)</span> — a smooth approximation model with decision noise.</span>
+<span id="cb23-263"><a href="#cb23-263" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Fictitious play and convergence</span><span class="co">](../../ml-and-gt/fictitious-play-convergence/)</span> — learning dynamics that converge to epsilon-NE.</span>
+<span id="cb23-264"><a href="#cb23-264" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">No-regret learning in games</span><span class="co">](../../ml-and-gt/no-regret-learning-games/)</span> — algorithms with epsilon-regret guarantees.</span>
+<span id="cb23-265"><a href="#cb23-265" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Lemke-Howson algorithm</span><span class="co">](../../optimization-numerical-methods/lemke-howson-algorithm/)</span> — exact NE computation (exponential worst case).</span>
+<span id="cb23-266"><a href="#cb23-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-267"><a href="#cb23-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-268"><a href="#cb23-268" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb23-269"><a href="#cb23-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-270"><a href="#cb23-270" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb23-271"><a href="#cb23-271" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/foundations/epsilon-equilibrium-approximate/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/foundations/epsilon-equilibrium-approximate/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

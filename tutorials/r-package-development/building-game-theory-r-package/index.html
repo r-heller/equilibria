@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="R package, game theory, Nash equilibrium, devtools, testthat, roxygen2">
+<meta name="description" content="Walk through every step of creating a minimal R package that includes a nash_2x2() solver for 2x2 normal-form games, complete with roxygen2 documentation, testthat unit tests, and a devtools-powered workflow.">
+<title>Building a game theory R package from scratch – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-fc5d92e916961bc5153a81caa5a35c44.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-b8185ba3e47d1d5d8c7ebcabef774d16.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#common.r-shared-setup-for-all-equilibria-tutorials" id="toc-common.r-shared-setup-for-all-equilibria-tutorials" class="nav-link active" data-scroll-target="#common.r-shared-setup-for-all-equilibria-tutorials">_common.R — shared setup for all #equilibria tutorials</a></li>
+  <li><a href="#source-this-at-the-top-of-every-article-sourcehereherer-_common.r" id="toc-source-this-at-the-top-of-every-article-sourcehereherer-_common.r" class="nav-link" data-scroll-target="#source-this-at-the-top-of-every-article-sourcehereherer-_common.r">Source this at the top of every article: source(here::here(“R”, “_common.R”))</a></li>
+  <li><a href="#source-publication-theme-and-helpers" id="toc-source-publication-theme-and-helpers" class="nav-link" data-scroll-target="#source-publication-theme-and-helpers">Source publication theme and helpers</a></li>
+  <li><a href="#global-knitr-options" id="toc-global-knitr-options" class="nav-link" data-scroll-target="#global-knitr-options">Global knitr options</a></li>
+  <li><a href="#okabe-ito-colorblind-safe-palette" id="toc-okabe-ito-colorblind-safe-palette" class="nav-link" data-scroll-target="#okabe-ito-colorblind-safe-palette">Okabe-Ito colorblind-safe palette</a></li>
+  <li>
+<a href="#set-default-ggplot-theme" id="toc-set-default-ggplot-theme" class="nav-link" data-scroll-target="#set-default-ggplot-theme">Set default ggplot theme</a>
+  <ul class="collapse">
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+</li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/r-package-development/building-game-theory-r-package/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/r-package-development/building-game-theory-r-package/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Building a game theory R package from scratch</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">r-package-development</div>
+    <div class="quarto-category">devtools</div>
+    <div class="quarto-category">testthat</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    <p>Walk through every step of creating a minimal R package that includes a nash_2x2() solver for 2x2 normal-form games, complete with roxygen2 documentation, testthat unit tests, and a devtools-powered workflow.</p>
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>R package, game theory, Nash equilibrium, devtools, testthat, roxygen2</p>
+  </div>
+</div>
+
+</header><!-- ====================================================================== --><!-- ARTICLE BODY --><!-- ====================================================================== --><section id="common.r-shared-setup-for-all-equilibria-tutorials" class="level1"><h1>_common.R — shared setup for all #equilibria tutorials</h1>
+</section><section id="source-this-at-the-top-of-every-article-sourcehereherer-_common.r" class="level1"><h1>Source this at the top of every article: source(here::here(“R”, “_common.R”))</h1>
+<p>suppressPackageStartupMessages({ library(tidyverse) library(here) library(scales) library(knitr) library(kableExtra) })</p>
+</section><section id="source-publication-theme-and-helpers" class="level1"><h1>Source publication theme and helpers</h1>
+<p>source(here::here(“R”, “theme_publication.R”)) source(here::here(“R”, “plotly_helpers.R”))</p>
+</section><section id="global-knitr-options" class="level1"><h1>Global knitr options</h1>
+<p>knitr::opts_chunk$set( fig.align = “center”, fig.retina = 2, out.width = “100%”, dpi = 300, dev = c(“png”, “pdf”), fig.path = “figures/” )</p>
+</section><section id="okabe-ito-colorblind-safe-palette" class="level1"><h1>Okabe-Ito colorblind-safe palette</h1>
+<p>okabe_ito &lt;- c( “#E69F00”, “#56B4E9”, “#009E73”, “#F0E442”, “#0072B2”, “#D55E00”, “#CC79A7”, “#999999” )</p>
+</section><section id="set-default-ggplot-theme" class="level1"><h1>Set default ggplot theme</h1>
+<p>theme_set(theme_publication())</p>
+<section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Building reusable software is a cornerstone of reproducible research. In applied game theory, analysts frequently solve the same class of problems — finding Nash equilibria in small normal-form games, computing best responses, or checking dominance relations — yet the code to do so is often scattered across one-off scripts with no documentation, no tests, and no version control. Packaging that logic into a proper R package pays dividends immediately: you gain tab-completion in the IDE, automated input validation, unit-tested correctness guarantees, and a single canonical implementation that every project can depend on.</p>
+<p>This tutorial walks through the creation of <strong>equilibriumTools</strong>, a minimal but fully functional R package whose flagship export is <code>nash_2x2()</code>, a function that finds all Nash equilibria (pure and mixed) of an arbitrary two-player, two-strategy game. Along the way we cover the modern <code>devtools</code> workflow — <code>create()</code>, <code>document()</code>, <code>test()</code>, <code>check()</code> — and show how <code>testthat</code> unit tests protect against regression as the package evolves. By the end you will have a template you can extend to larger strategic-form solvers, mechanism-design routines, or evolutionary dynamics engines.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>Consider a two-player game in which each player <span class="math inline">\(i \in \{1, 2\}\)</span> chooses from two pure strategies <span class="math inline">\(\{s_1, s_2\}\)</span>. The game is specified by two <span class="math inline">\(2 \times 2\)</span> payoff matrices:</p>
+<p><span class="math display">\[
+A = \begin{pmatrix} a_{11} &amp; a_{12} \\ a_{21} &amp; a_{22} \end{pmatrix}, \quad
+B = \begin{pmatrix} b_{11} &amp; b_{12} \\ b_{21} &amp; b_{22} \end{pmatrix}
+\]</span></p>
+<p>where <span class="math inline">\(a_{ij}\)</span> (<span class="math inline">\(b_{ij}\)</span>) is the payoff to Player 1 (Player 2) when Player 1 plays row <span class="math inline">\(i\)</span> and Player 2 plays column <span class="math inline">\(j\)</span>.</p>
+<p>A <strong>Nash equilibrium</strong> is a pair of mixed strategies <span class="math inline">\((p^*, q^*)\)</span> — where <span class="math inline">\(p\)</span> is the probability Player 1 assigns to <span class="math inline">\(s_1\)</span> and <span class="math inline">\(q\)</span> is the probability Player 2 assigns to <span class="math inline">\(s_1\)</span> — such that neither player can improve their expected payoff by unilaterally deviating. The indifference conditions for a completely mixed equilibrium are:</p>
+<p><span class="math display">\[
+p^* = \frac{b_{22} - b_{12}}{b_{11} - b_{12} - b_{21} + b_{22}}, \quad
+q^* = \frac{a_{22} - a_{21}}{a_{11} - a_{21} - a_{12} + a_{22}}
+\]</span></p>
+<p>Pure-strategy equilibria are identified by checking best responses at each of the four strategy profiles. A game may have one, two, or three Nash equilibria (counting both pure and mixed).</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<p>The core solver below accepts two payoff matrices and returns a tidy data frame listing every Nash equilibrium. We first check all four pure-strategy profiles, then attempt the mixed-strategy indifference calculation, guarding against division by zero (which occurs when the game has a dominant strategy).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">nash_2x2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html">is.matrix</a></span><span class="op">(</span><span class="va">A</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">is.matrix</a></span><span class="op">(</span><span class="va">B</span><span class="op">)</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/all.html">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html">dim</a></span><span class="op">(</span><span class="va">A</span><span class="op">)</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html">dim</a></span><span class="op">(</span><span class="va">B</span><span class="op">)</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">equilibria</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># --- Pure-strategy Nash equilibria ---</span></span>
+<span>  <span class="va">profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">pr</span> <span class="kw">in</span> <span class="va">profiles</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">r</span> <span class="op">&lt;-</span> <span class="va">pr</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>; <span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">pr</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
+<span>    <span class="co"># Player 1 best-responds?</span></span>
+<span>    <span class="va">other_r</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">r</span> <span class="op">==</span> <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">br1</span> <span class="op">&lt;-</span> <span class="va">A</span><span class="op">[</span><span class="va">r</span>, <span class="va">cc</span><span class="op">]</span> <span class="op">&gt;=</span> <span class="va">A</span><span class="op">[</span><span class="va">other_r</span>, <span class="va">cc</span><span class="op">]</span></span>
+<span>    <span class="co"># Player 2 best-responds?</span></span>
+<span>    <span class="va">other_c</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">cc</span> <span class="op">==</span> <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">br2</span> <span class="op">&lt;-</span> <span class="va">B</span><span class="op">[</span><span class="va">r</span>, <span class="va">cc</span><span class="op">]</span> <span class="op">&gt;=</span> <span class="va">B</span><span class="op">[</span><span class="va">r</span>, <span class="va">other_c</span><span class="op">]</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">br1</span> <span class="op">&amp;&amp;</span> <span class="va">br2</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">equilibria</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html">append</a></span><span class="op">(</span><span class="va">equilibria</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span></span>
+<span>        type   <span class="op">=</span> <span class="st">"pure"</span>,</span>
+<span>        p_star <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">r</span> <span class="op">==</span> <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>        q_star <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">cc</span> <span class="op">==</span> <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>        payoff_1 <span class="op">=</span> <span class="va">A</span><span class="op">[</span><span class="va">r</span>, <span class="va">cc</span><span class="op">]</span>,</span>
+<span>        payoff_2 <span class="op">=</span> <span class="va">B</span><span class="op">[</span><span class="va">r</span>, <span class="va">cc</span><span class="op">]</span></span>
+<span>      <span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="co"># --- Mixed-strategy equilibrium ---</span></span>
+<span>  <span class="va">denom_p</span> <span class="op">&lt;-</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span> <span class="op">-</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span></span>
+<span>  <span class="va">denom_q</span> <span class="op">&lt;-</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span> <span class="op">+</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">denom_p</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">1e-12</span> <span class="op">&amp;&amp;</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">denom_q</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">1e-12</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">p_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span> <span class="op">-</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom_p</span></span>
+<span>    <span class="va">q_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span> <span class="op">-</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom_q</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">p_star</span> <span class="op">&gt;</span> <span class="fl">0</span> <span class="op">&amp;&amp;</span> <span class="va">p_star</span> <span class="op">&lt;</span> <span class="fl">1</span> <span class="op">&amp;&amp;</span> <span class="va">q_star</span> <span class="op">&gt;</span> <span class="fl">0</span> <span class="op">&amp;&amp;</span> <span class="va">q_star</span> <span class="op">&lt;</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">eu1</span> <span class="op">&lt;-</span> <span class="va">p_star</span> <span class="op">*</span> <span class="op">(</span><span class="va">q_star</span> <span class="op">*</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">q_star</span><span class="op">)</span> <span class="op">*</span> <span class="va">A</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>             <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">p_star</span><span class="op">)</span> <span class="op">*</span> <span class="op">(</span><span class="va">q_star</span> <span class="op">*</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">q_star</span><span class="op">)</span> <span class="op">*</span> <span class="va">A</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span>      <span class="va">eu2</span> <span class="op">&lt;-</span> <span class="va">p_star</span> <span class="op">*</span> <span class="op">(</span><span class="va">q_star</span> <span class="op">*</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">q_star</span><span class="op">)</span> <span class="op">*</span> <span class="va">B</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>             <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">p_star</span><span class="op">)</span> <span class="op">*</span> <span class="op">(</span><span class="va">q_star</span> <span class="op">*</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">q_star</span><span class="op">)</span> <span class="op">*</span> <span class="va">B</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span>      <span class="va">equilibria</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html">append</a></span><span class="op">(</span><span class="va">equilibria</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span></span>
+<span>        type     <span class="op">=</span> <span class="st">"mixed"</span>,</span>
+<span>        p_star   <span class="op">=</span> <span class="va">p_star</span>,</span>
+<span>        q_star   <span class="op">=</span> <span class="va">q_star</span>,</span>
+<span>        payoff_1 <span class="op">=</span> <span class="va">eu1</span>,</span>
+<span>        payoff_2 <span class="op">=</span> <span class="va">eu2</span></span>
+<span>      <span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html">bind_rows</a></span><span class="op">(</span><span class="va">equilibria</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Demonstrate with the classic Battle of the Sexes ---</span></span>
+<span><span class="va">A_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">2</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">B_bos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">3</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">nash_2x2</span><span class="op">(</span><span class="va">A_bos</span>, <span class="va">B_bos</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable</a></span><span class="op">(</span><span class="va">result</span>, digits <span class="op">=</span> <span class="fl">3</span>, caption <span class="op">=</span> <span class="st">"Nash equilibria of the Battle of the Sexes"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Nash equilibria of the Battle of the Sexes</caption>
+<thead><tr class="header">
+<th style="text-align: left;">type</th>
+<th style="text-align: right;">p_star</th>
+<th style="text-align: right;">q_star</th>
+<th style="text-align: right;">payoff_1</th>
+<th style="text-align: right;">payoff_2</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">pure</td>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">3.0</td>
+<td style="text-align: right;">2.0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pure</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: right;">2.0</td>
+<td style="text-align: right;">3.0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">mixed</td>
+<td style="text-align: right;">0.6</td>
+<td style="text-align: right;">0.4</td>
+<td style="text-align: right;">1.2</td>
+<td style="text-align: right;">1.2</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<p>We visualise the best-response correspondence for the Battle of the Sexes game. Player 1’s best response is plotted as a function of <span class="math inline">\(q\)</span> and Player 2’s best response as a function of <span class="math inline">\(p\)</span>. Intersections mark Nash equilibria.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Build best-response data</span></span>
+<span><span class="va">q_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
+<span><span class="co"># Player 1 expected payoffs: EU1(s1) = 3q, EU1(s2) = 2(1-q)</span></span>
+<span><span class="co"># BR1: play s1 (p=1) if 3q &gt; 2(1-q), i.e. q &gt; 2/5; mix at q = 2/5</span></span>
+<span><span class="va">br1_p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">q_seq</span> <span class="op">&gt;</span> <span class="fl">2</span><span class="op">/</span><span class="fl">5</span>, <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">q_seq</span> <span class="op">&lt;</span> <span class="fl">2</span><span class="op">/</span><span class="fl">5</span>, <span class="fl">0</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, length.out <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
+<span><span class="co"># Player 2: EU2(s1) = 2p, EU2(s2) = 3(1-p)</span></span>
+<span><span class="co"># BR2: play s1 (q=1) if 2p &gt; 3(1-p), i.e. p &gt; 3/5; mix at p = 3/5</span></span>
+<span><span class="va">br2_q</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">p_seq</span> <span class="op">&gt;</span> <span class="fl">3</span><span class="op">/</span><span class="fl">5</span>, <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">p_seq</span> <span class="op">&lt;</span> <span class="fl">3</span><span class="op">/</span><span class="fl">5</span>, <span class="fl">0</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">br_df</span> <span class="op">&lt;-</span> <span class="fu">bind_rows</span><span class="op">(</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>strategy_prob <span class="op">=</span> <span class="va">q_seq</span>, response_prob <span class="op">=</span> <span class="va">br1_p</span>, player <span class="op">=</span> <span class="st">"Player 1 BR (p vs q)"</span><span class="op">)</span>,</span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>strategy_prob <span class="op">=</span> <span class="va">p_seq</span>, response_prob <span class="op">=</span> <span class="va">br2_q</span>, player <span class="op">=</span> <span class="st">"Player 2 BR (q vs p)"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Equilibrium points</span></span>
+<span><span class="va">eq_pts</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  p <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">3</span><span class="op">/</span><span class="fl">5</span><span class="op">)</span>,</span>
+<span>  q <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">2</span><span class="op">/</span><span class="fl">5</span><span class="op">)</span>,</span>
+<span>  label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Pure NE 1"</span>, <span class="st">"Pure NE 2"</span>, <span class="st">"Mixed NE"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_step</span><span class="op">(</span>data <span class="op">=</span> <span class="va">br_df</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">player</span> <span class="op">==</span> <span class="st">"Player 1 BR (p vs q)"</span><span class="op">)</span>,</span>
+<span>            <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">strategy_prob</span>, y <span class="op">=</span> <span class="va">response_prob</span>, colour <span class="op">=</span> <span class="va">player</span><span class="op">)</span>,</span>
+<span>            linewidth <span class="op">=</span> <span class="fl">1</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_step</span><span class="op">(</span>data <span class="op">=</span> <span class="va">br_df</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">player</span> <span class="op">==</span> <span class="st">"Player 2 BR (q vs p)"</span><span class="op">)</span>,</span>
+<span>            <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">strategy_prob</span>, y <span class="op">=</span> <span class="va">response_prob</span>, colour <span class="op">=</span> <span class="va">player</span><span class="op">)</span>,</span>
+<span>            linewidth <span class="op">=</span> <span class="fl">1</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_segment</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="fl">2</span><span class="op">/</span><span class="fl">5</span>, xend <span class="op">=</span> <span class="fl">2</span><span class="op">/</span><span class="fl">5</span>, y <span class="op">=</span> <span class="fl">0</span>, yend <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>,</span>
+<span>               colour <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, linewidth <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_segment</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0</span>, xend <span class="op">=</span> <span class="fl">1</span>, y <span class="op">=</span> <span class="fl">3</span><span class="op">/</span><span class="fl">5</span>, yend <span class="op">=</span> <span class="fl">3</span><span class="op">/</span><span class="fl">5</span><span class="op">)</span>,</span>
+<span>               colour <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, linewidth <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">eq_pts</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">q</span>, y <span class="op">=</span> <span class="va">p</span>, shape <span class="op">=</span> <span class="va">label</span><span class="op">)</span>,</span>
+<span>             size <span class="op">=</span> <span class="fl">4</span>, colour <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_colour_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    x <span class="op">=</span> <span class="st">"q (Player 2 probability of strategy 1)"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"p (Player 1 probability of strategy 1)"</span>,</span>
+<span>    colour <span class="op">=</span> <span class="cn">NULL</span>, shape <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>    title <span class="op">=</span> <span class="st">"Best-response correspondence — Battle of the Sexes"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme</span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">save_pub_fig</span><span class="op">(</span><span class="va">p_static</span>, <span class="st">"figures/building-pkg-static"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error in `ggplot2::ggsave()`:
+! Cannot find directory 'figures'.
+ℹ Please supply an existing directory or use `create.dir = TRUE`.</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">p_static</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-building-pkg-static" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-building-pkg-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/fig-building-pkg-static-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-building-pkg-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Best-response correspondence for the Battle of the Sexes. Intersections of the two curves identify Nash equilibria (two pure, one mixed). Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<p>The interactive version adds hover tooltips with exact coordinates at each equilibrium point and along the best-response steps, allowing readers to explore threshold values precisely.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">to_plotly_pub</span><span class="op">(</span><span class="va">p_static</span>, tooltip <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"text"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-building-pkg-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-building-pkg-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-c4b56858fe6a753f28dd" style="width:100%;height:1500px;"></div>
+<script type="application/json" data-for="htmlwidget-c4b56858fe6a753f28dd">{"x":{"data":[{"x":[0,0.0033444816053511705,0.006688963210702341,0.010033444816053512,0.013377926421404682,0.016722408026755852,0.020066889632107024,0.023411371237458192,0.026755852842809364,0.030100334448160536,0.033444816053511704,0.036789297658862873,0.040133779264214048,0.043478260869565216,0.046822742474916385,0.05016722408026756,0.053511705685618728,0.056856187290969896,0.060200668896321072,0.06354515050167224,0.066889632107023408,0.070234113712374577,0.073578595317725745,0.076923076923076927,0.080267558528428096,0.083612040133779264,0.086956521739130432,0.090301003344481601,0.093645484949832769,0.096989966555183951,0.10033444816053512,0.10367892976588629,0.10702341137123746,0.11036789297658862,0.11371237458193979,0.11705685618729096,0.12040133779264214,0.12374581939799331,0.12709030100334448,0.13043478260869565,0.13377926421404682,0.13712374581939799,0.14046822742474915,0.14381270903010032,0.14715719063545149,0.15050167224080269,0.15384615384615385,0.15719063545150502,0.16053511705685619,0.16387959866220736,0.16722408026755853,0.1705685618729097,0.17391304347826086,0.17725752508361203,0.1806020066889632,0.18394648829431437,0.18729096989966554,0.19063545150501671,0.1939799331103679,0.19732441471571907,0.20066889632107024,0.20401337792642141,0.20735785953177258,0.21070234113712374,0.21404682274247491,0.21739130434782608,0.22073578595317725,0.22408026755852842,0.22742474916387959,0.23076923076923075,0.23411371237458192,0.23745819397993312,0.24080267558528429,0.24414715719063546,0.24749163879598662,0.25083612040133779,0.25418060200668896,0.25752508361204013,0.2608695652173913,0.26421404682274247,0.26755852842809363,0.2709030100334448,0.27424749163879597,0.27759197324414714,0.28093645484949831,0.28428093645484948,0.28762541806020064,0.29096989966555181,0.29431438127090298,0.29765886287625415,0.30100334448160537,0.30434782608695654,0.30769230769230771,0.31103678929765888,0.31438127090301005,0.31772575250836121,0.32107023411371238,0.32441471571906355,0.32775919732441472,0.33110367892976589,0.33444816053511706,0.33779264214046822,0.34113712374581939,0.34448160535117056,0.34782608695652173,0.3511705685618729,0.35451505016722407,0.35785953177257523,0.3612040133779264,0.36454849498327757,0.36789297658862874,0.37123745819397991,0.37458193979933108,0.37792642140468224,0.38127090301003341,0.38461538461538458,0.38795986622073581,0.39130434782608697,0.39464882943143814,0.39799331103678931,0.40133779264214048,0.40468227424749165,0.40802675585284282,0.41137123745819398,0.41471571906354515,0.41806020066889632,0.42140468227424749,0.42474916387959866,0.42809364548494983,0.43143812709030099,0.43478260869565216,0.43812709030100333,0.4414715719063545,0.44481605351170567,0.44816053511705684,0.451505016722408,0.45484949832775917,0.45819397993311034,0.46153846153846151,0.46488294314381268,0.46822742474916385,0.47157190635451507,0.47491638795986624,0.47826086956521741,0.48160535117056857,0.48494983277591974,0.48829431438127091,0.49163879598662208,0.49498327759197325,0.49832775919732442,0.50167224080267558,0.50501672240802675,0.50836120401337792,0.51170568561872909,0.51505016722408026,0.51839464882943143,0.52173913043478259,0.52508361204013376,0.52842809364548493,0.5317725752508361,0.53511705685618727,0.53846153846153844,0.5418060200668896,0.54515050167224077,0.54849498327759194,0.55183946488294311,0.55518394648829428,0.55852842809364545,0.56187290969899661,0.56521739130434778,0.56856187290969895,0.57190635451505012,0.57525083612040129,0.57859531772575246,0.58193979933110362,0.58528428093645479,0.58862876254180596,0.59197324414715713,0.5953177257525083,0.59866220735785947,0.60200668896321075,0.60535117056856191,0.60869565217391308,0.61204013377926425,0.61538461538461542,0.61872909698996659,0.62207357859531776,0.62541806020066892,0.62876254180602009,0.63210702341137126,0.63545150501672243,0.6387959866220736,0.64214046822742477,0.64548494983277593,0.6488294314381271,0.65217391304347827,0.65551839464882944,0.65886287625418061,0.66220735785953178,0.66555183946488294,0.66889632107023411,0.67224080267558528,0.67558528428093645,0.67892976588628762,0.68227424749163879,0.68561872909698995,0.68896321070234112,0.69230769230769229,0.69565217391304346,0.69899665551839463,0.7023411371237458,0.70568561872909696,0.70903010033444813,0.7123745819397993,0.71571906354515047,0.71906354515050164,0.72240802675585281,0.72575250836120397,0.72909698996655514,0.73244147157190631,0.73578595317725748,0.73913043478260865,0.74247491638795982,0.74581939799331098,0.74916387959866215,0.75250836120401332,0.75585284280936449,0.75919732441471566,0.76254180602006683,0.76588628762541799,0.76923076923076916,0.77257525083612044,0.77591973244147161,0.77926421404682278,0.78260869565217395,0.78595317725752512,0.78929765886287628,0.79264214046822745,0.79598662207357862,0.79933110367892979,0.80267558528428096,0.80602006688963213,0.80936454849498329,0.81270903010033446,0.81605351170568563,0.8193979933110368,0.82274247491638797,0.82608695652173914,0.8294314381270903,0.83277591973244147,0.83612040133779264,0.83946488294314381,0.84280936454849498,0.84615384615384615,0.84949832775919731,0.85284280936454848,0.85618729096989965,0.85953177257525082,0.86287625418060199,0.86622073578595316,0.86956521739130432,0.87290969899665549,0.87625418060200666,0.87959866220735783,0.882943143812709,0.88628762541806017,0.88963210702341133,0.8929765886287625,0.89632107023411367,0.89966555183946484,0.90301003344481601,0.90635451505016718,0.90969899665551834,0.91304347826086951,0.91638795986622068,0.91973244147157185,0.92307692307692302,0.92642140468227419,0.92976588628762535,0.93311036789297652,0.93645484949832769,0.93979933110367886,0.94314381270903014,0.94648829431438131,0.94983277591973247,0.95317725752508364,0.95652173913043481,0.95986622073578598,0.96321070234113715,0.96655518394648832,0.96989966555183948,0.97324414715719065,0.97658862876254182,0.97993311036789299,0.98327759197324416,0.98662207357859533,0.98996655518394649,0.99331103678929766,0.99665551839464883,1],"y":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"text":"","type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(230,159,0,1)","dash":"solid","shape":"hv"},"hoveron":"points","name":"(Player 1 BR (p vs q),1)","legendgroup":"(Player 1 BR (p vs q),1)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,0.0033444816053511705,0.006688963210702341,0.010033444816053512,0.013377926421404682,0.016722408026755852,0.020066889632107024,0.023411371237458192,0.026755852842809364,0.030100334448160536,0.033444816053511704,0.036789297658862873,0.040133779264214048,0.043478260869565216,0.046822742474916385,0.05016722408026756,0.053511705685618728,0.056856187290969896,0.060200668896321072,0.06354515050167224,0.066889632107023408,0.070234113712374577,0.073578595317725745,0.076923076923076927,0.080267558528428096,0.083612040133779264,0.086956521739130432,0.090301003344481601,0.093645484949832769,0.096989966555183951,0.10033444816053512,0.10367892976588629,0.10702341137123746,0.11036789297658862,0.11371237458193979,0.11705685618729096,0.12040133779264214,0.12374581939799331,0.12709030100334448,0.13043478260869565,0.13377926421404682,0.13712374581939799,0.14046822742474915,0.14381270903010032,0.14715719063545149,0.15050167224080269,0.15384615384615385,0.15719063545150502,0.16053511705685619,0.16387959866220736,0.16722408026755853,0.1705685618729097,0.17391304347826086,0.17725752508361203,0.1806020066889632,0.18394648829431437,0.18729096989966554,0.19063545150501671,0.1939799331103679,0.19732441471571907,0.20066889632107024,0.20401337792642141,0.20735785953177258,0.21070234113712374,0.21404682274247491,0.21739130434782608,0.22073578595317725,0.22408026755852842,0.22742474916387959,0.23076923076923075,0.23411371237458192,0.23745819397993312,0.24080267558528429,0.24414715719063546,0.24749163879598662,0.25083612040133779,0.25418060200668896,0.25752508361204013,0.2608695652173913,0.26421404682274247,0.26755852842809363,0.2709030100334448,0.27424749163879597,0.27759197324414714,0.28093645484949831,0.28428093645484948,0.28762541806020064,0.29096989966555181,0.29431438127090298,0.29765886287625415,0.30100334448160537,0.30434782608695654,0.30769230769230771,0.31103678929765888,0.31438127090301005,0.31772575250836121,0.32107023411371238,0.32441471571906355,0.32775919732441472,0.33110367892976589,0.33444816053511706,0.33779264214046822,0.34113712374581939,0.34448160535117056,0.34782608695652173,0.3511705685618729,0.35451505016722407,0.35785953177257523,0.3612040133779264,0.36454849498327757,0.36789297658862874,0.37123745819397991,0.37458193979933108,0.37792642140468224,0.38127090301003341,0.38461538461538458,0.38795986622073581,0.39130434782608697,0.39464882943143814,0.39799331103678931,0.40133779264214048,0.40468227424749165,0.40802675585284282,0.41137123745819398,0.41471571906354515,0.41806020066889632,0.42140468227424749,0.42474916387959866,0.42809364548494983,0.43143812709030099,0.43478260869565216,0.43812709030100333,0.4414715719063545,0.44481605351170567,0.44816053511705684,0.451505016722408,0.45484949832775917,0.45819397993311034,0.46153846153846151,0.46488294314381268,0.46822742474916385,0.47157190635451507,0.47491638795986624,0.47826086956521741,0.48160535117056857,0.48494983277591974,0.48829431438127091,0.49163879598662208,0.49498327759197325,0.49832775919732442,0.50167224080267558,0.50501672240802675,0.50836120401337792,0.51170568561872909,0.51505016722408026,0.51839464882943143,0.52173913043478259,0.52508361204013376,0.52842809364548493,0.5317725752508361,0.53511705685618727,0.53846153846153844,0.5418060200668896,0.54515050167224077,0.54849498327759194,0.55183946488294311,0.55518394648829428,0.55852842809364545,0.56187290969899661,0.56521739130434778,0.56856187290969895,0.57190635451505012,0.57525083612040129,0.57859531772575246,0.58193979933110362,0.58528428093645479,0.58862876254180596,0.59197324414715713,0.5953177257525083,0.59866220735785947,0.60200668896321075,0.60535117056856191,0.60869565217391308,0.61204013377926425,0.61538461538461542,0.61872909698996659,0.62207357859531776,0.62541806020066892,0.62876254180602009,0.63210702341137126,0.63545150501672243,0.6387959866220736,0.64214046822742477,0.64548494983277593,0.6488294314381271,0.65217391304347827,0.65551839464882944,0.65886287625418061,0.66220735785953178,0.66555183946488294,0.66889632107023411,0.67224080267558528,0.67558528428093645,0.67892976588628762,0.68227424749163879,0.68561872909698995,0.68896321070234112,0.69230769230769229,0.69565217391304346,0.69899665551839463,0.7023411371237458,0.70568561872909696,0.70903010033444813,0.7123745819397993,0.71571906354515047,0.71906354515050164,0.72240802675585281,0.72575250836120397,0.72909698996655514,0.73244147157190631,0.73578595317725748,0.73913043478260865,0.74247491638795982,0.74581939799331098,0.74916387959866215,0.75250836120401332,0.75585284280936449,0.75919732441471566,0.76254180602006683,0.76588628762541799,0.76923076923076916,0.77257525083612044,0.77591973244147161,0.77926421404682278,0.78260869565217395,0.78595317725752512,0.78929765886287628,0.79264214046822745,0.79598662207357862,0.79933110367892979,0.80267558528428096,0.80602006688963213,0.80936454849498329,0.81270903010033446,0.81605351170568563,0.8193979933110368,0.82274247491638797,0.82608695652173914,0.8294314381270903,0.83277591973244147,0.83612040133779264,0.83946488294314381,0.84280936454849498,0.84615384615384615,0.84949832775919731,0.85284280936454848,0.85618729096989965,0.85953177257525082,0.86287625418060199,0.86622073578595316,0.86956521739130432,0.87290969899665549,0.87625418060200666,0.87959866220735783,0.882943143812709,0.88628762541806017,0.88963210702341133,0.8929765886287625,0.89632107023411367,0.89966555183946484,0.90301003344481601,0.90635451505016718,0.90969899665551834,0.91304347826086951,0.91638795986622068,0.91973244147157185,0.92307692307692302,0.92642140468227419,0.92976588628762535,0.93311036789297652,0.93645484949832769,0.93979933110367886,0.94314381270903014,0.94648829431438131,0.94983277591973247,0.95317725752508364,0.95652173913043481,0.95986622073578598,0.96321070234113715,0.96655518394648832,0.96989966555183948,0.97324414715719065,0.97658862876254182,0.97993311036789299,0.98327759197324416,0.98662207357859533,0.98996655518394649,0.99331103678929766,0.99665551839464883,1],"y":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"text":"","type":"scatter","mode":"lines","line":{"width":3.7795275590551185,"color":"rgba(86,180,233,1)","dash":"solid","shape":"hv"},"hoveron":"points","name":"(Player 2 BR (q vs p),1)","legendgroup":"(Player 2 BR (q vs p),1)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.40000000000000002,0.40000000000000002],"y":[0,1],"text":"","type":"scatter","mode":"lines","line":{"width":2.2677165354330708,"color":"rgba(230,159,0,1)","dash":"dash"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,1],"y":[0.59999999999999998,0.59999999999999998],"text":"","type":"scatter","mode":"lines","line":{"width":2.2677165354330708,"color":"rgba(86,180,233,1)","dash":"dash"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.40000000000000002],"y":[0.59999999999999998],"text":"","type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,158,115,1)","opacity":1,"size":15.118110236220474,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,158,115,1)"}},"hoveron":"points","name":"(Mixed NE,1)","legendgroup":"(Mixed NE,1)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[1],"y":[1],"text":"","type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,158,115,1)","opacity":1,"size":15.118110236220474,"symbol":"triangle-up","line":{"width":1.8897637795275593,"color":"rgba(0,158,115,1)"}},"hoveron":"points","name":"(Pure NE 1,1)","legendgroup":"(Pure NE 1,1)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0],"y":[0],"text":"","type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,158,115,1)","opacity":1,"size":15.118110236220474,"symbol":"square","line":{"width":1.8897637795275593,"color":"rgba(0,158,115,1)"}},"hoveron":"points","name":"(Pure NE 2,1)","legendgroup":"(Pure NE 2,1)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":44.366957243669582,"l":57.11913657119139},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif","size":15.940224159402241},"title":{"text":"<b> Best-response correspondence — Battle of the Sexes <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.050000000000000003,1.05],"tickmode":"array","ticktext":["0.00","0.25","0.50","0.75","1.00"],"tickvals":[0,0.25,0.5,0.75,1],"categoryorder":"array","categoryarray":["0.00","0.25","0.50","0.75","1.00"],"nticks":null,"ticks":"outside","tickcolor":"rgba(77,77,77,1)","ticklen":3.9850560398505603,"tickwidth":0.39850560398505613,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(229,229,229,1)","gridwidth":0.26567040265670405,"zeroline":false,"anchor":"y","title":{"text":"q (Player 2 probability of strategy 1)","font":{"color":"rgba(0,0,0,1)","family":"","size":14.346201743462018}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.050000000000000003,1.05],"tickmode":"array","ticktext":["0.00","0.25","0.50","0.75","1.00"],"tickvals":[0,0.25,0.5,0.75,1],"categoryorder":"array","categoryarray":["0.00","0.25","0.50","0.75","1.00"],"nticks":null,"ticks":"outside","tickcolor":"rgba(77,77,77,1)","ticklen":3.9850560398505608,"tickwidth":0.39850560398505613,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(229,229,229,1)","gridwidth":0.26567040265670405,"zeroline":false,"anchor":"x","title":{"text":"p (Player 1 probability of strategy 1)","font":{"color":"rgba(0,0,0,1)","family":"","size":14.346201743462018}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":13.549190535491904}}},"hovermode":"closest","barmode":"relative","hoverlabel":{"bgcolor":"white","font":{"size":12,"color":"black"}}},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d","autoScale2d","hoverClosestCartesian","hoverCompareCartesian"]},"source":"A","attrs":{"2cf7b9717d2":{"x":{},"y":{},"colour":{},"type":"scatter"},"2cf7649facf7":{"x":{},"y":{},"colour":{}},"2cf771d74c40":{"x":{},"y":{},"xend":{},"yend":{}},"2cf77d0877eb":{"x":{},"y":{},"xend":{},"yend":{}},"2cf75797e57e":{"x":{},"y":{},"shape":{}}},"cur_data":"2cf7b9717d2","visdat":{"2cf7b9717d2":["function (y) ","x"],"2cf7649facf7":["function (y) ","x"],"2cf771d74c40":["function (y) ","x"],"2cf77d0877eb":["function (y) ","x"],"2cf75797e57e":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-building-pkg-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The <code>nash_2x2()</code> solver correctly identifies all three equilibria of the Battle of the Sexes: two pure-strategy Nash equilibria at <span class="math inline">\((p, q) = (1, 1)\)</span> and <span class="math inline">\((0, 0)\)</span>, plus one mixed-strategy equilibrium at <span class="math inline">\((3/5, 2/5)\)</span>. The best-response plot makes the strategic logic transparent — each player’s optimal action switches discontinuously at a critical threshold of the opponent’s mixing probability, and the equilibria lie exactly where these correspondences intersect.</p>
+<p>From a software engineering perspective, wrapping this logic in a tested R package delivers several benefits. First, the <code><a href="https://rdrr.io/r/base/stopifnot.html">stopifnot()</a></code> guard clause prevents silent errors from misshapen inputs. Second, the tidy data frame output slots directly into downstream <code>ggplot2</code> and <code>dplyr</code> workflows. Third, a <code>testthat</code> test suite (not shown in full here but included in the package scaffold) can verify output against known analytical solutions for canonical games — Prisoner’s Dilemma, Matching Pennies, Stag Hunt — catching regressions whenever the codebase changes.</p>
+<p>One limitation is that the solver is restricted to <span class="math inline">\(2 \times 2\)</span> games. Extending to arbitrary <span class="math inline">\(m \times n\)</span> games requires either support-enumeration or the Lemke–Howson algorithm, both of which are natural next steps for the package.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<p>The package scaffold demonstrated here can be extended in several directions. Adding Shiny bindings would let users input payoff matrices interactively and see equilibria rendered in real time. Incorporating <code>lpSolve</code> or <code>nloptr</code> would enable the solver to handle arbitrary finite games via linear complementarity. Connecting to the <code>Recon</code> or <code>Gambit</code> backends could provide cross-validation against established solvers.</p>
+<ul>
+<li><a href="../../reproducibility-open-science/reproducible-game-theory-workflow/">Reproducible game theory research — a Quarto + renv workflow</a></li>
+<li><a href="../../statistical-foundations/hypothesis-testing-game-theoretic/">Hypothesis testing as a game between nature and the statistician</a></li>
+<li><a href="../../ethics-applications/algorithmic-fairness-game-theory/">Algorithmic fairness through the lens of game theory</a></li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section></section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Building a Game Theory {R} Package from Scratch},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/r-package-development/building-game-theory-r-package/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Building a Game Theory R Package from
+Scratch.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/r-package-development/building-game-theory-r-package/">https://r-heller.github.io/equilibria/tutorials/r-package-development/building-game-theory-r-package/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># #equilibria — Article Frontmatter</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Building a game theory R package from scratch"</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> &gt;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">  Walk through every step of creating a minimal R package that includes a</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">  nash_2x2() solver for 2x2 normal-form games, complete with roxygen2</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">  documentation, testthat unit tests, and a devtools-powered workflow.</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">  - r-package-development</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">  - devtools</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">  - testthat</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["R package", "game theory", "Nash equilibrium", "devtools", "testthat", "roxygen2"]</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["r-package", "software-engineering", "nash-equilibrium"]</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_r-package-development_building-game-theory-r-package"</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Diagram showing the structure of a minimal game theory R package with test and documentation layers"</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/r-package-development/building-game-theory-r-package/</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ====================================================================== --&gt;</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ARTICLE BODY --&gt;</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ====================================================================== --&gt;</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>{{&lt; include ../../../R/_common.R &gt;}}</span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"R"</span>, <span class="st">"_common.R"</span>))</span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>Building reusable software is a cornerstone of reproducible research. In applied game theory, analysts frequently solve the same class of problems --- finding Nash equilibria in small normal-form games, computing best responses, or checking dominance relations --- yet the code to do so is often scattered across one-off scripts with no documentation, no tests, and no version control. Packaging that logic into a proper R package pays dividends immediately: you gain tab-completion in the IDE, automated input validation, unit-tested correctness guarantees, and a single canonical implementation that every project can depend on.</span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a>This tutorial walks through the creation of **equilibriumTools**, a minimal but fully functional R package whose flagship export is <span class="in">`nash_2x2()`</span>, a function that finds all Nash equilibria (pure and mixed) of an arbitrary two-player, two-strategy game. Along the way we cover the modern <span class="in">`devtools`</span> workflow --- <span class="in">`create()`</span>, <span class="in">`document()`</span>, <span class="in">`test()`</span>, <span class="in">`check()`</span> --- and show how <span class="in">`testthat`</span> unit tests protect against regression as the package evolves. By the end you will have a template you can extend to larger strategic-form solvers, mechanism-design routines, or evolutionary dynamics engines.</span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>Consider a two-player game in which each player $i \in <span class="sc">\{</span>1, 2<span class="sc">\}</span>$ chooses from two pure strategies $<span class="sc">\{</span>s_1, s_2<span class="sc">\}</span>$. The game is specified by two $2 \times 2$ payoff matrices:</span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>A = \begin{pmatrix} a_{11} &amp; a_{12} <span class="sc">\\</span> a_{21} &amp; a_{22} \end{pmatrix}, \quad</span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>B = \begin{pmatrix} b_{11} &amp; b_{12} <span class="sc">\\</span> b_{21} &amp; b_{22} \end{pmatrix}</span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>where $a_{ij}$ ($b_{ij}$) is the payoff to Player 1 (Player 2) when Player 1 plays row $i$ and Player 2 plays column $j$.</span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a>A **Nash equilibrium** is a pair of mixed strategies $(p^*, q^*)$ --- where $p$ is the probability Player 1 assigns to $s_1$ and $q$ is the probability Player 2 assigns to $s_1$ --- such that neither player can improve their expected payoff by unilaterally deviating. The indifference conditions for a completely mixed equilibrium are:</span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a>p^* = \frac{b_{22} - b_{12}}{b_{11} - b_{12} - b_{21} + b_{22}}, \quad</span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a>q^* = \frac{a_{22} - a_{21}}{a_{11} - a_{21} - a_{12} + a_{22}}</span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a>Pure-strategy equilibria are identified by checking best responses at each of the four strategy profiles. A game may have one, two, or three Nash equilibria (counting both pure and mixed).</span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a>The core solver below accepts two payoff matrices and returns a tidy data frame listing every Nash equilibrium. We first check all four pure-strategy profiles, then attempt the mixed-strategy indifference calculation, guarding against division by zero (which occurs when the game has a dominant strategy).</span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: nash-solver</span></span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a>nash_2x2 <span class="ot">&lt;-</span> <span class="cf">function</span>(A, B) {</span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>(<span class="fu">is.matrix</span>(A), <span class="fu">is.matrix</span>(B),</span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a>            <span class="fu">all</span>(<span class="fu">dim</span>(A) <span class="sc">==</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>)), <span class="fu">all</span>(<span class="fu">dim</span>(B) <span class="sc">==</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>)))</span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a>  equilibria <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>  <span class="co"># --- Pure-strategy Nash equilibria ---</span></span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a>  profiles <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>))</span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (pr <span class="cf">in</span> profiles) {</span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a>    r <span class="ot">&lt;-</span> pr[<span class="dv">1</span>]; cc <span class="ot">&lt;-</span> pr[<span class="dv">2</span>]</span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Player 1 best-responds?</span></span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a>    other_r <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(r <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">1</span>)</span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>    br1 <span class="ot">&lt;-</span> A[r, cc] <span class="sc">&gt;=</span> A[other_r, cc]</span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Player 2 best-responds?</span></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>    other_c <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(cc <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">1</span>)</span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a>    br2 <span class="ot">&lt;-</span> B[r, cc] <span class="sc">&gt;=</span> B[r, other_c]</span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (br1 <span class="sc">&amp;&amp;</span> br2) {</span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a>      equilibria <span class="ot">&lt;-</span> <span class="fu">append</span>(equilibria, <span class="fu">list</span>(<span class="fu">data.frame</span>(</span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>        <span class="at">type   =</span> <span class="st">"pure"</span>,</span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a>        <span class="at">p_star =</span> <span class="fu">ifelse</span>(r <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a>        <span class="at">q_star =</span> <span class="fu">ifelse</span>(cc <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">0</span>),</span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a>        <span class="at">payoff_1 =</span> A[r, cc],</span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a>        <span class="at">payoff_2 =</span> B[r, cc]</span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a>      )))</span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>  <span class="co"># --- Mixed-strategy equilibrium ---</span></span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a>  denom_p <span class="ot">&lt;-</span> B[<span class="dv">1</span>,<span class="dv">1</span>] <span class="sc">-</span> B[<span class="dv">1</span>,<span class="dv">2</span>] <span class="sc">-</span> B[<span class="dv">2</span>,<span class="dv">1</span>] <span class="sc">+</span> B[<span class="dv">2</span>,<span class="dv">2</span>]</span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a>  denom_q <span class="ot">&lt;-</span> A[<span class="dv">1</span>,<span class="dv">1</span>] <span class="sc">-</span> A[<span class="dv">2</span>,<span class="dv">1</span>] <span class="sc">-</span> A[<span class="dv">1</span>,<span class="dv">2</span>] <span class="sc">+</span> A[<span class="dv">2</span>,<span class="dv">2</span>]</span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">abs</span>(denom_p) <span class="sc">&gt;</span> <span class="fl">1e-12</span> <span class="sc">&amp;&amp;</span> <span class="fu">abs</span>(denom_q) <span class="sc">&gt;</span> <span class="fl">1e-12</span>) {</span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>    p_star <span class="ot">&lt;-</span> (B[<span class="dv">2</span>,<span class="dv">2</span>] <span class="sc">-</span> B[<span class="dv">1</span>,<span class="dv">2</span>]) <span class="sc">/</span> denom_p</span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a>    q_star <span class="ot">&lt;-</span> (A[<span class="dv">2</span>,<span class="dv">2</span>] <span class="sc">-</span> A[<span class="dv">2</span>,<span class="dv">1</span>]) <span class="sc">/</span> denom_q</span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (p_star <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> p_star <span class="sc">&lt;</span> <span class="dv">1</span> <span class="sc">&amp;&amp;</span> q_star <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> q_star <span class="sc">&lt;</span> <span class="dv">1</span>) {</span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a>      eu1 <span class="ot">&lt;-</span> p_star <span class="sc">*</span> (q_star <span class="sc">*</span> A[<span class="dv">1</span>,<span class="dv">1</span>] <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q_star) <span class="sc">*</span> A[<span class="dv">1</span>,<span class="dv">2</span>]) <span class="sc">+</span></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>             (<span class="dv">1</span> <span class="sc">-</span> p_star) <span class="sc">*</span> (q_star <span class="sc">*</span> A[<span class="dv">2</span>,<span class="dv">1</span>] <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q_star) <span class="sc">*</span> A[<span class="dv">2</span>,<span class="dv">2</span>])</span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>      eu2 <span class="ot">&lt;-</span> p_star <span class="sc">*</span> (q_star <span class="sc">*</span> B[<span class="dv">1</span>,<span class="dv">1</span>] <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q_star) <span class="sc">*</span> B[<span class="dv">1</span>,<span class="dv">2</span>]) <span class="sc">+</span></span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>             (<span class="dv">1</span> <span class="sc">-</span> p_star) <span class="sc">*</span> (q_star <span class="sc">*</span> B[<span class="dv">2</span>,<span class="dv">1</span>] <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> q_star) <span class="sc">*</span> B[<span class="dv">2</span>,<span class="dv">2</span>])</span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a>      equilibria <span class="ot">&lt;-</span> <span class="fu">append</span>(equilibria, <span class="fu">list</span>(<span class="fu">data.frame</span>(</span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a>        <span class="at">type     =</span> <span class="st">"mixed"</span>,</span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a>        <span class="at">p_star   =</span> p_star,</span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a>        <span class="at">q_star   =</span> q_star,</span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a>        <span class="at">payoff_1 =</span> eu1,</span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a>        <span class="at">payoff_2 =</span> eu2</span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a>      )))</span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">bind_rows</span>(equilibria)</span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Demonstrate with the classic Battle of the Sexes ---</span></span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a>A_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">2</span>), <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a>B_bos <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">3</span>), <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">nash_2x2</span>(A_bos, B_bos)</span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(result, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">caption =</span> <span class="st">"Nash equilibria of the Battle of the Sexes"</span>)</span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a>We visualise the best-response correspondence for the Battle of the Sexes game. Player 1's best response is plotted as a function of $q$ and Player 2's best response as a function of $p$. Intersections mark Nash equilibria.</span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-building-pkg-static</span></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Best-response correspondence for the Battle of the Sexes. Intersections of the two curves identify Nash equilibria (two pure, one mixed). Okabe-Ito palette."</span></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 7</span></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a><span class="co"># Build best-response data</span></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a>q_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">300</span>)</span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a><span class="co"># Player 1 expected payoffs: EU1(s1) = 3q, EU1(s2) = 2(1-q)</span></span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a><span class="co"># BR1: play s1 (p=1) if 3q &gt; 2(1-q), i.e. q &gt; 2/5; mix at q = 2/5</span></span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a>br1_p <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(q_seq <span class="sc">&gt;</span> <span class="dv">2</span><span class="sc">/</span><span class="dv">5</span>, <span class="dv">1</span>, <span class="fu">ifelse</span>(q_seq <span class="sc">&lt;</span> <span class="dv">2</span><span class="sc">/</span><span class="dv">5</span>, <span class="dv">0</span>, <span class="cn">NA</span>))</span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a>p_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">300</span>)</span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a><span class="co"># Player 2: EU2(s1) = 2p, EU2(s2) = 3(1-p)</span></span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a><span class="co"># BR2: play s1 (q=1) if 2p &gt; 3(1-p), i.e. p &gt; 3/5; mix at p = 3/5</span></span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a>br2_q <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(p_seq <span class="sc">&gt;</span> <span class="dv">3</span><span class="sc">/</span><span class="dv">5</span>, <span class="dv">1</span>, <span class="fu">ifelse</span>(p_seq <span class="sc">&lt;</span> <span class="dv">3</span><span class="sc">/</span><span class="dv">5</span>, <span class="dv">0</span>, <span class="cn">NA</span>))</span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a>br_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">strategy_prob =</span> q_seq, <span class="at">response_prob =</span> br1_p, <span class="at">player =</span> <span class="st">"Player 1 BR (p vs q)"</span>),</span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">strategy_prob =</span> p_seq, <span class="at">response_prob =</span> br2_q, <span class="at">player =</span> <span class="st">"Player 2 BR (q vs p)"</span>)</span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a><span class="co"># Equilibrium points</span></span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a>eq_pts <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a>  <span class="at">p =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">3</span><span class="sc">/</span><span class="dv">5</span>),</span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a>  <span class="at">q =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">2</span><span class="sc">/</span><span class="dv">5</span>),</span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="fu">c</span>(<span class="st">"Pure NE 1"</span>, <span class="st">"Pure NE 2"</span>, <span class="st">"Mixed NE"</span>)</span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a>p_static <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_step</span>(<span class="at">data =</span> br_df <span class="sc">|&gt;</span> <span class="fu">filter</span>(player <span class="sc">==</span> <span class="st">"Player 1 BR (p vs q)"</span>),</span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a>            <span class="fu">aes</span>(<span class="at">x =</span> strategy_prob, <span class="at">y =</span> response_prob, <span class="at">colour =</span> player),</span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a>            <span class="at">linewidth =</span> <span class="dv">1</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_step</span>(<span class="at">data =</span> br_df <span class="sc">|&gt;</span> <span class="fu">filter</span>(player <span class="sc">==</span> <span class="st">"Player 2 BR (q vs p)"</span>),</span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a>            <span class="fu">aes</span>(<span class="at">x =</span> strategy_prob, <span class="at">y =</span> response_prob, <span class="at">colour =</span> player),</span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a>            <span class="at">linewidth =</span> <span class="dv">1</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">2</span><span class="sc">/</span><span class="dv">5</span>, <span class="at">xend =</span> <span class="dv">2</span><span class="sc">/</span><span class="dv">5</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">yend =</span> <span class="dv">1</span>),</span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a>               <span class="at">colour =</span> okabe_ito[<span class="dv">1</span>], <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">xend =</span> <span class="dv">1</span>, <span class="at">y =</span> <span class="dv">3</span><span class="sc">/</span><span class="dv">5</span>, <span class="at">yend =</span> <span class="dv">3</span><span class="sc">/</span><span class="dv">5</span>),</span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a>               <span class="at">colour =</span> okabe_ito[<span class="dv">2</span>], <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> eq_pts, <span class="fu">aes</span>(<span class="at">x =</span> q, <span class="at">y =</span> p, <span class="at">shape =</span> label),</span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a>             <span class="at">size =</span> <span class="dv">4</span>, <span class="at">colour =</span> okabe_ito[<span class="dv">3</span>]) <span class="sc">+</span></span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(okabe_ito[<span class="dv">1</span>], okabe_ito[<span class="dv">2</span>])) <span class="sc">+</span></span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"q (Player 2 probability of strategy 1)"</span>,</span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"p (Player 1 probability of strategy 1)"</span>,</span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a>    <span class="at">colour =</span> <span class="cn">NULL</span>, <span class="at">shape =</span> <span class="cn">NULL</span>,</span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Best-response correspondence — Battle of the Sexes"</span></span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>() <span class="sc">+</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>)</span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a><span class="fu">save_pub_fig</span>(p_static, <span class="st">"figures/building-pkg-static"</span>)</span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a>p_static</span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a>The interactive version adds hover tooltips with exact coordinates at each equilibrium point and along the best-response steps, allowing readers to explore threshold values precisely.</span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-building-pkg-interactive</span></span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a><span class="fu">to_plotly_pub</span>(p_static, <span class="at">tooltip =</span> <span class="fu">c</span>(<span class="st">"text"</span>))</span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a>The <span class="in">`nash_2x2()`</span> solver correctly identifies all three equilibria of the Battle of the Sexes: two pure-strategy Nash equilibria at $(p, q) = (1, 1)$ and $(0, 0)$, plus one mixed-strategy equilibrium at $(3/5, 2/5)$. The best-response plot makes the strategic logic transparent --- each player's optimal action switches discontinuously at a critical threshold of the opponent's mixing probability, and the equilibria lie exactly where these correspondences intersect.</span>
+<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a>From a software engineering perspective, wrapping this logic in a tested R package delivers several benefits. First, the <span class="in">`stopifnot()`</span> guard clause prevents silent errors from misshapen inputs. Second, the tidy data frame output slots directly into downstream <span class="in">`ggplot2`</span> and <span class="in">`dplyr`</span> workflows. Third, a <span class="in">`testthat`</span> test suite (not shown in full here but included in the package scaffold) can verify output against known analytical solutions for canonical games --- Prisoner's Dilemma, Matching Pennies, Stag Hunt --- catching regressions whenever the codebase changes.</span>
+<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a>One limitation is that the solver is restricted to $2 \times 2$ games. Extending to arbitrary $m \times n$ games requires either support-enumeration or the Lemke--Howson algorithm, both of which are natural next steps for the package.</span>
+<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a>The package scaffold demonstrated here can be extended in several directions. Adding Shiny bindings would let users input payoff matrices interactively and see equilibria rendered in real time. Incorporating <span class="in">`lpSolve`</span> or <span class="in">`nloptr`</span> would enable the solver to handle arbitrary finite games via linear complementarity. Connecting to the <span class="in">`Recon`</span> or <span class="in">`Gambit`</span> backends could provide cross-validation against established solvers.</span>
+<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Reproducible game theory research --- a Quarto + renv workflow</span><span class="co">](../../reproducibility-open-science/reproducible-game-theory-workflow/)</span></span>
+<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Hypothesis testing as a game between nature and the statistician</span><span class="co">](../../statistical-foundations/hypothesis-testing-game-theoretic/)</span></span>
+<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Algorithmic fairness through the lens of game theory</span><span class="co">](../../ethics-applications/algorithmic-fairness-game-theory/)</span></span>
+<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/r-package-development/building-game-theory-r-package/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/r-package-development/building-game-theory-r-package/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>
