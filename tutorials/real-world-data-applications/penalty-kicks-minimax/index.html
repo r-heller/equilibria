@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="penalty kicks, minimax, mixed strategy, zero-sum game, football, Chiappori Levitt Groseclose">
+<meta name="description" content="Model penalty kicks as a zero-sum game between kicker and goalkeeper, compute minimax mixed strategies from realistic scoring data, and test equilibrium predictions against observed professional football frequencies.">
+<title>Penalty kicks as a minimax game — testing mixed-strategy equilibrium with football data – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-7945cf3d8e8e75b40d08f762a0e66ee2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/real-world-data-applications/penalty-kicks-minimax/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/real-world-data-applications/penalty-kicks-minimax/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Penalty kicks as a minimax game — testing mixed-strategy equilibrium with football data</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">real-world-data-applications</div>
+    <div class="quarto-category">minimax</div>
+    <div class="quarto-category">mixed-strategy</div>
+    <div class="quarto-category">sports-economics</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Model penalty kicks as a zero-sum game between kicker and goalkeeper, compute minimax mixed strategies from realistic scoring data, and test equilibrium predictions against observed professional football frequencies.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>penalty kicks, minimax, mixed strategy, zero-sum game, football, Chiappori Levitt Groseclose</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Penalty kicks in football (soccer) provide one of the cleanest natural laboratories for testing game theory in the real world. The strategic interaction is stark: a kicker must choose a direction (broadly left, centre, or right) and a goalkeeper must simultaneously choose where to dive. The decisions are effectively simultaneous (the goalkeeper must commit before seeing the ball’s trajectory), the stakes are high (penalty kicks in professional matches often decide outcomes worth millions), and the players are highly experienced experts with strong incentives to play optimally. This makes penalty kicks an almost textbook example of a <strong>mixed-strategy zero-sum game</strong>.</p>
+<p><span class="citation" data-cites="chiappori_levitt_groseclose_2002">(<a href="#ref-chiappori_levitt_groseclose_2002" role="doc-biblioref"><strong>chiappori_levitt_groseclose_2002?</strong></a>)</span> analysed penalty kick data from the French and Italian professional leagues and tested whether the observed behaviour was consistent with minimax equilibrium predictions. Their key findings were striking: (1) scoring probabilities were approximately equal across the kicker’s choices when conditioning on the goalkeeper’s action, consistent with the equilibrium requirement that each player must be indifferent across strategies in their support; (2) individual kickers and goalkeepers appeared to genuinely randomise, with no exploitable serial correlation in their choices; and (3) the overall mixing frequencies were close to theoretically predicted values. <span class="citation" data-cites="palacios_huerta_2003">(<a href="#ref-palacios_huerta_2003" role="doc-biblioref"><strong>palacios_huerta_2003?</strong></a>)</span> found similar results with an expanded dataset, providing further evidence that professional players behave as sophisticated game-theoretic agents.</p>
+<p>The theoretical framework is clean. In a 2x2 simplification (kicker chooses Left or Right, goalkeeper dives Left or Right), the scoring probabilities form a <span class="math inline">\(2 \times 2\)</span> matrix. The key asymmetry is that a kicker who shoots to the “natural side” (same side as their dominant foot) scores more reliably when the goalkeeper goes the wrong way, but is more predictable. Shooting “against the body” to the non-natural side is more effective when the goalkeeper guesses wrong, but is less reliable overall. The minimax equilibrium balances these trade-offs, and the predicted mixing probabilities depend on the exact scoring rates.</p>
+<p>This tutorial builds the penalty kick game from realistic scoring data, solves for the minimax mixed-strategy equilibrium in both 2x2 and 3x3 formulations, compares theoretical predictions against observed frequencies, and explores how changes in scoring technology (kicker skill, goalkeeper athleticism) shift the equilibrium. The analysis demonstrates that game theory is not just an abstract mathematical framework but makes precise quantitative predictions about behaviour in high-stakes, real-world competitive environments.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p><strong>2x2 game.</strong> Let the kicker choose <span class="math inline">\(L\)</span> (left) or <span class="math inline">\(R\)</span> (right), and the goalkeeper choose <span class="math inline">\(L\)</span> or <span class="math inline">\(R\)</span>. The scoring probability matrix (kicker’s payoff in this zero-sum game) is:</p>
+<p><span class="math display">\[
+\Pi = \begin{pmatrix} \pi_{LL} &amp; \pi_{LR} \\ \pi_{RL} &amp; \pi_{RR} \end{pmatrix}
+\]</span></p>
+<p>where <span class="math inline">\(\pi_{ij}\)</span> is the probability of scoring when kicker plays <span class="math inline">\(i\)</span> and goalkeeper plays <span class="math inline">\(j\)</span>. Typically <span class="math inline">\(\pi_{LR} &gt; \pi_{LL}\)</span> and <span class="math inline">\(\pi_{RL} &gt; \pi_{RR}\)</span> (kicker is more likely to score when the goalkeeper dives the wrong way).</p>
+<p><strong>Minimax mixed strategy.</strong> The kicker chooses <span class="math inline">\(L\)</span> with probability <span class="math inline">\(q\)</span> to make the goalkeeper indifferent:</p>
+<p><span class="math display">\[
+q \pi_{LL} + (1-q) \pi_{RL} = q \pi_{LR} + (1-q) \pi_{RR}
+\]</span></p>
+<p><span class="math display">\[
+q^* = \frac{\pi_{RR} - \pi_{RL}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}
+\]</span></p>
+<p>The goalkeeper chooses <span class="math inline">\(L\)</span> with probability <span class="math inline">\(p\)</span> to make the kicker indifferent:</p>
+<p><span class="math display">\[
+p^* = \frac{\pi_{RR} - \pi_{LR}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}
+\]</span></p>
+<p>The <strong>value of the game</strong> (equilibrium scoring probability) is:</p>
+<p><span class="math display">\[
+v^* = \frac{\pi_{LL}\pi_{RR} - \pi_{LR}\pi_{RL}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}
+\]</span></p>
+<p><strong>3x3 extension.</strong> Adding a Centre option for both players creates a <span class="math inline">\(3 \times 3\)</span> matrix. The minimax solution requires the equalisation conditions across all strategies in the support, solved via linear programming or the system of indifference equations.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Scoring probability matrix (realistic data from literature) ---</span></span>
+<span><span class="co"># Based on aggregated data from professional leagues</span></span>
+<span><span class="co"># Rows: kicker (L, C, R), Columns: goalkeeper (L, C, R)</span></span>
+<span><span class="co"># Entry = probability of scoring</span></span>
+<span></span>
+<span><span class="va">scoring_3x3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span></span>
+<span>  <span class="fl">0.58</span>, <span class="fl">0.95</span>, <span class="fl">0.93</span>,   <span class="co"># kicker L, goalkeeper L/C/R</span></span>
+<span>  <span class="fl">0.72</span>, <span class="fl">0.45</span>, <span class="fl">0.72</span>,   <span class="co"># kicker C, goalkeeper L/C/R</span></span>
+<span>  <span class="fl">0.93</span>, <span class="fl">0.95</span>, <span class="fl">0.58</span>    <span class="co"># kicker R, goalkeeper L/C/R</span></span>
+<span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">3</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>dimnames <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>Kicker <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span><span class="op">)</span>,</span>
+<span>                Goalkeeper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Scoring Probability Matrix ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Scoring Probability Matrix ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">scoring_3x3</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        Goalkeeper
+Kicker   Left Centre Right
+  Left   0.58   0.95  0.93
+  Centre 0.72   0.45  0.72
+  Right  0.93   0.95  0.58</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- 2x2 version (Left/Right only) ---</span></span>
+<span><span class="va">scoring_2x2</span> <span class="op">&lt;-</span> <span class="va">scoring_3x3</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">3</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== 2x2 Subgame (L/R only) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== 2x2 Subgame (L/R only) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">scoring_2x2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       Goalkeeper
+Kicker  Left Right
+  Left  0.58  0.93
+  Right 0.93  0.58</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Minimax for 2x2</span></span>
+<span><span class="va">solve_2x2_minimax</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">M</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">a</span> <span class="op">&lt;-</span> <span class="va">M</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span>; <span class="va">b</span> <span class="op">&lt;-</span> <span class="va">M</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">]</span>; <span class="va">c</span> <span class="op">&lt;-</span> <span class="va">M</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">1</span><span class="op">]</span>; <span class="va">d</span> <span class="op">&lt;-</span> <span class="va">M</span><span class="op">[</span><span class="fl">2</span>,<span class="fl">2</span><span class="op">]</span></span>
+<span>  <span class="va">denom</span> <span class="op">&lt;-</span> <span class="va">a</span> <span class="op">-</span> <span class="va">b</span> <span class="op">-</span> <span class="va">c</span> <span class="op">+</span> <span class="va">d</span></span>
+<span>  <span class="va">q_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">d</span> <span class="op">-</span> <span class="va">c</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom</span>  <span class="co"># kicker plays Row 1 (Left)</span></span>
+<span>  <span class="va">p_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">d</span> <span class="op">-</span> <span class="va">b</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom</span>  <span class="co"># goalkeeper plays Col 1 (Left)</span></span>
+<span>  <span class="va">value</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">a</span> <span class="op">*</span> <span class="va">d</span> <span class="op">-</span> <span class="va">b</span> <span class="op">*</span> <span class="va">c</span><span class="op">)</span> <span class="op">/</span> <span class="va">denom</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>q_kicker_L <span class="op">=</span> <span class="va">q_star</span>, p_gk_L <span class="op">=</span> <span class="va">p_star</span>, value <span class="op">=</span> <span class="va">value</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">sol_2x2</span> <span class="op">&lt;-</span> <span class="fu">solve_2x2_minimax</span><span class="op">(</span><span class="va">scoring_2x2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== 2x2 Minimax Solution ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== 2x2 Minimax Solution ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Kicker:     P(Left) = %.4f, P(Right) = %.4f\n"</span>,</span>
+<span>            <span class="va">sol_2x2</span><span class="op">$</span><span class="va">q_kicker_L</span>, <span class="fl">1</span> <span class="op">-</span> <span class="va">sol_2x2</span><span class="op">$</span><span class="va">q_kicker_L</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Kicker:     P(Left) = 0.5000, P(Right) = 0.5000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Goalkeeper: P(Left) = %.4f, P(Right) = %.4f\n"</span>,</span>
+<span>            <span class="va">sol_2x2</span><span class="op">$</span><span class="va">p_gk_L</span>, <span class="fl">1</span> <span class="op">-</span> <span class="va">sol_2x2</span><span class="op">$</span><span class="va">p_gk_L</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Goalkeeper: P(Left) = 0.5000, P(Right) = 0.5000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Equilibrium scoring probability: %.4f\n"</span>, <span class="va">sol_2x2</span><span class="op">$</span><span class="va">value</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Equilibrium scoring probability: 0.7550</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- 3x3 minimax via iterative best response (fictitious play) ---</span></span>
+<span><span class="va">solve_3x3_minimax</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">M</span>, <span class="va">n_iter</span> <span class="op">=</span> <span class="fl">50000</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">nr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">M</span><span class="op">)</span>; <span class="va">nc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">ncol</a></span><span class="op">(</span><span class="va">M</span><span class="op">)</span></span>
+<span>  <span class="co"># Fictitious play</span></span>
+<span>  <span class="va">kicker_counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">nr</span><span class="op">)</span></span>
+<span>  <span class="va">gk_counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">nc</span><span class="op">)</span></span>
+<span>  <span class="va">kicker_counts</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span>  <span class="co"># initialise</span></span>
+<span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">t</span> <span class="kw">in</span> <span class="fl">2</span><span class="op">:</span><span class="va">n_iter</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Goalkeeper best-responds to kicker's historical mix</span></span>
+<span>    <span class="va">kicker_mix</span> <span class="op">&lt;-</span> <span class="va">kicker_counts</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">kicker_counts</span><span class="op">)</span></span>
+<span>    <span class="va">gk_payoffs</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/t.html">t</a></span><span class="op">(</span><span class="va">M</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">kicker_mix</span><span class="op">)</span>  <span class="co"># GK minimises scoring</span></span>
+<span>    <span class="va">gk_br</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.min.html">which.min</a></span><span class="op">(</span><span class="va">gk_payoffs</span><span class="op">)</span>  <span class="co"># minimise scoring probability</span></span>
+<span>    <span class="va">gk_counts</span><span class="op">[</span><span class="va">gk_br</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">gk_counts</span><span class="op">[</span><span class="va">gk_br</span><span class="op">]</span> <span class="op">+</span> <span class="fl">1</span></span>
+<span></span>
+<span>    <span class="co"># Kicker best-responds to goalkeeper's historical mix</span></span>
+<span>    <span class="va">gk_mix</span> <span class="op">&lt;-</span> <span class="va">gk_counts</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">gk_counts</span><span class="op">)</span></span>
+<span>    <span class="va">kicker_payoffs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">M</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">gk_mix</span><span class="op">)</span></span>
+<span>    <span class="va">kicker_br</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.min.html">which.max</a></span><span class="op">(</span><span class="va">kicker_payoffs</span><span class="op">)</span></span>
+<span>    <span class="va">kicker_counts</span><span class="op">[</span><span class="va">kicker_br</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">kicker_counts</span><span class="op">[</span><span class="va">kicker_br</span><span class="op">]</span> <span class="op">+</span> <span class="fl">1</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="va">kicker_mix</span> <span class="op">&lt;-</span> <span class="va">kicker_counts</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">kicker_counts</span><span class="op">)</span></span>
+<span>  <span class="va">gk_mix</span> <span class="op">&lt;-</span> <span class="va">gk_counts</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">gk_counts</span><span class="op">)</span></span>
+<span>  <span class="va">value</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">kicker_mix</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">M</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">gk_mix</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>kicker_mix <span class="op">=</span> <span class="va">kicker_mix</span>, gk_mix <span class="op">=</span> <span class="va">gk_mix</span>, value <span class="op">=</span> <span class="va">value</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">sol_3x3</span> <span class="op">&lt;-</span> <span class="fu">solve_3x3_minimax</span><span class="op">(</span><span class="va">scoring_3x3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== 3x3 Minimax Solution (Fictitious Play) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== 3x3 Minimax Solution (Fictitious Play) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Kicker:     P(L)=%.4f, P(C)=%.4f, P(R)=%.4f\n"</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Kicker:     P(L)=1.0000, P(C)=0.0000, P(R)=0.0000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Goalkeeper: P(L)=%.4f, P(C)=%.4f, P(R)=%.4f\n"</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">gk_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">sol_3x3</span><span class="op">$</span><span class="va">gk_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="va">sol_3x3</span><span class="op">$</span><span class="va">gk_mix</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Goalkeeper: P(L)=0.0000, P(C)=1.0000, P(R)=0.0000</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Equilibrium scoring probability: %.4f\n"</span>, <span class="va">sol_3x3</span><span class="op">$</span><span class="va">value</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Equilibrium scoring probability: 0.9500</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Observed frequencies (stylised from literature) ---</span></span>
+<span><span class="va">observed_kicker</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>Left <span class="op">=</span> <span class="fl">0.38</span>, Centre <span class="op">=</span> <span class="fl">0.17</span>, Right <span class="op">=</span> <span class="fl">0.45</span><span class="op">)</span></span>
+<span><span class="va">observed_gk</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>Left <span class="op">=</span> <span class="fl">0.42</span>, Centre <span class="op">=</span> <span class="fl">0.07</span>, Right <span class="op">=</span> <span class="fl">0.51</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== Predicted vs Observed Mixing ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== Predicted vs Observed Mixing ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Kicker:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Kicker:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Left:   predicted=%.3f  observed=%.3f  diff=%.3f\n"</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Left:   predicted=1.000  observed=0.380  diff=0.620</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Centre: predicted=%.3f  observed=%.3f  diff=%.3f\n"</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">-</span> <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Centre: predicted=0.000  observed=0.170  diff=-0.170</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Right:  predicted=%.3f  observed=%.3f  diff=%.3f\n"</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>,</span>
+<span>            <span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">-</span> <span class="va">observed_kicker</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Right:  predicted=0.000  observed=0.450  diff=-0.450</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Verify indifference conditions ---</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== Verifying Equilibrium Indifference ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== Verifying Equilibrium Indifference ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">kicker_payoffs_by_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">scoring_3x3</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">sol_3x3</span><span class="op">$</span><span class="va">gk_mix</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Kicker's expected scoring probability by direction:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Kicker's expected scoring probability by direction:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb39"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Left:   %.4f\n"</span>, <span class="va">kicker_payoffs_by_dir</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Left:   0.9500</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Centre: %.4f\n"</span>, <span class="va">kicker_payoffs_by_dir</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Centre: 0.4500</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb43"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Right:  %.4f\n"</span>, <span class="va">kicker_payoffs_by_dir</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Right:  0.9500</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb45"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"(Should be approximately equal if all are in support)\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(Should be approximately equal if all are in support)</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb47"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">comparison_data</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>  direction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  probability <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">sol_3x3</span><span class="op">$</span><span class="va">kicker_mix</span>, <span class="va">observed_kicker</span>,</span>
+<span>                  <span class="va">sol_3x3</span><span class="op">$</span><span class="va">gk_mix</span>, <span class="va">observed_gk</span><span class="op">)</span>,</span>
+<span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Minimax prediction"</span>, <span class="st">"Observed data"</span>,</span>
+<span>                 <span class="st">"Minimax prediction"</span>, <span class="st">"Observed data"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  player <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Kicker"</span>, <span class="st">"Kicker"</span>, <span class="st">"Goalkeeper"</span>, <span class="st">"Goalkeeper"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>direction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">direction</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">comparison_data</span>,</span>
+<span>                   <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">direction</span>, y <span class="op">=</span> <span class="va">probability</span>, fill <span class="op">=</span> <span class="va">source</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_col</span><span class="op">(</span>position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span>width <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_text</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">probability</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>            position <span class="op">=</span> <span class="fu">position_dodge</span><span class="op">(</span>width <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span>, vjust <span class="op">=</span> <span class="op">-</span><span class="fl">0.3</span>, size <span class="op">=</span> <span class="fl">2.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">facet_wrap</span><span class="op">(</span><span class="op">~</span><span class="va">player</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Minimax prediction"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>                                <span class="st">"Observed data"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                     name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Penalty kicks: minimax prediction vs observed mixing"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Professional football data broadly supports minimax play"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Direction"</span>, y <span class="op">=</span> <span class="st">"Probability"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme</span><span class="op">(</span>strip.text <span class="op">=</span> <span class="fu">element_text</span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">coord_cartesian</span><span class="op">(</span>ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.6</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-predicted-vs-observed" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-predicted-vs-observed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-predicted-vs-observed-1.png" class="img-fluid figure-img" width="3000">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-predicted-vs-observed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Predicted minimax mixing probabilities versus observed frequencies for penalty kick directions in professional football. Left panel: kicker’s direction choice. Right panel: goalkeeper’s dive direction. Minimax predictions (solid bars) are computed from the 3x3 scoring probability matrix; observed frequencies (striped bars) are stylised from Chiappori et al.&nbsp;(2002) and Palacios-Huerta (2003). The close correspondence supports the hypothesis that professional players mix approximately according to minimax theory. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb48"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># How does equilibrium change as we vary the diagonal (same-side) scoring rate?</span></span>
+<span><span class="va">diag_seq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0.30</span>, <span class="fl">0.80</span>, by <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sensitivity_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">diag_seq</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">M</span> <span class="op">&lt;-</span> <span class="va">scoring_3x3</span></span>
+<span>  <span class="va">M</span><span class="op">[</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">d</span>; <span class="va">M</span><span class="op">[</span><span class="fl">3</span>,<span class="fl">3</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">d</span>  <span class="co"># symmetric same-side rate</span></span>
+<span>  <span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu">solve_3x3_minimax</span><span class="op">(</span><span class="va">M</span>, n_iter <span class="op">=</span> <span class="fl">20000</span><span class="op">)</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>diag_rate <span class="op">=</span> <span class="va">d</span>,</span>
+<span>         kicker_L <span class="op">=</span> <span class="va">sol</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>         kicker_C <span class="op">=</span> <span class="va">sol</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>         kicker_R <span class="op">=</span> <span class="va">sol</span><span class="op">$</span><span class="va">kicker_mix</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>,</span>
+<span>         eq_scoring <span class="op">=</span> <span class="va">sol</span><span class="op">$</span><span class="va">value</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span>cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">kicker_L</span>, <span class="va">kicker_C</span>, <span class="va">kicker_R</span>, <span class="va">eq_scoring</span><span class="op">)</span>,</span>
+<span>               names_to <span class="op">=</span> <span class="st">"variable"</span>, values_to <span class="op">=</span> <span class="st">"value"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>var_label <span class="op">=</span> <span class="fu">case_when</span><span class="op">(</span></span>
+<span>    <span class="va">variable</span> <span class="op">==</span> <span class="st">"kicker_L"</span> <span class="op">~</span> <span class="st">"P(Kick Left)"</span>,</span>
+<span>    <span class="va">variable</span> <span class="op">==</span> <span class="st">"kicker_C"</span> <span class="op">~</span> <span class="st">"P(Kick Centre)"</span>,</span>
+<span>    <span class="va">variable</span> <span class="op">==</span> <span class="st">"kicker_R"</span> <span class="op">~</span> <span class="st">"P(Kick Right)"</span>,</span>
+<span>    <span class="va">variable</span> <span class="op">==</span> <span class="st">"eq_scoring"</span> <span class="op">~</span> <span class="st">"Equilibrium scoring rate"</span></span>
+<span>  <span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Same-side scoring: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">diag_rate</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>                       <span class="st">"\n"</span>, <span class="va">var_label</span>, <span class="st">": "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">value</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_int</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">sensitivity_data</span>,</span>
+<span>                <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">diag_rate</span>, y <span class="op">=</span> <span class="va">value</span>, color <span class="op">=</span> <span class="va">var_label</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">6</span><span class="op">)</span><span class="op">]</span>, name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Sensitivity: how same-side scoring probability shifts equilibrium"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"As it becomes harder to score when GK guesses correctly, kicker diversifies more"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Same-side scoring probability"</span>, y <span class="op">=</span> <span class="st">"Value"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_int</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>, modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-sensitivity-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-sensitivity-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-ca290f7cf300c0678107" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-ca290f7cf300c0678107">{"x":{"data":[{"x":[0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.32999999999999996,null,0.33999999999999997,null,0.34999999999999998,null,0.35999999999999999,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.40999999999999998,null,0.41999999999999998,null,0.42999999999999999,null,0.44,null,0.44999999999999996,null,0.45999999999999996,null,0.46999999999999997,null,0.47999999999999998,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.65999999999999992,null,0.66999999999999993,null,0.67999999999999994,null,0.68999999999999995,null,0.69999999999999996,null,0.70999999999999996,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004],"y":[0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996,null,0.94999999999999996],"text":["Same-side scoring: 0.3<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.31<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.32<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.33<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.34<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.35<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.36<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.37<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.38<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.39<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.4<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.41<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.42<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.43<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.44<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.45<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.46<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.47<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.48<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.49<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.5<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.51<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.52<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.53<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.54<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.55<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.56<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.57<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.58<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.59<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.6<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.61<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.62<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.63<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.64<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.65<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.66<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.67<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.68<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.69<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.7<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.71<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.72<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.73<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.74<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.75<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.76<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.77<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.78<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.79<br />Equilibrium scoring rate: 0.95",null,"Same-side scoring: 0.8<br />Equilibrium scoring rate: 0.95"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"Equilibrium scoring rate","legendgroup":"Equilibrium scoring rate","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.32999999999999996,null,0.33999999999999997,null,0.34999999999999998,null,0.35999999999999999,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.40999999999999998,null,0.41999999999999998,null,0.42999999999999999,null,0.44,null,0.44999999999999996,null,0.45999999999999996,null,0.46999999999999997,null,0.47999999999999998,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.65999999999999992,null,0.66999999999999993,null,0.67999999999999994,null,0.68999999999999995,null,0.69999999999999996,null,0.70999999999999996,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004],"y":[0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0],"text":["Same-side scoring: 0.3<br />P(Kick Centre): 0",null,"Same-side scoring: 0.31<br />P(Kick Centre): 0",null,"Same-side scoring: 0.32<br />P(Kick Centre): 0",null,"Same-side scoring: 0.33<br />P(Kick Centre): 0",null,"Same-side scoring: 0.34<br />P(Kick Centre): 0",null,"Same-side scoring: 0.35<br />P(Kick Centre): 0",null,"Same-side scoring: 0.36<br />P(Kick Centre): 0",null,"Same-side scoring: 0.37<br />P(Kick Centre): 0",null,"Same-side scoring: 0.38<br />P(Kick Centre): 0",null,"Same-side scoring: 0.39<br />P(Kick Centre): 0",null,"Same-side scoring: 0.4<br />P(Kick Centre): 0",null,"Same-side scoring: 0.41<br />P(Kick Centre): 0",null,"Same-side scoring: 0.42<br />P(Kick Centre): 0",null,"Same-side scoring: 0.43<br />P(Kick Centre): 0",null,"Same-side scoring: 0.44<br />P(Kick Centre): 0",null,"Same-side scoring: 0.45<br />P(Kick Centre): 0",null,"Same-side scoring: 0.46<br />P(Kick Centre): 0",null,"Same-side scoring: 0.47<br />P(Kick Centre): 0",null,"Same-side scoring: 0.48<br />P(Kick Centre): 0",null,"Same-side scoring: 0.49<br />P(Kick Centre): 0",null,"Same-side scoring: 0.5<br />P(Kick Centre): 0",null,"Same-side scoring: 0.51<br />P(Kick Centre): 0",null,"Same-side scoring: 0.52<br />P(Kick Centre): 0",null,"Same-side scoring: 0.53<br />P(Kick Centre): 0",null,"Same-side scoring: 0.54<br />P(Kick Centre): 0",null,"Same-side scoring: 0.55<br />P(Kick Centre): 0",null,"Same-side scoring: 0.56<br />P(Kick Centre): 0",null,"Same-side scoring: 0.57<br />P(Kick Centre): 0",null,"Same-side scoring: 0.58<br />P(Kick Centre): 0",null,"Same-side scoring: 0.59<br />P(Kick Centre): 0",null,"Same-side scoring: 0.6<br />P(Kick Centre): 0",null,"Same-side scoring: 0.61<br />P(Kick Centre): 0",null,"Same-side scoring: 0.62<br />P(Kick Centre): 0",null,"Same-side scoring: 0.63<br />P(Kick Centre): 0",null,"Same-side scoring: 0.64<br />P(Kick Centre): 0",null,"Same-side scoring: 0.65<br />P(Kick Centre): 0",null,"Same-side scoring: 0.66<br />P(Kick Centre): 0",null,"Same-side scoring: 0.67<br />P(Kick Centre): 0",null,"Same-side scoring: 0.68<br />P(Kick Centre): 0",null,"Same-side scoring: 0.69<br />P(Kick Centre): 0",null,"Same-side scoring: 0.7<br />P(Kick Centre): 0",null,"Same-side scoring: 0.71<br />P(Kick Centre): 0",null,"Same-side scoring: 0.72<br />P(Kick Centre): 0",null,"Same-side scoring: 0.73<br />P(Kick Centre): 0",null,"Same-side scoring: 0.74<br />P(Kick Centre): 0",null,"Same-side scoring: 0.75<br />P(Kick Centre): 0",null,"Same-side scoring: 0.76<br />P(Kick Centre): 0",null,"Same-side scoring: 0.77<br />P(Kick Centre): 0",null,"Same-side scoring: 0.78<br />P(Kick Centre): 0",null,"Same-side scoring: 0.79<br />P(Kick Centre): 0",null,"Same-side scoring: 0.8<br />P(Kick Centre): 0"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"P(Kick Centre)","legendgroup":"P(Kick Centre)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.32999999999999996,null,0.33999999999999997,null,0.34999999999999998,null,0.35999999999999999,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.40999999999999998,null,0.41999999999999998,null,0.42999999999999999,null,0.44,null,0.44999999999999996,null,0.45999999999999996,null,0.46999999999999997,null,0.47999999999999998,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.65999999999999992,null,0.66999999999999993,null,0.67999999999999994,null,0.68999999999999995,null,0.69999999999999996,null,0.70999999999999996,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004],"y":[1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1,null,1],"text":["Same-side scoring: 0.3<br />P(Kick Left): 1",null,"Same-side scoring: 0.31<br />P(Kick Left): 1",null,"Same-side scoring: 0.32<br />P(Kick Left): 1",null,"Same-side scoring: 0.33<br />P(Kick Left): 1",null,"Same-side scoring: 0.34<br />P(Kick Left): 1",null,"Same-side scoring: 0.35<br />P(Kick Left): 1",null,"Same-side scoring: 0.36<br />P(Kick Left): 1",null,"Same-side scoring: 0.37<br />P(Kick Left): 1",null,"Same-side scoring: 0.38<br />P(Kick Left): 1",null,"Same-side scoring: 0.39<br />P(Kick Left): 1",null,"Same-side scoring: 0.4<br />P(Kick Left): 1",null,"Same-side scoring: 0.41<br />P(Kick Left): 1",null,"Same-side scoring: 0.42<br />P(Kick Left): 1",null,"Same-side scoring: 0.43<br />P(Kick Left): 1",null,"Same-side scoring: 0.44<br />P(Kick Left): 1",null,"Same-side scoring: 0.45<br />P(Kick Left): 1",null,"Same-side scoring: 0.46<br />P(Kick Left): 1",null,"Same-side scoring: 0.47<br />P(Kick Left): 1",null,"Same-side scoring: 0.48<br />P(Kick Left): 1",null,"Same-side scoring: 0.49<br />P(Kick Left): 1",null,"Same-side scoring: 0.5<br />P(Kick Left): 1",null,"Same-side scoring: 0.51<br />P(Kick Left): 1",null,"Same-side scoring: 0.52<br />P(Kick Left): 1",null,"Same-side scoring: 0.53<br />P(Kick Left): 1",null,"Same-side scoring: 0.54<br />P(Kick Left): 1",null,"Same-side scoring: 0.55<br />P(Kick Left): 1",null,"Same-side scoring: 0.56<br />P(Kick Left): 1",null,"Same-side scoring: 0.57<br />P(Kick Left): 1",null,"Same-side scoring: 0.58<br />P(Kick Left): 1",null,"Same-side scoring: 0.59<br />P(Kick Left): 1",null,"Same-side scoring: 0.6<br />P(Kick Left): 1",null,"Same-side scoring: 0.61<br />P(Kick Left): 1",null,"Same-side scoring: 0.62<br />P(Kick Left): 1",null,"Same-side scoring: 0.63<br />P(Kick Left): 1",null,"Same-side scoring: 0.64<br />P(Kick Left): 1",null,"Same-side scoring: 0.65<br />P(Kick Left): 1",null,"Same-side scoring: 0.66<br />P(Kick Left): 1",null,"Same-side scoring: 0.67<br />P(Kick Left): 1",null,"Same-side scoring: 0.68<br />P(Kick Left): 1",null,"Same-side scoring: 0.69<br />P(Kick Left): 1",null,"Same-side scoring: 0.7<br />P(Kick Left): 1",null,"Same-side scoring: 0.71<br />P(Kick Left): 1",null,"Same-side scoring: 0.72<br />P(Kick Left): 1",null,"Same-side scoring: 0.73<br />P(Kick Left): 1",null,"Same-side scoring: 0.74<br />P(Kick Left): 1",null,"Same-side scoring: 0.75<br />P(Kick Left): 1",null,"Same-side scoring: 0.76<br />P(Kick Left): 1",null,"Same-side scoring: 0.77<br />P(Kick Left): 1",null,"Same-side scoring: 0.78<br />P(Kick Left): 1",null,"Same-side scoring: 0.79<br />P(Kick Left): 1",null,"Same-side scoring: 0.8<br />P(Kick Left): 1"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","name":"P(Kick Left)","legendgroup":"P(Kick Left)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.29999999999999999,null,0.31,null,0.32000000000000001,null,0.32999999999999996,null,0.33999999999999997,null,0.34999999999999998,null,0.35999999999999999,null,0.37,null,0.38,null,0.39000000000000001,null,0.40000000000000002,null,0.40999999999999998,null,0.41999999999999998,null,0.42999999999999999,null,0.44,null,0.44999999999999996,null,0.45999999999999996,null,0.46999999999999997,null,0.47999999999999998,null,0.48999999999999999,null,0.5,null,0.51000000000000001,null,0.52000000000000002,null,0.53000000000000003,null,0.54000000000000004,null,0.55000000000000004,null,0.56000000000000005,null,0.57000000000000006,null,0.58000000000000007,null,0.58999999999999997,null,0.59999999999999998,null,0.60999999999999999,null,0.62,null,0.63,null,0.64000000000000001,null,0.65000000000000002,null,0.65999999999999992,null,0.66999999999999993,null,0.67999999999999994,null,0.68999999999999995,null,0.69999999999999996,null,0.70999999999999996,null,0.71999999999999997,null,0.72999999999999998,null,0.73999999999999999,null,0.75,null,0.76000000000000001,null,0.77000000000000002,null,0.78000000000000003,null,0.79000000000000004,null,0.80000000000000004],"y":[0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0,null,0],"text":["Same-side scoring: 0.3<br />P(Kick Right): 0",null,"Same-side scoring: 0.31<br />P(Kick Right): 0",null,"Same-side scoring: 0.32<br />P(Kick Right): 0",null,"Same-side scoring: 0.33<br />P(Kick Right): 0",null,"Same-side scoring: 0.34<br />P(Kick Right): 0",null,"Same-side scoring: 0.35<br />P(Kick Right): 0",null,"Same-side scoring: 0.36<br />P(Kick Right): 0",null,"Same-side scoring: 0.37<br />P(Kick Right): 0",null,"Same-side scoring: 0.38<br />P(Kick Right): 0",null,"Same-side scoring: 0.39<br />P(Kick Right): 0",null,"Same-side scoring: 0.4<br />P(Kick Right): 0",null,"Same-side scoring: 0.41<br />P(Kick Right): 0",null,"Same-side scoring: 0.42<br />P(Kick Right): 0",null,"Same-side scoring: 0.43<br />P(Kick Right): 0",null,"Same-side scoring: 0.44<br />P(Kick Right): 0",null,"Same-side scoring: 0.45<br />P(Kick Right): 0",null,"Same-side scoring: 0.46<br />P(Kick Right): 0",null,"Same-side scoring: 0.47<br />P(Kick Right): 0",null,"Same-side scoring: 0.48<br />P(Kick Right): 0",null,"Same-side scoring: 0.49<br />P(Kick Right): 0",null,"Same-side scoring: 0.5<br />P(Kick Right): 0",null,"Same-side scoring: 0.51<br />P(Kick Right): 0",null,"Same-side scoring: 0.52<br />P(Kick Right): 0",null,"Same-side scoring: 0.53<br />P(Kick Right): 0",null,"Same-side scoring: 0.54<br />P(Kick Right): 0",null,"Same-side scoring: 0.55<br />P(Kick Right): 0",null,"Same-side scoring: 0.56<br />P(Kick Right): 0",null,"Same-side scoring: 0.57<br />P(Kick Right): 0",null,"Same-side scoring: 0.58<br />P(Kick Right): 0",null,"Same-side scoring: 0.59<br />P(Kick Right): 0",null,"Same-side scoring: 0.6<br />P(Kick Right): 0",null,"Same-side scoring: 0.61<br />P(Kick Right): 0",null,"Same-side scoring: 0.62<br />P(Kick Right): 0",null,"Same-side scoring: 0.63<br />P(Kick Right): 0",null,"Same-side scoring: 0.64<br />P(Kick Right): 0",null,"Same-side scoring: 0.65<br />P(Kick Right): 0",null,"Same-side scoring: 0.66<br />P(Kick Right): 0",null,"Same-side scoring: 0.67<br />P(Kick Right): 0",null,"Same-side scoring: 0.68<br />P(Kick Right): 0",null,"Same-side scoring: 0.69<br />P(Kick Right): 0",null,"Same-side scoring: 0.7<br />P(Kick Right): 0",null,"Same-side scoring: 0.71<br />P(Kick Right): 0",null,"Same-side scoring: 0.72<br />P(Kick Right): 0",null,"Same-side scoring: 0.73<br />P(Kick Right): 0",null,"Same-side scoring: 0.74<br />P(Kick Right): 0",null,"Same-side scoring: 0.75<br />P(Kick Right): 0",null,"Same-side scoring: 0.76<br />P(Kick Right): 0",null,"Same-side scoring: 0.77<br />P(Kick Right): 0",null,"Same-side scoring: 0.78<br />P(Kick Right): 0",null,"Same-side scoring: 0.79<br />P(Kick Right): 0",null,"Same-side scoring: 0.8<br />P(Kick Right): 0"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(213,94,0,1)","dash":"solid"},"hoveron":"points","name":"P(Kick Right)","legendgroup":"P(Kick Right)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Sensitivity: how same-side scoring probability shifts equilibrium <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.27499999999999997,0.82500000000000007],"tickmode":"array","ticktext":["0.3","0.4","0.5","0.6","0.7","0.8"],"tickvals":[0.30000000000000004,0.40000000000000002,0.5,0.60000000000000009,0.70000000000000007,0.80000000000000004],"categoryorder":"array","categoryarray":["0.3","0.4","0.5","0.6","0.7","0.8"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Same-side scoring probability","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.050000000000000003,1.05],"tickmode":"array","ticktext":["0.00","0.25","0.50","0.75","1.00"],"tickvals":[0,0.25,0.5,0.75,1],"categoryorder":"array","categoryarray":["0.00","0.25","0.50","0.75","1.00"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Value","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"39ca40980c10":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"}},"cur_data":"39ca40980c10","visdat":{"39ca40980c10":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-sensitivity-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The penalty kick analysis provides compelling evidence that game theory’s mixed-strategy equilibrium concept describes real behaviour, at least among experienced professionals operating in high-stakes repeated interactions. The minimax predictions from the 3x3 scoring matrix are broadly consistent with observed kick and dive frequencies: kickers favour their natural side but mix in enough kicks to the opposite side and centre to keep goalkeepers uncertain, and goalkeepers dive roughly in proportion to the predicted frequencies. The indifference condition — that the kicker’s scoring probability is approximately equalised across all directions in the support — is the signature prediction of minimax play, and empirical data supports it.</p>
+<p>Several caveats are important. First, the stylised scoring probabilities used here are aggregates; individual kickers and goalkeepers have heterogeneous abilities, and the optimal mix varies by player. Second, the model assumes simultaneous moves, but in reality the goalkeeper has a tiny window to react, introducing a sequential element. Third, psychological factors (choking under pressure, preferences for natural sides) may create deviations from pure minimax play. Finally, centre kicks are particularly interesting: they have the highest scoring rate when the goalkeeper dives to a side, but are psychologically difficult (kicking straight at the goalkeeper “feels” risky) and dangerous when the goalkeeper stays put. The equilibrium frequency of centre kicks is typically lower than what theory predicts as optimal, suggesting that psychological costs not captured in the scoring matrix play a role. Despite these caveats, the penalty kick setting remains one of the most convincing real-world demonstrations that mixed-strategy equilibrium has predictive power beyond the laboratory.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../../foundations/nash-equilibrium-mixed/">Mixed-strategy Nash equilibrium</a> — the foundational theory behind minimax mixing.</li>
+<li>
+<a href="../../foundations/minimax-theorem-zero-sum/">Zero-sum games and the minimax theorem</a> — von Neumann’s theorem that guarantees the minimax solution.</li>
+<li>
+<a href="../arms-race-cold-war/">Arms race and Cold War</a> — another real-world application of strategic interaction under conflict.</li>
+<li>
+<a href="../../behavioral-gt/level-k-cognitive-hierarchy/">Level-k thinking and cognitive hierarchy</a> — what if players do not play exactly minimax?</li>
+<li>
+<a href="../cuban-missile-crisis-signaling-game/">Cuban Missile Crisis as signaling game</a> — game theory applied to geopolitical strategy.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Penalty Kicks as a Minimax Game — Testing Mixed-Strategy
+    Equilibrium with Football Data},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/real-world-data-applications/penalty-kicks-minimax/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Penalty Kicks as a Minimax Game — Testing
+Mixed-Strategy Equilibrium with Football Data.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/real-world-data-applications/penalty-kicks-minimax/">https://r-heller.github.io/equilibria/tutorials/real-world-data-applications/penalty-kicks-minimax/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb49" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Penalty kicks as a minimax game — testing mixed-strategy equilibrium with football data"</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Model penalty kicks as a zero-sum game between kicker and goalkeeper, compute minimax mixed strategies from realistic scoring data, and test equilibrium predictions against observed professional football frequencies."</span></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - real-world-data-applications</span></span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - minimax</span></span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - mixed-strategy</span></span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - sports-economics</span></span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["penalty kicks", "minimax", "mixed strategy", "zero-sum game", "football", "Chiappori Levitt Groseclose"]</span></span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["applied-gt", "zero-sum-games"]</span></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_real-world-data-applications_penalty-kicks-minimax"</span></span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Comparison of predicted minimax mixing probabilities versus observed penalty kick directions in professional football"</span></span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/real-world-data-applications/penalty-kicks-minimax/</span></span>
+<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb49-24"><a href="#cb49-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb49-25"><a href="#cb49-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb49-26"><a href="#cb49-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb49-27"><a href="#cb49-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb49-28"><a href="#cb49-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-31"><a href="#cb49-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb49-32"><a href="#cb49-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb49-33"><a href="#cb49-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb49-34"><a href="#cb49-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb49-35"><a href="#cb49-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb49-36"><a href="#cb49-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb49-37"><a href="#cb49-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb49-38"><a href="#cb49-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb49-39"><a href="#cb49-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb49-40"><a href="#cb49-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb49-41"><a href="#cb49-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb49-42"><a href="#cb49-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb49-43"><a href="#cb49-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb49-44"><a href="#cb49-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb49-45"><a href="#cb49-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb49-46"><a href="#cb49-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb49-47"><a href="#cb49-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb49-48"><a href="#cb49-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb49-49"><a href="#cb49-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-50"><a href="#cb49-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-51"><a href="#cb49-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb49-52"><a href="#cb49-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-53"><a href="#cb49-53" aria-hidden="true" tabindex="-1"></a>Penalty kicks in football (soccer) provide one of the cleanest natural laboratories for testing game theory in the real world. The strategic interaction is stark: a kicker must choose a direction (broadly left, centre, or right) and a goalkeeper must simultaneously choose where to dive. The decisions are effectively simultaneous (the goalkeeper must commit before seeing the ball's trajectory), the stakes are high (penalty kicks in professional matches often decide outcomes worth millions), and the players are highly experienced experts with strong incentives to play optimally. This makes penalty kicks an almost textbook example of a **mixed-strategy zero-sum game**.</span>
+<span id="cb49-54"><a href="#cb49-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-55"><a href="#cb49-55" aria-hidden="true" tabindex="-1"></a>@chiappori_levitt_groseclose_2002 analysed penalty kick data from the French and Italian professional leagues and tested whether the observed behaviour was consistent with minimax equilibrium predictions. Their key findings were striking: (1) scoring probabilities were approximately equal across the kicker's choices when conditioning on the goalkeeper's action, consistent with the equilibrium requirement that each player must be indifferent across strategies in their support; (2) individual kickers and goalkeepers appeared to genuinely randomise, with no exploitable serial correlation in their choices; and (3) the overall mixing frequencies were close to theoretically predicted values. @palacios_huerta_2003 found similar results with an expanded dataset, providing further evidence that professional players behave as sophisticated game-theoretic agents.</span>
+<span id="cb49-56"><a href="#cb49-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-57"><a href="#cb49-57" aria-hidden="true" tabindex="-1"></a>The theoretical framework is clean. In a 2x2 simplification (kicker chooses Left or Right, goalkeeper dives Left or Right), the scoring probabilities form a $2 \times 2$ matrix. The key asymmetry is that a kicker who shoots to the "natural side" (same side as their dominant foot) scores more reliably when the goalkeeper goes the wrong way, but is more predictable. Shooting "against the body" to the non-natural side is more effective when the goalkeeper guesses wrong, but is less reliable overall. The minimax equilibrium balances these trade-offs, and the predicted mixing probabilities depend on the exact scoring rates.</span>
+<span id="cb49-58"><a href="#cb49-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-59"><a href="#cb49-59" aria-hidden="true" tabindex="-1"></a>This tutorial builds the penalty kick game from realistic scoring data, solves for the minimax mixed-strategy equilibrium in both 2x2 and 3x3 formulations, compares theoretical predictions against observed frequencies, and explores how changes in scoring technology (kicker skill, goalkeeper athleticism) shift the equilibrium. The analysis demonstrates that game theory is not just an abstract mathematical framework but makes precise quantitative predictions about behaviour in high-stakes, real-world competitive environments.</span>
+<span id="cb49-60"><a href="#cb49-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-61"><a href="#cb49-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-62"><a href="#cb49-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb49-63"><a href="#cb49-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-64"><a href="#cb49-64" aria-hidden="true" tabindex="-1"></a>**2x2 game.** Let the kicker choose $L$ (left) or $R$ (right), and the goalkeeper choose $L$ or $R$. The scoring probability matrix (kicker's payoff in this zero-sum game) is:</span>
+<span id="cb49-65"><a href="#cb49-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-66"><a href="#cb49-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-67"><a href="#cb49-67" aria-hidden="true" tabindex="-1"></a>\Pi = \begin{pmatrix} \pi_{LL} &amp; \pi_{LR} <span class="sc">\\</span> \pi_{RL} &amp; \pi_{RR} \end{pmatrix}</span>
+<span id="cb49-68"><a href="#cb49-68" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-69"><a href="#cb49-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-70"><a href="#cb49-70" aria-hidden="true" tabindex="-1"></a>where $\pi_{ij}$ is the probability of scoring when kicker plays $i$ and goalkeeper plays $j$. Typically $\pi_{LR} &gt; \pi_{LL}$ and $\pi_{RL} &gt; \pi_{RR}$ (kicker is more likely to score when the goalkeeper dives the wrong way).</span>
+<span id="cb49-71"><a href="#cb49-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-72"><a href="#cb49-72" aria-hidden="true" tabindex="-1"></a>**Minimax mixed strategy.** The kicker chooses $L$ with probability $q$ to make the goalkeeper indifferent:</span>
+<span id="cb49-73"><a href="#cb49-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-74"><a href="#cb49-74" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-75"><a href="#cb49-75" aria-hidden="true" tabindex="-1"></a>q \pi_{LL} + (1-q) \pi_{RL} = q \pi_{LR} + (1-q) \pi_{RR}</span>
+<span id="cb49-76"><a href="#cb49-76" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-77"><a href="#cb49-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-78"><a href="#cb49-78" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-79"><a href="#cb49-79" aria-hidden="true" tabindex="-1"></a>q^* = \frac{\pi_{RR} - \pi_{RL}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}</span>
+<span id="cb49-80"><a href="#cb49-80" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-81"><a href="#cb49-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-82"><a href="#cb49-82" aria-hidden="true" tabindex="-1"></a>The goalkeeper chooses $L$ with probability $p$ to make the kicker indifferent:</span>
+<span id="cb49-83"><a href="#cb49-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-84"><a href="#cb49-84" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-85"><a href="#cb49-85" aria-hidden="true" tabindex="-1"></a>p^* = \frac{\pi_{RR} - \pi_{LR}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}</span>
+<span id="cb49-86"><a href="#cb49-86" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-87"><a href="#cb49-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-88"><a href="#cb49-88" aria-hidden="true" tabindex="-1"></a>The **value of the game** (equilibrium scoring probability) is:</span>
+<span id="cb49-89"><a href="#cb49-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-90"><a href="#cb49-90" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-91"><a href="#cb49-91" aria-hidden="true" tabindex="-1"></a>v^* = \frac{\pi_{LL}\pi_{RR} - \pi_{LR}\pi_{RL}}{\pi_{LL} - \pi_{LR} - \pi_{RL} + \pi_{RR}}</span>
+<span id="cb49-92"><a href="#cb49-92" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb49-93"><a href="#cb49-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-94"><a href="#cb49-94" aria-hidden="true" tabindex="-1"></a>**3x3 extension.** Adding a Centre option for both players creates a $3 \times 3$ matrix. The minimax solution requires the equalisation conditions across all strategies in the support, solved via linear programming or the system of indifference equations.</span>
+<span id="cb49-95"><a href="#cb49-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-96"><a href="#cb49-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-97"><a href="#cb49-97" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb49-98"><a href="#cb49-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-101"><a href="#cb49-101" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb49-102"><a href="#cb49-102" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: penalty-kick-minimax</span></span>
+<span id="cb49-103"><a href="#cb49-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-104"><a href="#cb49-104" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Scoring probability matrix (realistic data from literature) ---</span></span>
+<span id="cb49-105"><a href="#cb49-105" aria-hidden="true" tabindex="-1"></a><span class="co"># Based on aggregated data from professional leagues</span></span>
+<span id="cb49-106"><a href="#cb49-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows: kicker (L, C, R), Columns: goalkeeper (L, C, R)</span></span>
+<span id="cb49-107"><a href="#cb49-107" aria-hidden="true" tabindex="-1"></a><span class="co"># Entry = probability of scoring</span></span>
+<span id="cb49-108"><a href="#cb49-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-109"><a href="#cb49-109" aria-hidden="true" tabindex="-1"></a>scoring_3x3 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(</span>
+<span id="cb49-110"><a href="#cb49-110" aria-hidden="true" tabindex="-1"></a>  <span class="fl">0.58</span>, <span class="fl">0.95</span>, <span class="fl">0.93</span>,   <span class="co"># kicker L, goalkeeper L/C/R</span></span>
+<span id="cb49-111"><a href="#cb49-111" aria-hidden="true" tabindex="-1"></a>  <span class="fl">0.72</span>, <span class="fl">0.45</span>, <span class="fl">0.72</span>,   <span class="co"># kicker C, goalkeeper L/C/R</span></span>
+<span id="cb49-112"><a href="#cb49-112" aria-hidden="true" tabindex="-1"></a>  <span class="fl">0.93</span>, <span class="fl">0.95</span>, <span class="fl">0.58</span>    <span class="co"># kicker R, goalkeeper L/C/R</span></span>
+<span id="cb49-113"><a href="#cb49-113" aria-hidden="true" tabindex="-1"></a>), <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb49-114"><a href="#cb49-114" aria-hidden="true" tabindex="-1"></a><span class="at">dimnames =</span> <span class="fu">list</span>(<span class="at">Kicker =</span> <span class="fu">c</span>(<span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span>),</span>
+<span id="cb49-115"><a href="#cb49-115" aria-hidden="true" tabindex="-1"></a>                <span class="at">Goalkeeper =</span> <span class="fu">c</span>(<span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span>)))</span>
+<span id="cb49-116"><a href="#cb49-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-117"><a href="#cb49-117" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Scoring Probability Matrix ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-118"><a href="#cb49-118" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(scoring_3x3, <span class="dv">2</span>))</span>
+<span id="cb49-119"><a href="#cb49-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-120"><a href="#cb49-120" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 2x2 version (Left/Right only) ---</span></span>
+<span id="cb49-121"><a href="#cb49-121" aria-hidden="true" tabindex="-1"></a>scoring_2x2 <span class="ot">&lt;-</span> scoring_3x3[<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>)]</span>
+<span id="cb49-122"><a href="#cb49-122" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== 2x2 Subgame (L/R only) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-123"><a href="#cb49-123" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(scoring_2x2, <span class="dv">2</span>))</span>
+<span id="cb49-124"><a href="#cb49-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-125"><a href="#cb49-125" aria-hidden="true" tabindex="-1"></a><span class="co"># Minimax for 2x2</span></span>
+<span id="cb49-126"><a href="#cb49-126" aria-hidden="true" tabindex="-1"></a>solve_2x2_minimax <span class="ot">&lt;-</span> <span class="cf">function</span>(M) {</span>
+<span id="cb49-127"><a href="#cb49-127" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> M[<span class="dv">1</span>,<span class="dv">1</span>]; b <span class="ot">&lt;-</span> M[<span class="dv">1</span>,<span class="dv">2</span>]; c <span class="ot">&lt;-</span> M[<span class="dv">2</span>,<span class="dv">1</span>]; d <span class="ot">&lt;-</span> M[<span class="dv">2</span>,<span class="dv">2</span>]</span>
+<span id="cb49-128"><a href="#cb49-128" aria-hidden="true" tabindex="-1"></a>  denom <span class="ot">&lt;-</span> a <span class="sc">-</span> b <span class="sc">-</span> c <span class="sc">+</span> d</span>
+<span id="cb49-129"><a href="#cb49-129" aria-hidden="true" tabindex="-1"></a>  q_star <span class="ot">&lt;-</span> (d <span class="sc">-</span> c) <span class="sc">/</span> denom  <span class="co"># kicker plays Row 1 (Left)</span></span>
+<span id="cb49-130"><a href="#cb49-130" aria-hidden="true" tabindex="-1"></a>  p_star <span class="ot">&lt;-</span> (d <span class="sc">-</span> b) <span class="sc">/</span> denom  <span class="co"># goalkeeper plays Col 1 (Left)</span></span>
+<span id="cb49-131"><a href="#cb49-131" aria-hidden="true" tabindex="-1"></a>  value <span class="ot">&lt;-</span> (a <span class="sc">*</span> d <span class="sc">-</span> b <span class="sc">*</span> c) <span class="sc">/</span> denom</span>
+<span id="cb49-132"><a href="#cb49-132" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">q_kicker_L =</span> q_star, <span class="at">p_gk_L =</span> p_star, <span class="at">value =</span> value)</span>
+<span id="cb49-133"><a href="#cb49-133" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb49-134"><a href="#cb49-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-135"><a href="#cb49-135" aria-hidden="true" tabindex="-1"></a>sol_2x2 <span class="ot">&lt;-</span> <span class="fu">solve_2x2_minimax</span>(scoring_2x2)</span>
+<span id="cb49-136"><a href="#cb49-136" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== 2x2 Minimax Solution ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-137"><a href="#cb49-137" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Kicker:     P(Left) = %.4f, P(Right) = %.4f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-138"><a href="#cb49-138" aria-hidden="true" tabindex="-1"></a>            sol_2x2<span class="sc">$</span>q_kicker_L, <span class="dv">1</span> <span class="sc">-</span> sol_2x2<span class="sc">$</span>q_kicker_L))</span>
+<span id="cb49-139"><a href="#cb49-139" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Goalkeeper: P(Left) = %.4f, P(Right) = %.4f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-140"><a href="#cb49-140" aria-hidden="true" tabindex="-1"></a>            sol_2x2<span class="sc">$</span>p_gk_L, <span class="dv">1</span> <span class="sc">-</span> sol_2x2<span class="sc">$</span>p_gk_L))</span>
+<span id="cb49-141"><a href="#cb49-141" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Equilibrium scoring probability: %.4f</span><span class="sc">\n</span><span class="st">"</span>, sol_2x2<span class="sc">$</span>value))</span>
+<span id="cb49-142"><a href="#cb49-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-143"><a href="#cb49-143" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 3x3 minimax via iterative best response (fictitious play) ---</span></span>
+<span id="cb49-144"><a href="#cb49-144" aria-hidden="true" tabindex="-1"></a>solve_3x3_minimax <span class="ot">&lt;-</span> <span class="cf">function</span>(M, <span class="at">n_iter =</span> <span class="dv">50000</span>) {</span>
+<span id="cb49-145"><a href="#cb49-145" aria-hidden="true" tabindex="-1"></a>  nr <span class="ot">&lt;-</span> <span class="fu">nrow</span>(M); nc <span class="ot">&lt;-</span> <span class="fu">ncol</span>(M)</span>
+<span id="cb49-146"><a href="#cb49-146" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fictitious play</span></span>
+<span id="cb49-147"><a href="#cb49-147" aria-hidden="true" tabindex="-1"></a>  kicker_counts <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, nr)</span>
+<span id="cb49-148"><a href="#cb49-148" aria-hidden="true" tabindex="-1"></a>  gk_counts <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, nc)</span>
+<span id="cb49-149"><a href="#cb49-149" aria-hidden="true" tabindex="-1"></a>  kicker_counts[<span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="dv">1</span>  <span class="co"># initialise</span></span>
+<span id="cb49-150"><a href="#cb49-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-151"><a href="#cb49-151" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="dv">2</span><span class="sc">:</span>n_iter) {</span>
+<span id="cb49-152"><a href="#cb49-152" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Goalkeeper best-responds to kicker's historical mix</span></span>
+<span id="cb49-153"><a href="#cb49-153" aria-hidden="true" tabindex="-1"></a>    kicker_mix <span class="ot">&lt;-</span> kicker_counts <span class="sc">/</span> <span class="fu">sum</span>(kicker_counts)</span>
+<span id="cb49-154"><a href="#cb49-154" aria-hidden="true" tabindex="-1"></a>    gk_payoffs <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">as.numeric</span>(<span class="fu">t</span>(M) <span class="sc">%*%</span> kicker_mix)  <span class="co"># GK minimises scoring</span></span>
+<span id="cb49-155"><a href="#cb49-155" aria-hidden="true" tabindex="-1"></a>    gk_br <span class="ot">&lt;-</span> <span class="fu">which.min</span>(gk_payoffs)  <span class="co"># minimise scoring probability</span></span>
+<span id="cb49-156"><a href="#cb49-156" aria-hidden="true" tabindex="-1"></a>    gk_counts[gk_br] <span class="ot">&lt;-</span> gk_counts[gk_br] <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb49-157"><a href="#cb49-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-158"><a href="#cb49-158" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Kicker best-responds to goalkeeper's historical mix</span></span>
+<span id="cb49-159"><a href="#cb49-159" aria-hidden="true" tabindex="-1"></a>    gk_mix <span class="ot">&lt;-</span> gk_counts <span class="sc">/</span> <span class="fu">sum</span>(gk_counts)</span>
+<span id="cb49-160"><a href="#cb49-160" aria-hidden="true" tabindex="-1"></a>    kicker_payoffs <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(M <span class="sc">%*%</span> gk_mix)</span>
+<span id="cb49-161"><a href="#cb49-161" aria-hidden="true" tabindex="-1"></a>    kicker_br <span class="ot">&lt;-</span> <span class="fu">which.max</span>(kicker_payoffs)</span>
+<span id="cb49-162"><a href="#cb49-162" aria-hidden="true" tabindex="-1"></a>    kicker_counts[kicker_br] <span class="ot">&lt;-</span> kicker_counts[kicker_br] <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb49-163"><a href="#cb49-163" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb49-164"><a href="#cb49-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-165"><a href="#cb49-165" aria-hidden="true" tabindex="-1"></a>  kicker_mix <span class="ot">&lt;-</span> kicker_counts <span class="sc">/</span> <span class="fu">sum</span>(kicker_counts)</span>
+<span id="cb49-166"><a href="#cb49-166" aria-hidden="true" tabindex="-1"></a>  gk_mix <span class="ot">&lt;-</span> gk_counts <span class="sc">/</span> <span class="fu">sum</span>(gk_counts)</span>
+<span id="cb49-167"><a href="#cb49-167" aria-hidden="true" tabindex="-1"></a>  value <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(kicker_mix <span class="sc">%*%</span> M <span class="sc">%*%</span> gk_mix)</span>
+<span id="cb49-168"><a href="#cb49-168" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">kicker_mix =</span> kicker_mix, <span class="at">gk_mix =</span> gk_mix, <span class="at">value =</span> value)</span>
+<span id="cb49-169"><a href="#cb49-169" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb49-170"><a href="#cb49-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-171"><a href="#cb49-171" aria-hidden="true" tabindex="-1"></a>sol_3x3 <span class="ot">&lt;-</span> <span class="fu">solve_3x3_minimax</span>(scoring_3x3)</span>
+<span id="cb49-172"><a href="#cb49-172" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== 3x3 Minimax Solution (Fictitious Play) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-173"><a href="#cb49-173" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Kicker:     P(L)=%.4f, P(C)=%.4f, P(R)=%.4f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-174"><a href="#cb49-174" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">1</span>], sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">2</span>], sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">3</span>]))</span>
+<span id="cb49-175"><a href="#cb49-175" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Goalkeeper: P(L)=%.4f, P(C)=%.4f, P(R)=%.4f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-176"><a href="#cb49-176" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>gk_mix[<span class="dv">1</span>], sol_3x3<span class="sc">$</span>gk_mix[<span class="dv">2</span>], sol_3x3<span class="sc">$</span>gk_mix[<span class="dv">3</span>]))</span>
+<span id="cb49-177"><a href="#cb49-177" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Equilibrium scoring probability: %.4f</span><span class="sc">\n</span><span class="st">"</span>, sol_3x3<span class="sc">$</span>value))</span>
+<span id="cb49-178"><a href="#cb49-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-179"><a href="#cb49-179" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Observed frequencies (stylised from literature) ---</span></span>
+<span id="cb49-180"><a href="#cb49-180" aria-hidden="true" tabindex="-1"></a>observed_kicker <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">Left =</span> <span class="fl">0.38</span>, <span class="at">Centre =</span> <span class="fl">0.17</span>, <span class="at">Right =</span> <span class="fl">0.45</span>)</span>
+<span id="cb49-181"><a href="#cb49-181" aria-hidden="true" tabindex="-1"></a>observed_gk <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">Left =</span> <span class="fl">0.42</span>, <span class="at">Centre =</span> <span class="fl">0.07</span>, <span class="at">Right =</span> <span class="fl">0.51</span>)</span>
+<span id="cb49-182"><a href="#cb49-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-183"><a href="#cb49-183" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== Predicted vs Observed Mixing ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-184"><a href="#cb49-184" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Kicker:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-185"><a href="#cb49-185" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Left:   predicted=%.3f  observed=%.3f  diff=%.3f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-186"><a href="#cb49-186" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">1</span>], observed_kicker[<span class="dv">1</span>],</span>
+<span id="cb49-187"><a href="#cb49-187" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">1</span>] <span class="sc">-</span> observed_kicker[<span class="dv">1</span>]))</span>
+<span id="cb49-188"><a href="#cb49-188" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Centre: predicted=%.3f  observed=%.3f  diff=%.3f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-189"><a href="#cb49-189" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">2</span>], observed_kicker[<span class="dv">2</span>],</span>
+<span id="cb49-190"><a href="#cb49-190" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">2</span>] <span class="sc">-</span> observed_kicker[<span class="dv">2</span>]))</span>
+<span id="cb49-191"><a href="#cb49-191" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Right:  predicted=%.3f  observed=%.3f  diff=%.3f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb49-192"><a href="#cb49-192" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">3</span>], observed_kicker[<span class="dv">3</span>],</span>
+<span id="cb49-193"><a href="#cb49-193" aria-hidden="true" tabindex="-1"></a>            sol_3x3<span class="sc">$</span>kicker_mix[<span class="dv">3</span>] <span class="sc">-</span> observed_kicker[<span class="dv">3</span>]))</span>
+<span id="cb49-194"><a href="#cb49-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-195"><a href="#cb49-195" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Verify indifference conditions ---</span></span>
+<span id="cb49-196"><a href="#cb49-196" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== Verifying Equilibrium Indifference ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-197"><a href="#cb49-197" aria-hidden="true" tabindex="-1"></a>kicker_payoffs_by_dir <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(scoring_3x3 <span class="sc">%*%</span> sol_3x3<span class="sc">$</span>gk_mix)</span>
+<span id="cb49-198"><a href="#cb49-198" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Kicker's expected scoring probability by direction:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-199"><a href="#cb49-199" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Left:   %.4f</span><span class="sc">\n</span><span class="st">"</span>, kicker_payoffs_by_dir[<span class="dv">1</span>]))</span>
+<span id="cb49-200"><a href="#cb49-200" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Centre: %.4f</span><span class="sc">\n</span><span class="st">"</span>, kicker_payoffs_by_dir[<span class="dv">2</span>]))</span>
+<span id="cb49-201"><a href="#cb49-201" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Right:  %.4f</span><span class="sc">\n</span><span class="st">"</span>, kicker_payoffs_by_dir[<span class="dv">3</span>]))</span>
+<span id="cb49-202"><a href="#cb49-202" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"(Should be approximately equal if all are in support)</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb49-203"><a href="#cb49-203" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb49-204"><a href="#cb49-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-205"><a href="#cb49-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-206"><a href="#cb49-206" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb49-207"><a href="#cb49-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-210"><a href="#cb49-210" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb49-211"><a href="#cb49-211" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-predicted-vs-observed</span></span>
+<span id="cb49-212"><a href="#cb49-212" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Predicted minimax mixing probabilities versus observed frequencies for penalty kick directions in professional football. Left panel: kicker's direction choice. Right panel: goalkeeper's dive direction. Minimax predictions (solid bars) are computed from the 3x3 scoring probability matrix; observed frequencies (striped bars) are stylised from Chiappori et al. (2002) and Palacios-Huerta (2003). The close correspondence supports the hypothesis that professional players mix approximately according to minimax theory. Okabe-Ito palette."</span></span>
+<span id="cb49-213"><a href="#cb49-213" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb49-214"><a href="#cb49-214" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
+<span id="cb49-215"><a href="#cb49-215" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb49-216"><a href="#cb49-216" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb49-217"><a href="#cb49-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-218"><a href="#cb49-218" aria-hidden="true" tabindex="-1"></a>comparison_data <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb49-219"><a href="#cb49-219" aria-hidden="true" tabindex="-1"></a>  <span class="at">direction =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span>), <span class="dv">4</span>),</span>
+<span id="cb49-220"><a href="#cb49-220" aria-hidden="true" tabindex="-1"></a>  <span class="at">probability =</span> <span class="fu">c</span>(sol_3x3<span class="sc">$</span>kicker_mix, observed_kicker,</span>
+<span id="cb49-221"><a href="#cb49-221" aria-hidden="true" tabindex="-1"></a>                  sol_3x3<span class="sc">$</span>gk_mix, observed_gk),</span>
+<span id="cb49-222"><a href="#cb49-222" aria-hidden="true" tabindex="-1"></a>  <span class="at">source =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Minimax prediction"</span>, <span class="st">"Observed data"</span>,</span>
+<span id="cb49-223"><a href="#cb49-223" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"Minimax prediction"</span>, <span class="st">"Observed data"</span>), <span class="at">each =</span> <span class="dv">3</span>),</span>
+<span id="cb49-224"><a href="#cb49-224" aria-hidden="true" tabindex="-1"></a>  <span class="at">player =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Kicker"</span>, <span class="st">"Kicker"</span>, <span class="st">"Goalkeeper"</span>, <span class="st">"Goalkeeper"</span>), <span class="at">each =</span> <span class="dv">3</span>)</span>
+<span id="cb49-225"><a href="#cb49-225" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb49-226"><a href="#cb49-226" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">direction =</span> <span class="fu">factor</span>(direction, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"Left"</span>, <span class="st">"Centre"</span>, <span class="st">"Right"</span>)))</span>
+<span id="cb49-227"><a href="#cb49-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-228"><a href="#cb49-228" aria-hidden="true" tabindex="-1"></a>p_static <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(comparison_data,</span>
+<span id="cb49-229"><a href="#cb49-229" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">aes</span>(<span class="at">x =</span> direction, <span class="at">y =</span> probability, <span class="at">fill =</span> source)) <span class="sc">+</span></span>
+<span id="cb49-230"><a href="#cb49-230" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.7</span>), <span class="at">width =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb49-231"><a href="#cb49-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">round</span>(probability, <span class="dv">3</span>)),</span>
+<span id="cb49-232"><a href="#cb49-232" aria-hidden="true" tabindex="-1"></a>            <span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.7</span>), <span class="at">vjust =</span> <span class="sc">-</span><span class="fl">0.3</span>, <span class="at">size =</span> <span class="fl">2.8</span>) <span class="sc">+</span></span>
+<span id="cb49-233"><a href="#cb49-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>player) <span class="sc">+</span></span>
+<span id="cb49-234"><a href="#cb49-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"Minimax prediction"</span> <span class="ot">=</span> okabe_ito[<span class="dv">5</span>],</span>
+<span id="cb49-235"><a href="#cb49-235" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"Observed data"</span> <span class="ot">=</span> okabe_ito[<span class="dv">1</span>]),</span>
+<span id="cb49-236"><a href="#cb49-236" aria-hidden="true" tabindex="-1"></a>                     <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb49-237"><a href="#cb49-237" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Penalty kicks: minimax prediction vs observed mixing"</span>,</span>
+<span id="cb49-238"><a href="#cb49-238" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Professional football data broadly supports minimax play"</span>,</span>
+<span id="cb49-239"><a href="#cb49-239" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Direction"</span>, <span class="at">y =</span> <span class="st">"Probability"</span>) <span class="sc">+</span></span>
+<span id="cb49-240"><a href="#cb49-240" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>() <span class="sc">+</span></span>
+<span id="cb49-241"><a href="#cb49-241" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>)) <span class="sc">+</span></span>
+<span id="cb49-242"><a href="#cb49-242" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.6</span>))</span>
+<span id="cb49-243"><a href="#cb49-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-244"><a href="#cb49-244" aria-hidden="true" tabindex="-1"></a>p_static</span>
+<span id="cb49-245"><a href="#cb49-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb49-246"><a href="#cb49-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-247"><a href="#cb49-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-248"><a href="#cb49-248" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb49-249"><a href="#cb49-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-252"><a href="#cb49-252" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb49-253"><a href="#cb49-253" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-sensitivity-interactive</span></span>
+<span id="cb49-254"><a href="#cb49-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-255"><a href="#cb49-255" aria-hidden="true" tabindex="-1"></a><span class="co"># How does equilibrium change as we vary the diagonal (same-side) scoring rate?</span></span>
+<span id="cb49-256"><a href="#cb49-256" aria-hidden="true" tabindex="-1"></a>diag_seq <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">0.30</span>, <span class="fl">0.80</span>, <span class="at">by =</span> <span class="fl">0.01</span>)</span>
+<span id="cb49-257"><a href="#cb49-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-258"><a href="#cb49-258" aria-hidden="true" tabindex="-1"></a>sensitivity_data <span class="ot">&lt;-</span> <span class="fu">lapply</span>(diag_seq, <span class="cf">function</span>(d) {</span>
+<span id="cb49-259"><a href="#cb49-259" aria-hidden="true" tabindex="-1"></a>  M <span class="ot">&lt;-</span> scoring_3x3</span>
+<span id="cb49-260"><a href="#cb49-260" aria-hidden="true" tabindex="-1"></a>  M[<span class="dv">1</span>,<span class="dv">1</span>] <span class="ot">&lt;-</span> d; M[<span class="dv">3</span>,<span class="dv">3</span>] <span class="ot">&lt;-</span> d  <span class="co"># symmetric same-side rate</span></span>
+<span id="cb49-261"><a href="#cb49-261" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">solve_3x3_minimax</span>(M, <span class="at">n_iter =</span> <span class="dv">20000</span>)</span>
+<span id="cb49-262"><a href="#cb49-262" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">diag_rate =</span> d,</span>
+<span id="cb49-263"><a href="#cb49-263" aria-hidden="true" tabindex="-1"></a>         <span class="at">kicker_L =</span> sol<span class="sc">$</span>kicker_mix[<span class="dv">1</span>],</span>
+<span id="cb49-264"><a href="#cb49-264" aria-hidden="true" tabindex="-1"></a>         <span class="at">kicker_C =</span> sol<span class="sc">$</span>kicker_mix[<span class="dv">2</span>],</span>
+<span id="cb49-265"><a href="#cb49-265" aria-hidden="true" tabindex="-1"></a>         <span class="at">kicker_R =</span> sol<span class="sc">$</span>kicker_mix[<span class="dv">3</span>],</span>
+<span id="cb49-266"><a href="#cb49-266" aria-hidden="true" tabindex="-1"></a>         <span class="at">eq_scoring =</span> sol<span class="sc">$</span>value)</span>
+<span id="cb49-267"><a href="#cb49-267" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>() <span class="sc">|&gt;</span></span>
+<span id="cb49-268"><a href="#cb49-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(kicker_L, kicker_C, kicker_R, eq_scoring),</span>
+<span id="cb49-269"><a href="#cb49-269" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">"variable"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb49-270"><a href="#cb49-270" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">var_label =</span> <span class="fu">case_when</span>(</span>
+<span id="cb49-271"><a href="#cb49-271" aria-hidden="true" tabindex="-1"></a>    variable <span class="sc">==</span> <span class="st">"kicker_L"</span> <span class="sc">~</span> <span class="st">"P(Kick Left)"</span>,</span>
+<span id="cb49-272"><a href="#cb49-272" aria-hidden="true" tabindex="-1"></a>    variable <span class="sc">==</span> <span class="st">"kicker_C"</span> <span class="sc">~</span> <span class="st">"P(Kick Centre)"</span>,</span>
+<span id="cb49-273"><a href="#cb49-273" aria-hidden="true" tabindex="-1"></a>    variable <span class="sc">==</span> <span class="st">"kicker_R"</span> <span class="sc">~</span> <span class="st">"P(Kick Right)"</span>,</span>
+<span id="cb49-274"><a href="#cb49-274" aria-hidden="true" tabindex="-1"></a>    variable <span class="sc">==</span> <span class="st">"eq_scoring"</span> <span class="sc">~</span> <span class="st">"Equilibrium scoring rate"</span></span>
+<span id="cb49-275"><a href="#cb49-275" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb49-276"><a href="#cb49-276" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Same-side scoring: "</span>, <span class="fu">round</span>(diag_rate, <span class="dv">2</span>),</span>
+<span id="cb49-277"><a href="#cb49-277" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, var_label, <span class="st">": "</span>, <span class="fu">round</span>(value, <span class="dv">4</span>)))</span>
+<span id="cb49-278"><a href="#cb49-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-279"><a href="#cb49-279" aria-hidden="true" tabindex="-1"></a>p_int <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(sensitivity_data,</span>
+<span id="cb49-280"><a href="#cb49-280" aria-hidden="true" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">x =</span> diag_rate, <span class="at">y =</span> value, <span class="at">color =</span> var_label, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb49-281"><a href="#cb49-281" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb49-282"><a href="#cb49-282" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> okabe_ito[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">6</span>)], <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb49-283"><a href="#cb49-283" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Sensitivity: how same-side scoring probability shifts equilibrium"</span>,</span>
+<span id="cb49-284"><a href="#cb49-284" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"As it becomes harder to score when GK guesses correctly, kicker diversifies more"</span>,</span>
+<span id="cb49-285"><a href="#cb49-285" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Same-side scoring probability"</span>, <span class="at">y =</span> <span class="st">"Value"</span>) <span class="sc">+</span></span>
+<span id="cb49-286"><a href="#cb49-286" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb49-287"><a href="#cb49-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-288"><a href="#cb49-288" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_int, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb49-289"><a href="#cb49-289" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>, <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb49-290"><a href="#cb49-290" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb49-291"><a href="#cb49-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-292"><a href="#cb49-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-293"><a href="#cb49-293" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb49-294"><a href="#cb49-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-295"><a href="#cb49-295" aria-hidden="true" tabindex="-1"></a>The penalty kick analysis provides compelling evidence that game theory's mixed-strategy equilibrium concept describes real behaviour, at least among experienced professionals operating in high-stakes repeated interactions. The minimax predictions from the 3x3 scoring matrix are broadly consistent with observed kick and dive frequencies: kickers favour their natural side but mix in enough kicks to the opposite side and centre to keep goalkeepers uncertain, and goalkeepers dive roughly in proportion to the predicted frequencies. The indifference condition --- that the kicker's scoring probability is approximately equalised across all directions in the support --- is the signature prediction of minimax play, and empirical data supports it.</span>
+<span id="cb49-296"><a href="#cb49-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-297"><a href="#cb49-297" aria-hidden="true" tabindex="-1"></a>Several caveats are important. First, the stylised scoring probabilities used here are aggregates; individual kickers and goalkeepers have heterogeneous abilities, and the optimal mix varies by player. Second, the model assumes simultaneous moves, but in reality the goalkeeper has a tiny window to react, introducing a sequential element. Third, psychological factors (choking under pressure, preferences for natural sides) may create deviations from pure minimax play. Finally, centre kicks are particularly interesting: they have the highest scoring rate when the goalkeeper dives to a side, but are psychologically difficult (kicking straight at the goalkeeper "feels" risky) and dangerous when the goalkeeper stays put. The equilibrium frequency of centre kicks is typically lower than what theory predicts as optimal, suggesting that psychological costs not captured in the scoring matrix play a role. Despite these caveats, the penalty kick setting remains one of the most convincing real-world demonstrations that mixed-strategy equilibrium has predictive power beyond the laboratory.</span>
+<span id="cb49-298"><a href="#cb49-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-299"><a href="#cb49-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-300"><a href="#cb49-300" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb49-301"><a href="#cb49-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-302"><a href="#cb49-302" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Mixed-strategy Nash equilibrium</span><span class="co">](../../foundations/nash-equilibrium-mixed/)</span> --- the foundational theory behind minimax mixing.</span>
+<span id="cb49-303"><a href="#cb49-303" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Zero-sum games and the minimax theorem</span><span class="co">](../../foundations/minimax-theorem-zero-sum/)</span> --- von Neumann's theorem that guarantees the minimax solution.</span>
+<span id="cb49-304"><a href="#cb49-304" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Arms race and Cold War</span><span class="co">](../arms-race-cold-war/)</span> --- another real-world application of strategic interaction under conflict.</span>
+<span id="cb49-305"><a href="#cb49-305" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Level-k thinking and cognitive hierarchy</span><span class="co">](../../behavioral-gt/level-k-cognitive-hierarchy/)</span> --- what if players do not play exactly minimax?</span>
+<span id="cb49-306"><a href="#cb49-306" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Cuban Missile Crisis as signaling game</span><span class="co">](../cuban-missile-crisis-signaling-game/)</span> --- game theory applied to geopolitical strategy.</span>
+<span id="cb49-307"><a href="#cb49-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-308"><a href="#cb49-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-309"><a href="#cb49-309" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb49-310"><a href="#cb49-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-311"><a href="#cb49-311" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb49-312"><a href="#cb49-312" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/real-world-data-applications/penalty-kicks-minimax/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/real-world-data-applications/penalty-kicks-minimax/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

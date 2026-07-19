@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="GAN, generative adversarial network, minimax game, zero-sum, generator, discriminator, Nash equilibrium">
+<meta name="description" content="Frame GANs as two-player zero-sum games in R, implement a simple GAN training loop for 1D data, visualise the generator-discriminator dynamics, and connect the equilibrium to Nash equilibrium theory.">
+<title>Generative adversarial networks as minimax games – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-7945cf3d8e8e75b40d08f762a0e66ee2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Generative adversarial networks as minimax games</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">ai-ml-foundations-and-applications</div>
+    <div class="quarto-category">gans</div>
+    <div class="quarto-category">minimax</div>
+    <div class="quarto-category">zero-sum</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Frame GANs as two-player zero-sum games in R, implement a simple GAN training loop for 1D data, visualise the generator-discriminator dynamics, and connect the equilibrium to Nash equilibrium theory.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>GAN, generative adversarial network, minimax game, zero-sum, generator, discriminator, Nash equilibrium</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Generative Adversarial Networks (GANs), introduced by Ian Goodfellow and colleagues in 2014, are one of the most striking applications of game theory in modern machine learning. A GAN consists of two neural networks — a <strong>Generator</strong> (G) that produces synthetic data and a <strong>Discriminator</strong> (D) that attempts to distinguish real data from fake — locked in a <strong>minimax game</strong>. The Generator tries to fool the Discriminator; the Discriminator tries to detect the Generator’s fakes. This adversarial dynamic is precisely a two-player zero-sum game: G’s loss is D’s gain. Goodfellow proved that the unique Nash equilibrium of this game occurs when G perfectly reproduces the data distribution and D outputs 1/2 everywhere (unable to distinguish real from fake). The training process — alternating gradient descent on G and D — is a computational implementation of best-response dynamics in continuous strategy spaces. GANs have revolutionised generative modelling, producing photo-realistic images, realistic text, and synthetic data for privacy-preserving analytics. But their game-theoretic nature also explains their notorious training difficulties: mode collapse (G learns only part of the distribution), oscillation (the minimax dynamics fail to converge), and sensitivity to hyperparameters. This tutorial implements a simplified GAN in pure R (no deep learning frameworks) for 1D distribution matching, visualises the adversarial training dynamics, and connects the convergence behaviour to game-theoretic equilibrium concepts — demonstrating that understanding GANs requires understanding games.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>The GAN objective is a minimax game over function spaces:</p>
+<p><span class="math display">\[\min_G \max_D V(D, G) = E_{x \sim p_{\text{data}}}[\log D(x)] + E_{z \sim p_z}[\log(1 - D(G(z)))]\]</span></p>
+<p><strong>Optimal discriminator</strong> (for fixed G): <span class="math inline">\(D^*(x) = \frac{p_{\text{data}}(x)}{p_{\text{data}}(x) + p_G(x)}\)</span></p>
+<p><strong>Optimal generator</strong> (at Nash equilibrium): <span class="math inline">\(p_G = p_{\text{data}}\)</span>, yielding <span class="math inline">\(D^*(x) = 1/2\)</span> everywhere and <span class="math inline">\(V(D^*, G^*) = -\log 4\)</span>.</p>
+<p>The training alternates:</p>
+<ol type="1">
+<li>
+<strong>D-step</strong>: update <span class="math inline">\(D\)</span> to maximise <span class="math inline">\(V\)</span> (classify real vs fake better)</li>
+<li>
+<strong>G-step</strong>: update <span class="math inline">\(G\)</span> to minimise <span class="math inline">\(V\)</span> (generate more convincing fakes)</li>
+</ol>
+<p>This is a continuous-strategy zero-sum game where the “actions” are the parameters of the neural networks.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># === Simple 1D GAN: learn a Gaussian mixture ===</span></span>
+<span><span class="co"># Target distribution: mixture of N(−2, 0.5²) and N(2, 0.5²)</span></span>
+<span><span class="va">target_sample</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">components</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="va">n</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">components</span> <span class="op">==</span> <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="op">-</span><span class="fl">2</span>, <span class="fl">0.5</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">2</span>, <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Generator: z ~ N(0,1) → G(z) = a*z + b (linear transform with mixture)</span></span>
+<span><span class="co"># Parameterised as a mixture of K=2 linear maps: G(z) = a_k*z + b_k with prob pi_k</span></span>
+<span><span class="co"># This allows the generator to learn a mixture of Gaussians</span></span>
+<span></span>
+<span><span class="co"># Discriminator: logistic regression with RBF features</span></span>
+<span><span class="co"># D(x) = sigmoid(w' * phi(x) + bias), phi(x) = [rbf(x, c1), ..., rbf(x, cK)]</span></span>
+<span><span class="va">rbf_features</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">centers</span>, <span class="va">sigma</span> <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">centers</span>, <span class="kw">function</span><span class="op">(</span><span class="va">c</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">exp</a></span><span class="op">(</span><span class="op">-</span><span class="op">(</span><span class="va">x</span> <span class="op">-</span> <span class="va">c</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">sigma</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Setup</span></span>
+<span><span class="va">n_centers</span> <span class="op">&lt;-</span> <span class="fl">20</span></span>
+<span><span class="va">d_centers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">5</span>, <span class="fl">5</span>, length.out <span class="op">=</span> <span class="va">n_centers</span><span class="op">)</span></span>
+<span><span class="va">d_weights</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n_centers</span>, <span class="fl">0</span>, <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="va">d_bias</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span></span>
+<span><span class="co"># Generator params: 2-component mixture</span></span>
+<span><span class="va">g_means</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>      <span class="co"># initial means</span></span>
+<span><span class="va">g_sds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>        <span class="co"># initial sds</span></span>
+<span><span class="va">g_mix</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.5</span><span class="op">)</span>    <span class="co"># mixing weights</span></span>
+<span></span>
+<span><span class="va">sigmoid</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmin</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmax</a></span><span class="op">(</span><span class="va">x</span>, <span class="op">-</span><span class="fl">500</span><span class="op">)</span>, <span class="fl">500</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Training loop</span></span>
+<span><span class="va">n_epochs</span> <span class="op">&lt;-</span> <span class="fl">300</span></span>
+<span><span class="va">batch_size</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
+<span><span class="va">d_lr</span> <span class="op">&lt;-</span> <span class="fl">0.05</span></span>
+<span><span class="va">g_lr</span> <span class="op">&lt;-</span> <span class="fl">0.02</span></span>
+<span><span class="va">history</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">epoch</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n_epochs</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># --- D-step: maximise log D(x_real) + log(1 - D(x_fake)) ---</span></span>
+<span>  <span class="va">x_real</span> <span class="op">&lt;-</span> <span class="fu">target_sample</span><span class="op">(</span><span class="va">batch_size</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># Generate fake samples from mixture</span></span>
+<span>  <span class="va">k</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="va">batch_size</span>, replace <span class="op">=</span> <span class="cn">TRUE</span>, prob <span class="op">=</span> <span class="va">g_mix</span><span class="op">)</span></span>
+<span>  <span class="va">x_fake</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">batch_size</span>, <span class="va">g_means</span><span class="op">[</span><span class="va">k</span><span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">k</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">phi_real</span> <span class="op">&lt;-</span> <span class="fu">rbf_features</span><span class="op">(</span><span class="va">x_real</span>, <span class="va">d_centers</span><span class="op">)</span></span>
+<span>  <span class="va">phi_fake</span> <span class="op">&lt;-</span> <span class="fu">rbf_features</span><span class="op">(</span><span class="va">x_fake</span>, <span class="va">d_centers</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">D_real</span> <span class="op">&lt;-</span> <span class="fu">sigmoid</span><span class="op">(</span><span class="va">phi_real</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">d_weights</span> <span class="op">+</span> <span class="va">d_bias</span><span class="op">)</span></span>
+<span>  <span class="va">D_fake</span> <span class="op">&lt;-</span> <span class="fu">sigmoid</span><span class="op">(</span><span class="va">phi_fake</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">d_weights</span> <span class="op">+</span> <span class="va">d_bias</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># Gradient for D (maximise)</span></span>
+<span>  <span class="va">grad_w</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html">colMeans</a></span><span class="op">(</span><span class="va">phi_real</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html">as.vector</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">D_real</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html">colMeans</a></span><span class="op">(</span><span class="va">phi_fake</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html">as.vector</a></span><span class="op">(</span><span class="va">D_fake</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">grad_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">D_real</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">D_fake</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">d_weights</span> <span class="op">&lt;-</span> <span class="va">d_weights</span> <span class="op">+</span> <span class="va">d_lr</span> <span class="op">*</span> <span class="va">grad_w</span></span>
+<span>  <span class="va">d_bias</span> <span class="op">&lt;-</span> <span class="va">d_bias</span> <span class="op">+</span> <span class="va">d_lr</span> <span class="op">*</span> <span class="va">grad_b</span></span>
+<span></span>
+<span>  <span class="co"># --- G-step: adjust generator means/sds to minimise D's ability to detect fakes ---</span></span>
+<span>  <span class="co"># Simple approach: move means toward regions where D(x) is high (D thinks it's real)</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">comp</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">test_x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">500</span>, <span class="va">g_means</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span>    <span class="va">phi_test</span> <span class="op">&lt;-</span> <span class="fu">rbf_features</span><span class="op">(</span><span class="va">test_x</span>, <span class="va">d_centers</span><span class="op">)</span></span>
+<span>    <span class="va">D_test</span> <span class="op">&lt;-</span> <span class="fu">sigmoid</span><span class="op">(</span><span class="va">phi_test</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">d_weights</span> <span class="op">+</span> <span class="va">d_bias</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="co"># Gradient: move mean toward where D is higher</span></span>
+<span>    <span class="va">mean_grad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="op">(</span><span class="va">test_x</span> <span class="op">-</span> <span class="va">g_means</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html">as.vector</a></span><span class="op">(</span><span class="va">D_test</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span>    <span class="va">sd_grad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="op">(</span><span class="op">(</span><span class="va">test_x</span> <span class="op">-</span> <span class="va">g_means</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span><span class="op">^</span><span class="fl">3</span> <span class="op">+</span> <span class="fl">0.01</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html">as.vector</a></span><span class="op">(</span><span class="va">D_test</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="va">g_means</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">g_means</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span> <span class="op">+</span> <span class="va">g_lr</span> <span class="op">*</span> <span class="va">mean_grad</span></span>
+<span>    <span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span> <span class="op">+</span> <span class="va">g_lr</span> <span class="op">*</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="va">sd_grad</span></span>
+<span>    <span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">g_sds</span><span class="op">[</span><span class="va">comp</span><span class="op">]</span><span class="op">)</span>, <span class="fl">0.1</span><span class="op">)</span>  <span class="co"># prevent collapse</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="co"># Record history</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">epoch</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="fl">10</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">||</span> <span class="va">epoch</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">v_score</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="va">D_real</span> <span class="op">+</span> <span class="fl">1e-8</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">D_fake</span> <span class="op">+</span> <span class="fl">1e-8</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">history</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">history</span><span class="op">)</span> <span class="op">+</span> <span class="fl">1</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>      epoch <span class="op">=</span> <span class="va">epoch</span>,</span>
+<span>      g_mean1 <span class="op">=</span> <span class="va">g_means</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, g_mean2 <span class="op">=</span> <span class="va">g_means</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>      g_sd1 <span class="op">=</span> <span class="va">g_sds</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, g_sd2 <span class="op">=</span> <span class="va">g_sds</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>      V_score <span class="op">=</span> <span class="va">v_score</span>,</span>
+<span>      mean_D_real <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">D_real</span><span class="op">)</span>, mean_D_fake <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">D_fake</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">hist_df</span> <span class="op">&lt;-</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="va">history</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== 1D GAN Training Results ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== 1D GAN Training Results ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Target: mixture of N(-2, 0.5) and N(2, 0.5)\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Target: mixture of N(-2, 0.5) and N(2, 0.5)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Learned generator:\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Learned generator:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Component 1: N(%.3f, %.3f)\n"</span>, <span class="va">g_means</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">g_sds</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Component 1: N(-0.439, 1.480)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Component 2: N(%.3f, %.3f)\n"</span>, <span class="va">g_means</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="va">g_sds</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Component 2: N(1.642, 1.173)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"\nDiscriminator at equilibrium:\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Discriminator at equilibrium:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Mean D(real) = %.3f (should → 0.5)\n"</span>, <span class="fu"><a href="https://rdrr.io/r/utils/head.html">tail</a></span><span class="op">(</span><span class="va">hist_df</span><span class="op">$</span><span class="va">mean_D_real</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Mean D(real) = 0.635 (should → 0.5)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Mean D(fake) = %.3f (should → 0.5)\n"</span>, <span class="fu"><a href="https://rdrr.io/r/utils/head.html">tail</a></span><span class="op">(</span><span class="va">hist_df</span><span class="op">$</span><span class="va">mean_D_fake</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Mean D(fake) = 0.382 (should → 0.5)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  V(D,G) = %.3f (Nash eq. value = %.3f)\n"</span>, <span class="fu"><a href="https://rdrr.io/r/utils/head.html">tail</a></span><span class="op">(</span><span class="va">hist_df</span><span class="op">$</span><span class="va">V_score</span>, <span class="fl">1</span><span class="op">)</span>, <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  V(D,G) = -1.078 (Nash eq. value = -1.386)</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">x_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">5</span>, <span class="fl">5</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Target density</span></span>
+<span><span class="va">target_density</span> <span class="op">&lt;-</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">dnorm</a></span><span class="op">(</span><span class="va">x_grid</span>, <span class="op">-</span><span class="fl">2</span>, <span class="fl">0.5</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">dnorm</a></span><span class="op">(</span><span class="va">x_grid</span>, <span class="fl">2</span>, <span class="fl">0.5</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Generator density</span></span>
+<span><span class="va">gen_density</span> <span class="op">&lt;-</span> <span class="va">g_mix</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">dnorm</a></span><span class="op">(</span><span class="va">x_grid</span>, <span class="va">g_means</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">g_sds</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>               <span class="va">g_mix</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">dnorm</a></span><span class="op">(</span><span class="va">x_grid</span>, <span class="va">g_means</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="va">g_sds</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Discriminator output</span></span>
+<span><span class="va">phi_grid</span> <span class="op">&lt;-</span> <span class="fu">rbf_features</span><span class="op">(</span><span class="va">x_grid</span>, <span class="va">d_centers</span><span class="op">)</span></span>
+<span><span class="va">d_output</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html">as.vector</a></span><span class="op">(</span><span class="fu">sigmoid</span><span class="op">(</span><span class="va">phi_grid</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">d_weights</span> <span class="op">+</span> <span class="va">d_bias</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">dist_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x_grid</span>, target <span class="op">=</span> <span class="va">target_density</span>, generator <span class="op">=</span> <span class="va">gen_density</span>,</span>
+<span>                  discriminator <span class="op">=</span> <span class="va">d_output</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Scale discriminator to secondary axis</span></span>
+<span><span class="va">scale_factor</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">target_density</span><span class="op">)</span> <span class="op">/</span> <span class="fl">1.0</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="va">dist_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="va">target</span>, color <span class="op">=</span> <span class="st">"Target p_data"</span><span class="op">)</span>, linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="va">generator</span>, color <span class="op">=</span> <span class="st">"Generator p_G"</span><span class="op">)</span>, linewidth <span class="op">=</span> <span class="fl">1</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>y <span class="op">=</span> <span class="va">discriminator</span> <span class="op">*</span> <span class="va">scale_factor</span>, color <span class="op">=</span> <span class="st">"D(x)"</span><span class="op">)</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="va">scale_factor</span>, linetype <span class="op">=</span> <span class="st">"dotted"</span>, color <span class="op">=</span> <span class="st">"grey60"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Target p_data"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>                                 <span class="st">"Generator p_G"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>                                 <span class="st">"D(x)"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                      name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_y_continuous</span><span class="op">(</span></span>
+<span>    name <span class="op">=</span> <span class="st">"Density"</span>,</span>
+<span>    sec.axis <span class="op">=</span> <span class="fu">sec_axis</span><span class="op">(</span><span class="op">~</span> <span class="va">.</span> <span class="op">/</span> <span class="va">scale_factor</span>, name <span class="op">=</span> <span class="st">"D(x)"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"GAN equilibrium: generator matches target distribution"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"D(x) → 0.5 everywhere = Nash equilibrium of the minimax game"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"x"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-gan-distributions" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-gan-distributions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-gan-distributions-1.png" class="img-fluid figure-img" width="2400">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gan-distributions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. GAN training result: the generator (orange) learns to approximate the target mixture distribution (blue). The discriminator output D(x) (green, right axis) approaches 0.5 across the support — indicating it cannot distinguish real from fake, the hallmark of Nash equilibrium in the GAN game. The generator successfully captures both modes of the target distribution. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Training dynamics</span></span>
+<span><span class="va">dynamics_df</span> <span class="op">&lt;-</span> <span class="va">hist_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">select</span><span class="op">(</span><span class="va">epoch</span>, <span class="va">mean_D_real</span>, <span class="va">mean_D_fake</span>, <span class="va">V_score</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span><span class="op">-</span><span class="va">epoch</span>, names_to <span class="op">=</span> <span class="st">"metric"</span>, values_to <span class="op">=</span> <span class="st">"value"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span></span>
+<span>    label <span class="op">=</span> <span class="fu">case_when</span><span class="op">(</span></span>
+<span>      <span class="va">metric</span> <span class="op">==</span> <span class="st">"mean_D_real"</span> <span class="op">~</span> <span class="st">"D(real)"</span>,</span>
+<span>      <span class="va">metric</span> <span class="op">==</span> <span class="st">"mean_D_fake"</span> <span class="op">~</span> <span class="st">"D(fake)"</span>,</span>
+<span>      <span class="va">metric</span> <span class="op">==</span> <span class="st">"V_score"</span> <span class="op">~</span> <span class="st">"V(D,G)"</span></span>
+<span>    <span class="op">)</span>,</span>
+<span>    text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Epoch "</span>, <span class="va">epoch</span>, <span class="st">"\n"</span>, <span class="va">label</span>, <span class="st">" = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">value</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_dynamics</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">dynamics_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">epoch</span>, y <span class="op">=</span> <span class="va">value</span>, color <span class="op">=</span> <span class="va">label</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">0.5</span>, linetype <span class="op">=</span> <span class="st">"dotted"</span>, color <span class="op">=</span> <span class="st">"grey60"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html">log</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span>, linetype <span class="op">=</span> <span class="st">"dotted"</span>, color <span class="op">=</span> <span class="st">"grey60"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"D(real)"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, <span class="st">"D(fake)"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>                                 <span class="st">"V(D,G)"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                      name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"GAN training dynamics — convergence to Nash equilibrium"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"D(real) and D(fake) → 0.5; V(D,G) → −log(4) ≈ −1.386"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Training epoch"</span>, y <span class="op">=</span> <span class="st">"Value"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_dynamics</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>, modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-gan-dynamics" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-gan-dynamics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-0d2934e248a3aa6154ff" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-0d2934e248a3aa6154ff">{"x":{"data":[{"x":[1,null,10,null,100,null,110,null,120,null,130,null,140,null,150,null,160,null,170,null,180,null,190,null,20,null,200,null,210,null,220,null,230,null,240,null,250,null,260,null,270,null,280,null,290,null,30,null,300,null,40,null,50,null,60,null,70,null,80,null,90],"y":[0.56676306441085345,null,0.49926055128525931,null,0.3876890973776197,null,0.38943715579549354,null,0.35013860885591286,null,0.3788339339624881,null,0.37311786389146895,null,0.37367157022955755,null,0.35796196438709166,null,0.37218695502452104,null,0.36458985124003973,null,0.35995337968623242,null,0.45361145250258461,null,0.39341457822102188,null,0.37854401399750415,null,0.36956467935757992,null,0.37709539665088343,null,0.37477208907914217,null,0.37637767609505873,null,0.35988396579171045,null,0.4007508176220248,null,0.38676157027925417,null,0.37821048944975211,null,0.42658091132319004,null,0.3823359194483556,null,0.40721834795157563,null,0.41114091642155765,null,0.3989345039603453,null,0.38949570350934815,null,0.36545975415770598,null,0.38535306991541174],"text":["Epoch 1<br />D(fake) = 0.5668",null,"Epoch 10<br />D(fake) = 0.4993",null,"Epoch 100<br />D(fake) = 0.3877",null,"Epoch 110<br />D(fake) = 0.3894",null,"Epoch 120<br />D(fake) = 0.3501",null,"Epoch 130<br />D(fake) = 0.3788",null,"Epoch 140<br />D(fake) = 0.3731",null,"Epoch 150<br />D(fake) = 0.3737",null,"Epoch 160<br />D(fake) = 0.358",null,"Epoch 170<br />D(fake) = 0.3722",null,"Epoch 180<br />D(fake) = 0.3646",null,"Epoch 190<br />D(fake) = 0.36",null,"Epoch 20<br />D(fake) = 0.4536",null,"Epoch 200<br />D(fake) = 0.3934",null,"Epoch 210<br />D(fake) = 0.3785",null,"Epoch 220<br />D(fake) = 0.3696",null,"Epoch 230<br />D(fake) = 0.3771",null,"Epoch 240<br />D(fake) = 0.3748",null,"Epoch 250<br />D(fake) = 0.3764",null,"Epoch 260<br />D(fake) = 0.3599",null,"Epoch 270<br />D(fake) = 0.4008",null,"Epoch 280<br />D(fake) = 0.3868",null,"Epoch 290<br />D(fake) = 0.3782",null,"Epoch 30<br />D(fake) = 0.4266",null,"Epoch 300<br />D(fake) = 0.3823",null,"Epoch 40<br />D(fake) = 0.4072",null,"Epoch 50<br />D(fake) = 0.4111",null,"Epoch 60<br />D(fake) = 0.3989",null,"Epoch 70<br />D(fake) = 0.3895",null,"Epoch 80<br />D(fake) = 0.3655",null,"Epoch 90<br />D(fake) = 0.3854"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"D(fake)","legendgroup":"D(fake)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[1,null,10,null,100,null,110,null,120,null,130,null,140,null,150,null,160,null,170,null,180,null,190,null,20,null,200,null,210,null,220,null,230,null,240,null,250,null,260,null,270,null,280,null,290,null,30,null,300,null,40,null,50,null,60,null,70,null,80,null,90],"y":[0.52788675526099305,null,0.52775650126232443,null,0.61832721986005035,null,0.61832803081270693,null,0.63016080732922675,null,0.63359682272777318,null,0.64796453528339693,null,0.64359291593222001,null,0.6527006906326448,null,0.66642151049422793,null,0.6531194362945304,null,0.63993528500685415,null,0.53547974350259742,null,0.65522400948127435,null,0.64208723516776711,null,0.64859427362971722,null,0.6329140364675816,null,0.63893817313432233,null,0.65222247237536046,null,0.63220844012143074,null,0.63864091471200124,null,0.6203458019044864,null,0.63394631404405821,null,0.54506188290770541,null,0.63480855773875788,null,0.55866423841871993,null,0.57881750015383293,null,0.57692597555946534,null,0.5968394986088581,null,0.61233109492963733,null,0.62193524014752333],"text":["Epoch 1<br />D(real) = 0.5279",null,"Epoch 10<br />D(real) = 0.5278",null,"Epoch 100<br />D(real) = 0.6183",null,"Epoch 110<br />D(real) = 0.6183",null,"Epoch 120<br />D(real) = 0.6302",null,"Epoch 130<br />D(real) = 0.6336",null,"Epoch 140<br />D(real) = 0.648",null,"Epoch 150<br />D(real) = 0.6436",null,"Epoch 160<br />D(real) = 0.6527",null,"Epoch 170<br />D(real) = 0.6664",null,"Epoch 180<br />D(real) = 0.6531",null,"Epoch 190<br />D(real) = 0.6399",null,"Epoch 20<br />D(real) = 0.5355",null,"Epoch 200<br />D(real) = 0.6552",null,"Epoch 210<br />D(real) = 0.6421",null,"Epoch 220<br />D(real) = 0.6486",null,"Epoch 230<br />D(real) = 0.6329",null,"Epoch 240<br />D(real) = 0.6389",null,"Epoch 250<br />D(real) = 0.6522",null,"Epoch 260<br />D(real) = 0.6322",null,"Epoch 270<br />D(real) = 0.6386",null,"Epoch 280<br />D(real) = 0.6203",null,"Epoch 290<br />D(real) = 0.6339",null,"Epoch 30<br />D(real) = 0.5451",null,"Epoch 300<br />D(real) = 0.6348",null,"Epoch 40<br />D(real) = 0.5587",null,"Epoch 50<br />D(real) = 0.5788",null,"Epoch 60<br />D(real) = 0.5769",null,"Epoch 70<br />D(real) = 0.5968",null,"Epoch 80<br />D(real) = 0.6123",null,"Epoch 90<br />D(real) = 0.6219"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","name":"D(real)","legendgroup":"D(real)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[1,null,10,null,100,null,110,null,120,null,130,null,140,null,150,null,160,null,170,null,180,null,190,null,20,null,200,null,210,null,220,null,230,null,240,null,250,null,260,null,270,null,280,null,290,null,30,null,300,null,40,null,50,null,60,null,70,null,80,null,90],"y":[-1.4823502933220847,null,-1.3373535458655077,null,-1.0563283413046141,null,-1.0598259994863786,null,-0.97825638910410517,null,-1.0270109930986917,null,-1.0084856472344139,null,-1.0157227326284477,null,-0.97525588880591885,null,-0.99399881937432777,null,-0.99637743361318343,null,-1.0148303717720193,null,-1.2387226948959011,null,-1.0542401344644619,null,-1.0601413996049853,null,-1.0271273079869065,null,-1.0764367129833168,null,-1.0431563332811931,null,-1.0411722297302681,null,-1.040484677235697,null,-1.1040846278632248,null,-1.1218049348495214,null,-1.0844377173031963,null,-1.1804962881527084,null,-1.0783281741801012,null,-1.1307479287745212,null,-1.1138350608031742,null,-1.1080268954663932,null,-1.0612614822317483,null,-0.9969618451713258,null,-1.0259540094747972],"text":["Epoch 1<br />V(D,G) = -1.4824",null,"Epoch 10<br />V(D,G) = -1.3374",null,"Epoch 100<br />V(D,G) = -1.0563",null,"Epoch 110<br />V(D,G) = -1.0598",null,"Epoch 120<br />V(D,G) = -0.9783",null,"Epoch 130<br />V(D,G) = -1.027",null,"Epoch 140<br />V(D,G) = -1.0085",null,"Epoch 150<br />V(D,G) = -1.0157",null,"Epoch 160<br />V(D,G) = -0.9753",null,"Epoch 170<br />V(D,G) = -0.994",null,"Epoch 180<br />V(D,G) = -0.9964",null,"Epoch 190<br />V(D,G) = -1.0148",null,"Epoch 20<br />V(D,G) = -1.2387",null,"Epoch 200<br />V(D,G) = -1.0542",null,"Epoch 210<br />V(D,G) = -1.0601",null,"Epoch 220<br />V(D,G) = -1.0271",null,"Epoch 230<br />V(D,G) = -1.0764",null,"Epoch 240<br />V(D,G) = -1.0432",null,"Epoch 250<br />V(D,G) = -1.0412",null,"Epoch 260<br />V(D,G) = -1.0405",null,"Epoch 270<br />V(D,G) = -1.1041",null,"Epoch 280<br />V(D,G) = -1.1218",null,"Epoch 290<br />V(D,G) = -1.0844",null,"Epoch 30<br />V(D,G) = -1.1805",null,"Epoch 300<br />V(D,G) = -1.0783",null,"Epoch 40<br />V(D,G) = -1.1307",null,"Epoch 50<br />V(D,G) = -1.1138",null,"Epoch 60<br />V(D,G) = -1.108",null,"Epoch 70<br />V(D,G) = -1.0613",null,"Epoch 80<br />V(D,G) = -0.997",null,"Epoch 90<br />V(D,G) = -1.026"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"V(D,G)","legendgroup":"V(D,G)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[-13.950000000000001,314.94999999999999],"y":[0.5,0.5],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(153,153,153,1)","dash":"dot"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[-13.950000000000001,314.94999999999999],"y":[-1.3862943611198906,-1.3862943611198906],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(153,153,153,1)","dash":"dot"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> GAN training dynamics — convergence to Nash equilibrium <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-13.950000000000001,314.94999999999999],"tickmode":"array","ticktext":["0","100","200","300"],"tickvals":[0,100,200,300],"categoryorder":"array","categoryarray":["0","100","200","300"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Training epoch","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-1.5897888835129004,0.77386010068504363],"tickmode":"array","ticktext":["-1.5","-1.0","-0.5","0.0","0.5"],"tickvals":[-1.5,-1,-0.5,-2.2204460492503131e-16,0.50000000000000022],"categoryorder":"array","categoryarray":["-1.5","-1.0","-0.5","0.0","0.5"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Value","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"2ce51bc9b6f8":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"},"2ce556a9bf75":{"yintercept":{}},"2ce5208b47c7":{"yintercept":{}}},"cur_data":"2ce51bc9b6f8","visdat":{"2ce51bc9b6f8":["function (y) ","x"],"2ce556a9bf75":["function (y) ","x"],"2ce5208b47c7":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-gan-dynamics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The GAN framework demonstrates that some of the most powerful ideas in modern AI are fundamentally game-theoretic. The generator and discriminator are players in a continuous zero-sum game; the training process is an iterative best-response dynamic; and the convergence criterion is Nash equilibrium — specifically, the saddle point of the minimax objective. Our simplified 1D implementation captures the essential dynamics: the generator starts producing data far from the target, the discriminator easily distinguishes real from fake, and through adversarial training, the generator gradually adjusts its parameters until the discriminator can no longer tell the difference. At equilibrium, <span class="math inline">\(D(x) = 0.5\)</span> everywhere and <span class="math inline">\(V(D, G) = -\log 4\)</span>, matching Goodfellow’s theoretical prediction. The training history reveals the characteristic oscillatory behaviour of minimax dynamics — the discriminator temporarily gains the upper hand, then the generator adapts, then the discriminator readjusts — eventually damping toward the equilibrium. This oscillation is not a bug but a feature of adversarial dynamics, directly analogous to the cycling behaviour in games like Matching Pennies. In practice, GANs suffer from training instability precisely because the minimax game may not have a smooth convergence path: mode collapse occurs when the generator finds a local minimum that fools the discriminator without capturing the full data distribution (equivalent to a degenerate equilibrium), and training divergence occurs when the discriminator becomes too strong too quickly (destroying useful gradient signal). These failure modes have motivated an entire subfield of game-theoretic approaches to GAN training — Wasserstein GANs, spectral normalisation, progressive growing — all of which can be understood as modifications to the game structure that promote convergence to the desired equilibrium.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../../foundations/zero-sum-minimax-theorem/">Zero-sum games and minimax theorem</a> — the theoretical foundation.</li>
+<li>
+<a href="../../classical-games/matching-pennies/">Matching pennies</a> — the simplest zero-sum game with similar dynamics.</li>
+<li>
+<a href="../../ml-and-gt/multi-agent-reinforcement-learning/">Multi-agent reinforcement learning</a> — learning in multi-player games.</li>
+<li>
+<a href="../perceptron-to-deep-learning-historical-r-implementation/">Perceptron to deep learning</a> — neural network foundations.</li>
+<li>
+<a href="../../ml-and-gt/fictitious-play-convergence/">Fictitious play convergence</a> — iterative best-response dynamics.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Generative Adversarial Networks as Minimax Games},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Generative Adversarial Networks as Minimax
+Games.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/">https://r-heller.github.io/equilibria/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Generative adversarial networks as minimax games"</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Frame GANs as two-player zero-sum games in R, implement a simple GAN training loop for 1D data, visualise the generator-discriminator dynamics, and connect the equilibrium to Nash equilibrium theory."</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - ai-ml-foundations-and-applications</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - gans</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - minimax</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - zero-sum</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["GAN", "generative adversarial network", "minimax game", "zero-sum", "generator", "discriminator", "Nash equilibrium"]</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["ai-ml", "minimax-applications"]</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_ai-ml-foundations-and-applications_gans-minimax-game"</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Generator distribution converging to target distribution through adversarial training"</span></span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/</span></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>Generative Adversarial Networks (GANs), introduced by Ian Goodfellow and colleagues in 2014, are one of the most striking applications of game theory in modern machine learning. A GAN consists of two neural networks — a **Generator** (G) that produces synthetic data and a **Discriminator** (D) that attempts to distinguish real data from fake — locked in a **minimax game**. The Generator tries to fool the Discriminator; the Discriminator tries to detect the Generator's fakes. This adversarial dynamic is precisely a two-player zero-sum game: G's loss is D's gain. Goodfellow proved that the unique Nash equilibrium of this game occurs when G perfectly reproduces the data distribution and D outputs 1/2 everywhere (unable to distinguish real from fake). The training process — alternating gradient descent on G and D — is a computational implementation of best-response dynamics in continuous strategy spaces. GANs have revolutionised generative modelling, producing photo-realistic images, realistic text, and synthetic data for privacy-preserving analytics. But their game-theoretic nature also explains their notorious training difficulties: mode collapse (G learns only part of the distribution), oscillation (the minimax dynamics fail to converge), and sensitivity to hyperparameters. This tutorial implements a simplified GAN in pure R (no deep learning frameworks) for 1D distribution matching, visualises the adversarial training dynamics, and connects the convergence behaviour to game-theoretic equilibrium concepts — demonstrating that understanding GANs requires understanding games.</span>
+<span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a>The GAN objective is a minimax game over function spaces:</span>
+<span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a>$$\min_G \max_D V(D, G) = E_{x \sim p_{\text{data}}}<span class="co">[</span><span class="ot">\log D(x)</span><span class="co">]</span> + E_{z \sim p_z}<span class="co">[</span><span class="ot">\log(1 - D(G(z)))</span><span class="co">]</span>$$</span>
+<span id="cb21-61"><a href="#cb21-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-62"><a href="#cb21-62" aria-hidden="true" tabindex="-1"></a>**Optimal discriminator** (for fixed G): $D^*(x) = \frac{p_{\text{data}}(x)}{p_{\text{data}}(x) + p_G(x)}$</span>
+<span id="cb21-63"><a href="#cb21-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-64"><a href="#cb21-64" aria-hidden="true" tabindex="-1"></a>**Optimal generator** (at Nash equilibrium): $p_G = p_{\text{data}}$, yielding $D^*(x) = 1/2$ everywhere and $V(D^*, G^*) = -\log 4$.</span>
+<span id="cb21-65"><a href="#cb21-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-66"><a href="#cb21-66" aria-hidden="true" tabindex="-1"></a>The training alternates:</span>
+<span id="cb21-67"><a href="#cb21-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-68"><a href="#cb21-68" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**D-step**: update $D$ to maximise $V$ (classify real vs fake better)</span>
+<span id="cb21-69"><a href="#cb21-69" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**G-step**: update $G$ to minimise $V$ (generate more convincing fakes)</span>
+<span id="cb21-70"><a href="#cb21-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-71"><a href="#cb21-71" aria-hidden="true" tabindex="-1"></a>This is a continuous-strategy zero-sum game where the "actions" are the parameters of the neural networks.</span>
+<span id="cb21-72"><a href="#cb21-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-73"><a href="#cb21-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-74"><a href="#cb21-74" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb21-75"><a href="#cb21-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-78"><a href="#cb21-78" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-79"><a href="#cb21-79" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: gan-training</span></span>
+<span id="cb21-80"><a href="#cb21-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-81"><a href="#cb21-81" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb21-82"><a href="#cb21-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-83"><a href="#cb21-83" aria-hidden="true" tabindex="-1"></a><span class="co"># === Simple 1D GAN: learn a Gaussian mixture ===</span></span>
+<span id="cb21-84"><a href="#cb21-84" aria-hidden="true" tabindex="-1"></a><span class="co"># Target distribution: mixture of N(−2, 0.5²) and N(2, 0.5²)</span></span>
+<span id="cb21-85"><a href="#cb21-85" aria-hidden="true" tabindex="-1"></a>target_sample <span class="ot">&lt;-</span> <span class="cf">function</span>(n) {</span>
+<span id="cb21-86"><a href="#cb21-86" aria-hidden="true" tabindex="-1"></a>  components <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, n, <span class="at">replace =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-87"><a href="#cb21-87" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(components <span class="sc">==</span> <span class="dv">1</span>, <span class="fu">rnorm</span>(n, <span class="sc">-</span><span class="dv">2</span>, <span class="fl">0.5</span>), <span class="fu">rnorm</span>(n, <span class="dv">2</span>, <span class="fl">0.5</span>))</span>
+<span id="cb21-88"><a href="#cb21-88" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-89"><a href="#cb21-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-90"><a href="#cb21-90" aria-hidden="true" tabindex="-1"></a><span class="co"># Generator: z ~ N(0,1) → G(z) = a*z + b (linear transform with mixture)</span></span>
+<span id="cb21-91"><a href="#cb21-91" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameterised as a mixture of K=2 linear maps: G(z) = a_k*z + b_k with prob pi_k</span></span>
+<span id="cb21-92"><a href="#cb21-92" aria-hidden="true" tabindex="-1"></a><span class="co"># This allows the generator to learn a mixture of Gaussians</span></span>
+<span id="cb21-93"><a href="#cb21-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-94"><a href="#cb21-94" aria-hidden="true" tabindex="-1"></a><span class="co"># Discriminator: logistic regression with RBF features</span></span>
+<span id="cb21-95"><a href="#cb21-95" aria-hidden="true" tabindex="-1"></a><span class="co"># D(x) = sigmoid(w' * phi(x) + bias), phi(x) = [rbf(x, c1), ..., rbf(x, cK)]</span></span>
+<span id="cb21-96"><a href="#cb21-96" aria-hidden="true" tabindex="-1"></a>rbf_features <span class="ot">&lt;-</span> <span class="cf">function</span>(x, centers, <span class="at">sigma =</span> <span class="fl">1.0</span>) {</span>
+<span id="cb21-97"><a href="#cb21-97" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sapply</span>(centers, <span class="cf">function</span>(c) <span class="fu">exp</span>(<span class="sc">-</span>(x <span class="sc">-</span> c)<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> sigma<span class="sc">^</span><span class="dv">2</span>)))</span>
+<span id="cb21-98"><a href="#cb21-98" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-99"><a href="#cb21-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-100"><a href="#cb21-100" aria-hidden="true" tabindex="-1"></a><span class="co"># Setup</span></span>
+<span id="cb21-101"><a href="#cb21-101" aria-hidden="true" tabindex="-1"></a>n_centers <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb21-102"><a href="#cb21-102" aria-hidden="true" tabindex="-1"></a>d_centers <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="dv">5</span>, <span class="at">length.out =</span> n_centers)</span>
+<span id="cb21-103"><a href="#cb21-103" aria-hidden="true" tabindex="-1"></a>d_weights <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_centers, <span class="dv">0</span>, <span class="fl">0.1</span>)</span>
+<span id="cb21-104"><a href="#cb21-104" aria-hidden="true" tabindex="-1"></a>d_bias <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb21-105"><a href="#cb21-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-106"><a href="#cb21-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Generator params: 2-component mixture</span></span>
+<span id="cb21-107"><a href="#cb21-107" aria-hidden="true" tabindex="-1"></a>g_means <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)      <span class="co"># initial means</span></span>
+<span id="cb21-108"><a href="#cb21-108" aria-hidden="true" tabindex="-1"></a>g_sds <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>)        <span class="co"># initial sds</span></span>
+<span id="cb21-109"><a href="#cb21-109" aria-hidden="true" tabindex="-1"></a>g_mix <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.5</span>)    <span class="co"># mixing weights</span></span>
+<span id="cb21-110"><a href="#cb21-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-111"><a href="#cb21-111" aria-hidden="true" tabindex="-1"></a>sigmoid <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fu">pmin</span>(<span class="fu">pmax</span>(x, <span class="sc">-</span><span class="dv">500</span>), <span class="dv">500</span>)))</span>
+<span id="cb21-112"><a href="#cb21-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-113"><a href="#cb21-113" aria-hidden="true" tabindex="-1"></a><span class="co"># Training loop</span></span>
+<span id="cb21-114"><a href="#cb21-114" aria-hidden="true" tabindex="-1"></a>n_epochs <span class="ot">&lt;-</span> <span class="dv">300</span></span>
+<span id="cb21-115"><a href="#cb21-115" aria-hidden="true" tabindex="-1"></a>batch_size <span class="ot">&lt;-</span> <span class="dv">200</span></span>
+<span id="cb21-116"><a href="#cb21-116" aria-hidden="true" tabindex="-1"></a>d_lr <span class="ot">&lt;-</span> <span class="fl">0.05</span></span>
+<span id="cb21-117"><a href="#cb21-117" aria-hidden="true" tabindex="-1"></a>g_lr <span class="ot">&lt;-</span> <span class="fl">0.02</span></span>
+<span id="cb21-118"><a href="#cb21-118" aria-hidden="true" tabindex="-1"></a>history <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb21-119"><a href="#cb21-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-120"><a href="#cb21-120" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (epoch <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_epochs) {</span>
+<span id="cb21-121"><a href="#cb21-121" aria-hidden="true" tabindex="-1"></a>  <span class="co"># --- D-step: maximise log D(x_real) + log(1 - D(x_fake)) ---</span></span>
+<span id="cb21-122"><a href="#cb21-122" aria-hidden="true" tabindex="-1"></a>  x_real <span class="ot">&lt;-</span> <span class="fu">target_sample</span>(batch_size)</span>
+<span id="cb21-123"><a href="#cb21-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-124"><a href="#cb21-124" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Generate fake samples from mixture</span></span>
+<span id="cb21-125"><a href="#cb21-125" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, batch_size, <span class="at">replace =</span> <span class="cn">TRUE</span>, <span class="at">prob =</span> g_mix)</span>
+<span id="cb21-126"><a href="#cb21-126" aria-hidden="true" tabindex="-1"></a>  x_fake <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(batch_size, g_means[k], <span class="fu">abs</span>(g_sds[k]) <span class="sc">+</span> <span class="fl">0.01</span>)</span>
+<span id="cb21-127"><a href="#cb21-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-128"><a href="#cb21-128" aria-hidden="true" tabindex="-1"></a>  phi_real <span class="ot">&lt;-</span> <span class="fu">rbf_features</span>(x_real, d_centers)</span>
+<span id="cb21-129"><a href="#cb21-129" aria-hidden="true" tabindex="-1"></a>  phi_fake <span class="ot">&lt;-</span> <span class="fu">rbf_features</span>(x_fake, d_centers)</span>
+<span id="cb21-130"><a href="#cb21-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-131"><a href="#cb21-131" aria-hidden="true" tabindex="-1"></a>  D_real <span class="ot">&lt;-</span> <span class="fu">sigmoid</span>(phi_real <span class="sc">%*%</span> d_weights <span class="sc">+</span> d_bias)</span>
+<span id="cb21-132"><a href="#cb21-132" aria-hidden="true" tabindex="-1"></a>  D_fake <span class="ot">&lt;-</span> <span class="fu">sigmoid</span>(phi_fake <span class="sc">%*%</span> d_weights <span class="sc">+</span> d_bias)</span>
+<span id="cb21-133"><a href="#cb21-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-134"><a href="#cb21-134" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Gradient for D (maximise)</span></span>
+<span id="cb21-135"><a href="#cb21-135" aria-hidden="true" tabindex="-1"></a>  grad_w <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(phi_real <span class="sc">*</span> <span class="fu">as.vector</span>(<span class="dv">1</span> <span class="sc">-</span> D_real)) <span class="sc">-</span> <span class="fu">colMeans</span>(phi_fake <span class="sc">*</span> <span class="fu">as.vector</span>(D_fake))</span>
+<span id="cb21-136"><a href="#cb21-136" aria-hidden="true" tabindex="-1"></a>  grad_b <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="dv">1</span> <span class="sc">-</span> D_real) <span class="sc">-</span> <span class="fu">mean</span>(D_fake)</span>
+<span id="cb21-137"><a href="#cb21-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-138"><a href="#cb21-138" aria-hidden="true" tabindex="-1"></a>  d_weights <span class="ot">&lt;-</span> d_weights <span class="sc">+</span> d_lr <span class="sc">*</span> grad_w</span>
+<span id="cb21-139"><a href="#cb21-139" aria-hidden="true" tabindex="-1"></a>  d_bias <span class="ot">&lt;-</span> d_bias <span class="sc">+</span> d_lr <span class="sc">*</span> grad_b</span>
+<span id="cb21-140"><a href="#cb21-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-141"><a href="#cb21-141" aria-hidden="true" tabindex="-1"></a>  <span class="co"># --- G-step: adjust generator means/sds to minimise D's ability to detect fakes ---</span></span>
+<span id="cb21-142"><a href="#cb21-142" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Simple approach: move means toward regions where D(x) is high (D thinks it's real)</span></span>
+<span id="cb21-143"><a href="#cb21-143" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (comp <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>) {</span>
+<span id="cb21-144"><a href="#cb21-144" aria-hidden="true" tabindex="-1"></a>    test_x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(<span class="dv">500</span>, g_means[comp], <span class="fu">abs</span>(g_sds[comp]) <span class="sc">+</span> <span class="fl">0.01</span>)</span>
+<span id="cb21-145"><a href="#cb21-145" aria-hidden="true" tabindex="-1"></a>    phi_test <span class="ot">&lt;-</span> <span class="fu">rbf_features</span>(test_x, d_centers)</span>
+<span id="cb21-146"><a href="#cb21-146" aria-hidden="true" tabindex="-1"></a>    D_test <span class="ot">&lt;-</span> <span class="fu">sigmoid</span>(phi_test <span class="sc">%*%</span> d_weights <span class="sc">+</span> d_bias)</span>
+<span id="cb21-147"><a href="#cb21-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-148"><a href="#cb21-148" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gradient: move mean toward where D is higher</span></span>
+<span id="cb21-149"><a href="#cb21-149" aria-hidden="true" tabindex="-1"></a>    mean_grad <span class="ot">&lt;-</span> <span class="fu">mean</span>((test_x <span class="sc">-</span> g_means[comp]) <span class="sc">*</span> <span class="fu">as.vector</span>(D_test)) <span class="sc">/</span> (<span class="fu">abs</span>(g_sds[comp])<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fl">0.01</span>)</span>
+<span id="cb21-150"><a href="#cb21-150" aria-hidden="true" tabindex="-1"></a>    sd_grad <span class="ot">&lt;-</span> <span class="fu">mean</span>(((test_x <span class="sc">-</span> g_means[comp])<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (<span class="fu">abs</span>(g_sds[comp])<span class="sc">^</span><span class="dv">3</span> <span class="sc">+</span> <span class="fl">0.01</span>) <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="fu">abs</span>(g_sds[comp])) <span class="sc">*</span> <span class="fu">as.vector</span>(D_test))</span>
+<span id="cb21-151"><a href="#cb21-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-152"><a href="#cb21-152" aria-hidden="true" tabindex="-1"></a>    g_means[comp] <span class="ot">&lt;-</span> g_means[comp] <span class="sc">+</span> g_lr <span class="sc">*</span> mean_grad</span>
+<span id="cb21-153"><a href="#cb21-153" aria-hidden="true" tabindex="-1"></a>    g_sds[comp] <span class="ot">&lt;-</span> g_sds[comp] <span class="sc">+</span> g_lr <span class="sc">*</span> <span class="fl">0.5</span> <span class="sc">*</span> sd_grad</span>
+<span id="cb21-154"><a href="#cb21-154" aria-hidden="true" tabindex="-1"></a>    g_sds[comp] <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(g_sds[comp]), <span class="fl">0.1</span>)  <span class="co"># prevent collapse</span></span>
+<span id="cb21-155"><a href="#cb21-155" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb21-156"><a href="#cb21-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-157"><a href="#cb21-157" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Record history</span></span>
+<span id="cb21-158"><a href="#cb21-158" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (epoch <span class="sc">%%</span> <span class="dv">10</span> <span class="sc">==</span> <span class="dv">0</span> <span class="sc">||</span> epoch <span class="sc">==</span> <span class="dv">1</span>) {</span>
+<span id="cb21-159"><a href="#cb21-159" aria-hidden="true" tabindex="-1"></a>    v_score <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">log</span>(D_real <span class="sc">+</span> <span class="fl">1e-8</span>)) <span class="sc">+</span> <span class="fu">mean</span>(<span class="fu">log</span>(<span class="dv">1</span> <span class="sc">-</span> D_fake <span class="sc">+</span> <span class="fl">1e-8</span>))</span>
+<span id="cb21-160"><a href="#cb21-160" aria-hidden="true" tabindex="-1"></a>    history[[<span class="fu">length</span>(history) <span class="sc">+</span> <span class="dv">1</span>]] <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb21-161"><a href="#cb21-161" aria-hidden="true" tabindex="-1"></a>      <span class="at">epoch =</span> epoch,</span>
+<span id="cb21-162"><a href="#cb21-162" aria-hidden="true" tabindex="-1"></a>      <span class="at">g_mean1 =</span> g_means[<span class="dv">1</span>], <span class="at">g_mean2 =</span> g_means[<span class="dv">2</span>],</span>
+<span id="cb21-163"><a href="#cb21-163" aria-hidden="true" tabindex="-1"></a>      <span class="at">g_sd1 =</span> g_sds[<span class="dv">1</span>], <span class="at">g_sd2 =</span> g_sds[<span class="dv">2</span>],</span>
+<span id="cb21-164"><a href="#cb21-164" aria-hidden="true" tabindex="-1"></a>      <span class="at">V_score =</span> v_score,</span>
+<span id="cb21-165"><a href="#cb21-165" aria-hidden="true" tabindex="-1"></a>      <span class="at">mean_D_real =</span> <span class="fu">mean</span>(D_real), <span class="at">mean_D_fake =</span> <span class="fu">mean</span>(D_fake)</span>
+<span id="cb21-166"><a href="#cb21-166" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb21-167"><a href="#cb21-167" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb21-168"><a href="#cb21-168" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb21-169"><a href="#cb21-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-170"><a href="#cb21-170" aria-hidden="true" tabindex="-1"></a>hist_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(history)</span>
+<span id="cb21-171"><a href="#cb21-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-172"><a href="#cb21-172" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== 1D GAN Training Results ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb21-173"><a href="#cb21-173" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Target: mixture of N(-2, 0.5) and N(2, 0.5)</span><span class="sc">\n</span><span class="st">"</span>))</span>
+<span id="cb21-174"><a href="#cb21-174" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Learned generator:</span><span class="sc">\n</span><span class="st">"</span>))</span>
+<span id="cb21-175"><a href="#cb21-175" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Component 1: N(%.3f, %.3f)</span><span class="sc">\n</span><span class="st">"</span>, g_means[<span class="dv">1</span>], g_sds[<span class="dv">1</span>]))</span>
+<span id="cb21-176"><a href="#cb21-176" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Component 2: N(%.3f, %.3f)</span><span class="sc">\n</span><span class="st">"</span>, g_means[<span class="dv">2</span>], g_sds[<span class="dv">2</span>]))</span>
+<span id="cb21-177"><a href="#cb21-177" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Discriminator at equilibrium:</span><span class="sc">\n</span><span class="st">"</span>))</span>
+<span id="cb21-178"><a href="#cb21-178" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Mean D(real) = %.3f (should → 0.5)</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">tail</span>(hist_df<span class="sc">$</span>mean_D_real, <span class="dv">1</span>)))</span>
+<span id="cb21-179"><a href="#cb21-179" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Mean D(fake) = %.3f (should → 0.5)</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">tail</span>(hist_df<span class="sc">$</span>mean_D_fake, <span class="dv">1</span>)))</span>
+<span id="cb21-180"><a href="#cb21-180" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  V(D,G) = %.3f (Nash eq. value = %.3f)</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">tail</span>(hist_df<span class="sc">$</span>V_score, <span class="dv">1</span>), <span class="sc">-</span><span class="fu">log</span>(<span class="dv">4</span>)))</span>
+<span id="cb21-181"><a href="#cb21-181" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-182"><a href="#cb21-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-183"><a href="#cb21-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-184"><a href="#cb21-184" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb21-185"><a href="#cb21-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-188"><a href="#cb21-188" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-189"><a href="#cb21-189" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-gan-distributions</span></span>
+<span id="cb21-190"><a href="#cb21-190" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. GAN training result: the generator (orange) learns to approximate the target mixture distribution (blue). The discriminator output D(x) (green, right axis) approaches 0.5 across the support — indicating it cannot distinguish real from fake, the hallmark of Nash equilibrium in the GAN game. The generator successfully captures both modes of the target distribution. Okabe-Ito palette."</span></span>
+<span id="cb21-191"><a href="#cb21-191" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb21-192"><a href="#cb21-192" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb21-193"><a href="#cb21-193" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb21-194"><a href="#cb21-194" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb21-195"><a href="#cb21-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-196"><a href="#cb21-196" aria-hidden="true" tabindex="-1"></a>x_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="dv">5</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
+<span id="cb21-197"><a href="#cb21-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-198"><a href="#cb21-198" aria-hidden="true" tabindex="-1"></a><span class="co"># Target density</span></span>
+<span id="cb21-199"><a href="#cb21-199" aria-hidden="true" tabindex="-1"></a>target_density <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">dnorm</span>(x_grid, <span class="sc">-</span><span class="dv">2</span>, <span class="fl">0.5</span>) <span class="sc">+</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">dnorm</span>(x_grid, <span class="dv">2</span>, <span class="fl">0.5</span>)</span>
+<span id="cb21-200"><a href="#cb21-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-201"><a href="#cb21-201" aria-hidden="true" tabindex="-1"></a><span class="co"># Generator density</span></span>
+<span id="cb21-202"><a href="#cb21-202" aria-hidden="true" tabindex="-1"></a>gen_density <span class="ot">&lt;-</span> g_mix[<span class="dv">1</span>] <span class="sc">*</span> <span class="fu">dnorm</span>(x_grid, g_means[<span class="dv">1</span>], g_sds[<span class="dv">1</span>]) <span class="sc">+</span></span>
+<span id="cb21-203"><a href="#cb21-203" aria-hidden="true" tabindex="-1"></a>               g_mix[<span class="dv">2</span>] <span class="sc">*</span> <span class="fu">dnorm</span>(x_grid, g_means[<span class="dv">2</span>], g_sds[<span class="dv">2</span>])</span>
+<span id="cb21-204"><a href="#cb21-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-205"><a href="#cb21-205" aria-hidden="true" tabindex="-1"></a><span class="co"># Discriminator output</span></span>
+<span id="cb21-206"><a href="#cb21-206" aria-hidden="true" tabindex="-1"></a>phi_grid <span class="ot">&lt;-</span> <span class="fu">rbf_features</span>(x_grid, d_centers)</span>
+<span id="cb21-207"><a href="#cb21-207" aria-hidden="true" tabindex="-1"></a>d_output <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">sigmoid</span>(phi_grid <span class="sc">%*%</span> d_weights <span class="sc">+</span> d_bias))</span>
+<span id="cb21-208"><a href="#cb21-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-209"><a href="#cb21-209" aria-hidden="true" tabindex="-1"></a>dist_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">x =</span> x_grid, <span class="at">target =</span> target_density, <span class="at">generator =</span> gen_density,</span>
+<span id="cb21-210"><a href="#cb21-210" aria-hidden="true" tabindex="-1"></a>                  <span class="at">discriminator =</span> d_output)</span>
+<span id="cb21-211"><a href="#cb21-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-212"><a href="#cb21-212" aria-hidden="true" tabindex="-1"></a><span class="co"># Scale discriminator to secondary axis</span></span>
+<span id="cb21-213"><a href="#cb21-213" aria-hidden="true" tabindex="-1"></a>scale_factor <span class="ot">&lt;-</span> <span class="fu">max</span>(target_density) <span class="sc">/</span> <span class="fl">1.0</span></span>
+<span id="cb21-214"><a href="#cb21-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-215"><a href="#cb21-215" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(dist_df, <span class="fu">aes</span>(<span class="at">x =</span> x)) <span class="sc">+</span></span>
+<span id="cb21-216"><a href="#cb21-216" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> target, <span class="at">color =</span> <span class="st">"Target p_data"</span>), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb21-217"><a href="#cb21-217" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> generator, <span class="at">color =</span> <span class="st">"Generator p_G"</span>), <span class="at">linewidth =</span> <span class="dv">1</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb21-218"><a href="#cb21-218" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> discriminator <span class="sc">*</span> scale_factor, <span class="at">color =</span> <span class="st">"D(x)"</span>), <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb21-219"><a href="#cb21-219" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fl">0.5</span> <span class="sc">*</span> scale_factor, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb21-220"><a href="#cb21-220" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"Target p_data"</span> <span class="ot">=</span> okabe_ito[<span class="dv">5</span>],</span>
+<span id="cb21-221"><a href="#cb21-221" aria-hidden="true" tabindex="-1"></a>                                 <span class="st">"Generator p_G"</span> <span class="ot">=</span> okabe_ito[<span class="dv">1</span>],</span>
+<span id="cb21-222"><a href="#cb21-222" aria-hidden="true" tabindex="-1"></a>                                 <span class="st">"D(x)"</span> <span class="ot">=</span> okabe_ito[<span class="dv">3</span>]),</span>
+<span id="cb21-223"><a href="#cb21-223" aria-hidden="true" tabindex="-1"></a>                      <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb21-224"><a href="#cb21-224" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(</span>
+<span id="cb21-225"><a href="#cb21-225" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="st">"Density"</span>,</span>
+<span id="cb21-226"><a href="#cb21-226" aria-hidden="true" tabindex="-1"></a>    <span class="at">sec.axis =</span> <span class="fu">sec_axis</span>(<span class="sc">~</span> . <span class="sc">/</span> scale_factor, <span class="at">name =</span> <span class="st">"D(x)"</span>)</span>
+<span id="cb21-227"><a href="#cb21-227" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb21-228"><a href="#cb21-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"GAN equilibrium: generator matches target distribution"</span>,</span>
+<span id="cb21-229"><a href="#cb21-229" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"D(x) → 0.5 everywhere = Nash equilibrium of the minimax game"</span>,</span>
+<span id="cb21-230"><a href="#cb21-230" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"x"</span>) <span class="sc">+</span></span>
+<span id="cb21-231"><a href="#cb21-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb21-232"><a href="#cb21-232" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-233"><a href="#cb21-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-234"><a href="#cb21-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-235"><a href="#cb21-235" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb21-236"><a href="#cb21-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-239"><a href="#cb21-239" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-240"><a href="#cb21-240" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-gan-dynamics</span></span>
+<span id="cb21-241"><a href="#cb21-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-242"><a href="#cb21-242" aria-hidden="true" tabindex="-1"></a><span class="co"># Training dynamics</span></span>
+<span id="cb21-243"><a href="#cb21-243" aria-hidden="true" tabindex="-1"></a>dynamics_df <span class="ot">&lt;-</span> hist_df <span class="sc">|&gt;</span></span>
+<span id="cb21-244"><a href="#cb21-244" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(epoch, mean_D_real, mean_D_fake, V_score) <span class="sc">|&gt;</span></span>
+<span id="cb21-245"><a href="#cb21-245" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>epoch, <span class="at">names_to =</span> <span class="st">"metric"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb21-246"><a href="#cb21-246" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb21-247"><a href="#cb21-247" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> <span class="fu">case_when</span>(</span>
+<span id="cb21-248"><a href="#cb21-248" aria-hidden="true" tabindex="-1"></a>      metric <span class="sc">==</span> <span class="st">"mean_D_real"</span> <span class="sc">~</span> <span class="st">"D(real)"</span>,</span>
+<span id="cb21-249"><a href="#cb21-249" aria-hidden="true" tabindex="-1"></a>      metric <span class="sc">==</span> <span class="st">"mean_D_fake"</span> <span class="sc">~</span> <span class="st">"D(fake)"</span>,</span>
+<span id="cb21-250"><a href="#cb21-250" aria-hidden="true" tabindex="-1"></a>      metric <span class="sc">==</span> <span class="st">"V_score"</span> <span class="sc">~</span> <span class="st">"V(D,G)"</span></span>
+<span id="cb21-251"><a href="#cb21-251" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb21-252"><a href="#cb21-252" aria-hidden="true" tabindex="-1"></a>    <span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Epoch "</span>, epoch, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, label, <span class="st">" = "</span>, <span class="fu">round</span>(value, <span class="dv">4</span>))</span>
+<span id="cb21-253"><a href="#cb21-253" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb21-254"><a href="#cb21-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-255"><a href="#cb21-255" aria-hidden="true" tabindex="-1"></a>p_dynamics <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(dynamics_df, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> value, <span class="at">color =</span> label, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb21-256"><a href="#cb21-256" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb21-257"><a href="#cb21-257" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fl">0.5</span>, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb21-258"><a href="#cb21-258" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="sc">-</span><span class="fu">log</span>(<span class="dv">4</span>), <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>) <span class="sc">+</span></span>
+<span id="cb21-259"><a href="#cb21-259" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"D(real)"</span> <span class="ot">=</span> okabe_ito[<span class="dv">5</span>], <span class="st">"D(fake)"</span> <span class="ot">=</span> okabe_ito[<span class="dv">1</span>],</span>
+<span id="cb21-260"><a href="#cb21-260" aria-hidden="true" tabindex="-1"></a>                                 <span class="st">"V(D,G)"</span> <span class="ot">=</span> okabe_ito[<span class="dv">3</span>]),</span>
+<span id="cb21-261"><a href="#cb21-261" aria-hidden="true" tabindex="-1"></a>                      <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb21-262"><a href="#cb21-262" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"GAN training dynamics — convergence to Nash equilibrium"</span>,</span>
+<span id="cb21-263"><a href="#cb21-263" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"D(real) and D(fake) → 0.5; V(D,G) → −log(4) ≈ −1.386"</span>,</span>
+<span id="cb21-264"><a href="#cb21-264" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Training epoch"</span>, <span class="at">y =</span> <span class="st">"Value"</span>) <span class="sc">+</span></span>
+<span id="cb21-265"><a href="#cb21-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb21-266"><a href="#cb21-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-267"><a href="#cb21-267" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_dynamics, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb21-268"><a href="#cb21-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>, <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb21-269"><a href="#cb21-269" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-270"><a href="#cb21-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-271"><a href="#cb21-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-272"><a href="#cb21-272" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb21-273"><a href="#cb21-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-274"><a href="#cb21-274" aria-hidden="true" tabindex="-1"></a>The GAN framework demonstrates that some of the most powerful ideas in modern AI are fundamentally game-theoretic. The generator and discriminator are players in a continuous zero-sum game; the training process is an iterative best-response dynamic; and the convergence criterion is Nash equilibrium — specifically, the saddle point of the minimax objective. Our simplified 1D implementation captures the essential dynamics: the generator starts producing data far from the target, the discriminator easily distinguishes real from fake, and through adversarial training, the generator gradually adjusts its parameters until the discriminator can no longer tell the difference. At equilibrium, $D(x) = 0.5$ everywhere and $V(D, G) = -\log 4$, matching Goodfellow's theoretical prediction. The training history reveals the characteristic oscillatory behaviour of minimax dynamics — the discriminator temporarily gains the upper hand, then the generator adapts, then the discriminator readjusts — eventually damping toward the equilibrium. This oscillation is not a bug but a feature of adversarial dynamics, directly analogous to the cycling behaviour in games like Matching Pennies. In practice, GANs suffer from training instability precisely because the minimax game may not have a smooth convergence path: mode collapse occurs when the generator finds a local minimum that fools the discriminator without capturing the full data distribution (equivalent to a degenerate equilibrium), and training divergence occurs when the discriminator becomes too strong too quickly (destroying useful gradient signal). These failure modes have motivated an entire subfield of game-theoretic approaches to GAN training — Wasserstein GANs, spectral normalisation, progressive growing — all of which can be understood as modifications to the game structure that promote convergence to the desired equilibrium.</span>
+<span id="cb21-275"><a href="#cb21-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-276"><a href="#cb21-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-277"><a href="#cb21-277" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb21-278"><a href="#cb21-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-279"><a href="#cb21-279" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Zero-sum games and minimax theorem</span><span class="co">](../../foundations/zero-sum-minimax-theorem/)</span> — the theoretical foundation.</span>
+<span id="cb21-280"><a href="#cb21-280" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Matching pennies</span><span class="co">](../../classical-games/matching-pennies/)</span> — the simplest zero-sum game with similar dynamics.</span>
+<span id="cb21-281"><a href="#cb21-281" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Multi-agent reinforcement learning</span><span class="co">](../../ml-and-gt/multi-agent-reinforcement-learning/)</span> — learning in multi-player games.</span>
+<span id="cb21-282"><a href="#cb21-282" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Perceptron to deep learning</span><span class="co">](../perceptron-to-deep-learning-historical-r-implementation/)</span> — neural network foundations.</span>
+<span id="cb21-283"><a href="#cb21-283" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Fictitious play convergence</span><span class="co">](../../ml-and-gt/fictitious-play-convergence/)</span> — iterative best-response dynamics.</span>
+<span id="cb21-284"><a href="#cb21-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-285"><a href="#cb21-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-286"><a href="#cb21-286" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb21-287"><a href="#cb21-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-288"><a href="#cb21-288" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb21-289"><a href="#cb21-289" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/ai-ml-foundations-and-applications/gans-minimax-game/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

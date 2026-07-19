@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="secure multi-party computation, secret sharing, Shamir, game theory, incentive compatibility, threshold cryptography, R">
+<meta name="description" content="Model secure multi-party computation as a game where parties have private inputs and incentives to deviate, implement Shamir’s secret sharing in R, and visualize threshold schemes and security guarantees interactively.">
+<title>Secure multi-party computation as a game-theoretic problem – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-7945cf3d8e8e75b40d08f762a0e66ee2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/cryptography-and-gt/secure-multi-party-computation/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/cryptography-and-gt/secure-multi-party-computation/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Secure multi-party computation as a game-theoretic problem</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">cryptography-and-gt</div>
+    <div class="quarto-category">secure-computation</div>
+    <div class="quarto-category">secret-sharing</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Model secure multi-party computation as a game where parties have private inputs and incentives to deviate, implement Shamir’s secret sharing in R, and visualize threshold schemes and security guarantees interactively.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>secure multi-party computation, secret sharing, Shamir, game theory, incentive compatibility, threshold cryptography, R</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Suppose several parties each hold private data — medical records, financial portfolios, strategic bids — and wish to jointly compute a function of their combined inputs without revealing any individual’s data to the others. This is the problem of <strong>secure multi-party computation (MPC)</strong>, first formalised by Andrew Yao in 1982. While MPC is fundamentally a cryptographic challenge, it has a deep game-theoretic dimension: each party has incentives that may conflict with the protocol’s requirements. A rational party might deviate from the protocol to learn more about others’ inputs, free-ride on others’ contributions, or provide false inputs to manipulate the output in their favour. The classical cryptographic security model assumes <strong>honest-but-curious</strong> (semi-honest) or <strong>malicious</strong> adversaries, but game theory asks a more nuanced question: when is following the protocol a <strong>Nash equilibrium</strong>? This connection was formalised by Dodis, Halevi, and Rabin (2000), who showed that standard MPC protocols are not always incentive-compatible — a party may benefit from aborting early after learning partial information. <strong>Secret sharing</strong> is the foundational primitive for MPC: Shamir’s (1979) scheme splits a secret into <span class="math inline">\(n\)</span> shares such that any <span class="math inline">\(t\)</span> shares suffice to reconstruct the secret, but fewer than <span class="math inline">\(t\)</span> shares reveal nothing. This tutorial implements Shamir’s secret sharing in R, explores the game-theoretic incentives surrounding MPC protocols, and visualizes the polynomial interpolation that makes threshold reconstruction possible.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p><strong>Shamir’s secret sharing</strong> encodes a secret <span class="math inline">\(s\)</span> as the constant term of a random polynomial of degree <span class="math inline">\(t-1\)</span> over a finite field <span class="math inline">\(\mathbb{F}_p\)</span>:</p>
+<p><span class="math display">\[
+f(x) = s + a_1 x + a_2 x^2 + \cdots + a_{t-1} x^{t-1} \pmod{p}
+\]</span></p>
+<p>where <span class="math inline">\(a_1, \ldots, a_{t-1}\)</span> are chosen uniformly at random from <span class="math inline">\(\mathbb{F}_p\)</span>. Each party <span class="math inline">\(i\)</span> receives the share <span class="math inline">\((i, f(i) \bmod p)\)</span>. By Lagrange interpolation, any <span class="math inline">\(t\)</span> shares determine <span class="math inline">\(f\)</span> uniquely (and hence <span class="math inline">\(s = f(0)\)</span>), while <span class="math inline">\(t-1\)</span> or fewer shares leave <span class="math inline">\(s\)</span> information-theoretically hidden.</p>
+<p>The <strong>Lagrange reconstruction</strong> formula is:</p>
+<p><span class="math display">\[
+s = f(0) = \sum_{j=1}^{t} y_j \prod_{\substack{m=1 \\ m \neq j}}^{t} \frac{-x_m}{x_j - x_m} \pmod{p}
+\]</span></p>
+<p><strong>Game-theoretic model</strong>: Consider <span class="math inline">\(n\)</span> parties in a MPC game. Each party <span class="math inline">\(i\)</span> has private input <span class="math inline">\(x_i\)</span> and a utility function <span class="math inline">\(u_i(\text{output}, \text{information learned})\)</span>. A protocol is an <strong><span class="math inline">\((t, n)\)</span>-Nash equilibrium</strong> if no coalition of fewer than <span class="math inline">\(t\)</span> parties can increase their utility by deviating, given that the remaining parties follow the protocol. The key tension is between <strong>output utility</strong> (wanting the correct result) and <strong>privacy utility</strong> (not wanting others to learn your input).</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Shamir's Secret Sharing (over integers for illustration) ---</span></span>
+<span><span class="co"># In production, all operations would be modular arithmetic over a prime field</span></span>
+<span></span>
+<span><span class="co"># Generate shares for a (t, n) threshold scheme</span></span>
+<span><span class="va">shamir_share</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">secret</span>, <span class="va">n</span>, <span class="va">t</span>, <span class="va">prime</span> <span class="op">=</span> <span class="fl">2089</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># Random polynomial of degree t-1 with secret as constant term</span></span>
+<span>  <span class="va">coefficients</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">secret</span>, <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">prime</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span>, <span class="va">t</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">shares</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span></span>
+<span>    party <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="va">n</span>,</span>
+<span>    x <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="va">n</span>,</span>
+<span>    y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n</span>, <span class="kw">function</span><span class="op">(</span><span class="va">xi</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">val</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span>      <span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq_along</a></span><span class="op">(</span><span class="va">coefficients</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>        <span class="va">val</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">val</span> <span class="op">+</span> <span class="va">coefficients</span><span class="op">[</span><span class="va">k</span><span class="op">]</span> <span class="op">*</span> <span class="va">xi</span><span class="op">^</span><span class="op">(</span><span class="va">k</span><span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>      <span class="op">}</span></span>
+<span>      <span class="va">val</span></span>
+<span>    <span class="op">}</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>shares <span class="op">=</span> <span class="va">shares</span>, coefficients <span class="op">=</span> <span class="va">coefficients</span>, prime <span class="op">=</span> <span class="va">prime</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Reconstruct secret from t shares using Lagrange interpolation</span></span>
+<span><span class="va">shamir_reconstruct</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">shares_subset</span>, <span class="va">prime</span> <span class="op">=</span> <span class="fl">2089</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">xs</span> <span class="op">&lt;-</span> <span class="va">shares_subset</span><span class="op">$</span><span class="va">x</span></span>
+<span>  <span class="va">ys</span> <span class="op">&lt;-</span> <span class="va">shares_subset</span><span class="op">$</span><span class="va">y</span></span>
+<span>  <span class="va">t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">xs</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="va">secret</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">t</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Lagrange basis polynomial evaluated at x = 0</span></span>
+<span>    <span class="va">numerator</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
+<span>    <span class="va">denominator</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
+<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">t</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="kw">if</span> <span class="op">(</span><span class="va">m</span> <span class="op">!=</span> <span class="va">j</span><span class="op">)</span> <span class="op">{</span></span>
+<span>        <span class="va">numerator</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">numerator</span> <span class="op">*</span> <span class="op">(</span><span class="op">-</span><span class="va">xs</span><span class="op">[</span><span class="va">m</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>        <span class="va">denominator</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">denominator</span> <span class="op">*</span> <span class="op">(</span><span class="va">xs</span><span class="op">[</span><span class="va">j</span><span class="op">]</span> <span class="op">-</span> <span class="va">xs</span><span class="op">[</span><span class="va">m</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>      <span class="op">}</span></span>
+<span>    <span class="op">}</span></span>
+<span>    <span class="co"># Modular inverse via Fermat's little theorem</span></span>
+<span>    <span class="va">denom_inv</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">denominator</span><span class="op">^</span><span class="op">(</span><span class="va">prime</span> <span class="op">-</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>    <span class="va">lagrange_coeff</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">numerator</span> <span class="op">*</span> <span class="va">denom_inv</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>    <span class="va">secret</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">secret</span> <span class="op">+</span> <span class="va">ys</span><span class="op">[</span><span class="va">j</span><span class="op">]</span> <span class="op">*</span> <span class="va">lagrange_coeff</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html">%%</a></span> <span class="va">prime</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="va">secret</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># --- Demonstration: (3, 5) threshold scheme ---</span></span>
+<span><span class="va">secret</span> <span class="op">&lt;-</span> <span class="fl">1234</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">shamir_share</span><span class="op">(</span><span class="va">secret</span>, n <span class="op">=</span> <span class="fl">5</span>, t <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Shamir's (3, 5) Secret Sharing ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Shamir's (3, 5) Secret Sharing ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Secret: %d\n"</span>, <span class="va">secret</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Secret: 1234</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Prime field: F_%d\n"</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Prime field: F_2089</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Polynomial: f(x) = %d + %dx + %dx^2 (mod %d)\n"</span>,</span>
+<span>            <span class="va">result</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">result</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>            <span class="va">result</span><span class="op">$</span><span class="va">coefficients</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Polynomial: f(x) = 1234 + 985x + 1561x^2 (mod 2089)</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\nShares distributed to parties:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Shares distributed to parties:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 5 × 3
+  party     x     y
+  &lt;int&gt; &lt;int&gt; &lt;dbl&gt;
+1     1     1  1691
+2     2     2  1092
+3     3     3  1526
+4     4     4   904
+5     5     5  1315</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Reconstruct with exactly 3 shares (threshold met)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Reconstruction with 3 shares (parties 1, 3, 5) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Reconstruction with 3 shares (parties 1, 3, 5) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">subset_3</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">party</span> <span class="op"><a href="https://rdrr.io/r/base/match.html">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">recovered</span> <span class="op">&lt;-</span> <span class="fu">shamir_reconstruct</span><span class="op">(</span><span class="va">subset_3</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Recovered secret: %d (correct: %s)\n"</span>, <span class="va">recovered</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">recovered</span> <span class="op">==</span> <span class="va">secret</span>, <span class="st">"YES"</span>, <span class="st">"NO"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error in `sprintf()`:
+! invalid format '%d'; use format %f, %e, %g or %a for numeric objects</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Attempt with only 2 shares (below threshold)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Attempting with 2 shares (below threshold) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Attempting with 2 shares (below threshold) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">subset_2</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">party</span> <span class="op"><a href="https://rdrr.io/r/base/match.html">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">wrong</span> <span class="op">&lt;-</span> <span class="fu">shamir_reconstruct</span><span class="op">(</span><span class="va">subset_2</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Result with 2 shares: %d (correct: %s)\n"</span>, <span class="va">wrong</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">wrong</span> <span class="op">==</span> <span class="va">secret</span>, <span class="st">"YES"</span>, <span class="st">"NO"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error in `sprintf()`:
+! invalid format '%d'; use format %f, %e, %g or %a for numeric objects</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"With fewer than t shares, the secret remains hidden.\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>With fewer than t shares, the secret remains hidden.</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Game-theoretic analysis: incentive to deviate ---</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== Game-Theoretic Analysis: Deviation Incentives ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== Game-Theoretic Analysis: Deviation Incentives ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">n_parties</span> <span class="op">&lt;-</span> <span class="fl">5</span></span>
+<span><span class="va">threshold</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
+<span><span class="co"># Model: each party values output at V and privacy at P</span></span>
+<span><span class="va">V</span> <span class="op">&lt;-</span> <span class="fl">10</span>  <span class="co"># Value of learning the computed result</span></span>
+<span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fl">8</span>   <span class="co"># Cost of having input revealed</span></span>
+<span></span>
+<span><span class="va">payoff_follow</span> <span class="op">&lt;-</span> <span class="va">V</span>       <span class="co"># Follow protocol: get output, keep privacy</span></span>
+<span><span class="va">payoff_abort</span>  <span class="op">&lt;-</span> <span class="fl">0</span>       <span class="co"># Abort: no output, keep privacy</span></span>
+<span><span class="va">payoff_collude</span> <span class="op">&lt;-</span> <span class="va">V</span> <span class="op">+</span> <span class="fl">3</span>  <span class="co"># Collude (t parties): get output + extra info</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Payoff (follow protocol): %d\n"</span>, <span class="va">payoff_follow</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Payoff (follow protocol): 10</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Payoff (abort early):     %d\n"</span>, <span class="va">payoff_abort</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Payoff (abort early):     0</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Payoff (collude, t=%d):    %d\n"</span>, <span class="va">threshold</span>, <span class="va">payoff_collude</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Payoff (collude, t=3):    13</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Following the protocol is a NE when V &gt; 0 and coalition size &lt; t.\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Following the protocol is a NE when V &gt; 0 and coalition size &lt; t.</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Plot the true polynomial and shares</span></span>
+<span><span class="va">x_plot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">6</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">coefs</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">coefficients</span></span>
+<span><span class="va">p_val</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">prime</span></span>
+<span></span>
+<span><span class="co"># Evaluate polynomial (without mod for visualization)</span></span>
+<span><span class="va">y_true</span> <span class="op">&lt;-</span> <span class="va">coefs</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">coefs</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="va">x_plot</span> <span class="op">+</span> <span class="va">coefs</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">*</span> <span class="va">x_plot</span><span class="op">^</span><span class="fl">2</span></span>
+<span></span>
+<span><span class="co"># Generate fake alternative polynomials through 2 points</span></span>
+<span><span class="va">alt_polys</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">1234</span>, <span class="fl">1600</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">fake_secret</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># Polynomial through (1, y1), (3, y3) with intercept fake_secret</span></span>
+<span>  <span class="co"># f(x) = fake_secret + a1*x + a2*x^2</span></span>
+<span>  <span class="co"># f(1) = y1 =&gt; fake_secret + a1 + a2 = y1</span></span>
+<span>  <span class="co"># f(3) = y3 =&gt; fake_secret + 3*a1 + 9*a2 = y3</span></span>
+<span>  <span class="va">y1</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">$</span><span class="va">y</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span>  <span class="va">y3</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">$</span><span class="va">y</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span></span>
+<span>  <span class="co"># Solve: a1 + a2 = y1 - fake_secret, 3*a1 + 9*a2 = y3 - fake_secret</span></span>
+<span>  <span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">9</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="va">b</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">y1</span> <span class="op">-</span> <span class="va">fake_secret</span>, <span class="va">y3</span> <span class="op">-</span> <span class="va">fake_secret</span><span class="op">)</span></span>
+<span>  <span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/solve.html">solve</a></span><span class="op">(</span><span class="va">A</span>, <span class="va">b</span><span class="op">)</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x_plot</span>,</span>
+<span>         y <span class="op">=</span> <span class="va">fake_secret</span> <span class="op">+</span> <span class="va">sol</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="va">x_plot</span> <span class="op">+</span> <span class="va">sol</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="va">x_plot</span><span class="op">^</span><span class="fl">2</span>,</span>
+<span>         type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Alt (s = "</span>, <span class="va">fake_secret</span>, <span class="st">")"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="va">alt_df</span> <span class="op">&lt;-</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="va">alt_polys</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">poly_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x_plot</span>, y <span class="op">=</span> <span class="va">y_true</span>, type <span class="op">=</span> <span class="st">"True polynomial"</span><span class="op">)</span></span>
+<span><span class="va">share_df</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>x <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">$</span><span class="va">x</span>, y <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">$</span><span class="va">y</span>,</span>
+<span>                   party <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Party "</span>, <span class="va">result</span><span class="op">$</span><span class="va">shares</span><span class="op">$</span><span class="va">party</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">poly_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, color <span class="op">=</span> <span class="va">type</span><span class="op">)</span>, linewidth <span class="op">=</span> <span class="fl">1.2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">alt_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, group <span class="op">=</span> <span class="va">type</span><span class="op">)</span>,</span>
+<span>            linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="st">"grey60"</span>, linewidth <span class="op">=</span> <span class="fl">0.6</span>, alpha <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">share_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, fill <span class="op">=</span> <span class="va">party</span><span class="op">)</span>,</span>
+<span>             shape <span class="op">=</span> <span class="fl">21</span>, size <span class="op">=</span> <span class="fl">4</span>, stroke <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span><span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0</span>, y <span class="op">=</span> <span class="va">secret</span><span class="op">)</span>, shape <span class="op">=</span> <span class="fl">18</span>, size <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>             color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">0.3</span>, y <span class="op">=</span> <span class="va">secret</span>, label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Secret = "</span>, <span class="va">secret</span><span class="op">)</span>,</span>
+<span>           hjust <span class="op">=</span> <span class="fl">0</span>, size <span class="op">=</span> <span class="fl">3.5</span>, fontface <span class="op">=</span> <span class="st">"bold"</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"True polynomial"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span>, name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, name <span class="op">=</span> <span class="st">"Share holder"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Shamir's secret sharing — polynomial interpolation"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"3-of-5 threshold: 3 points fix the polynomial; 2 points admit many solutions"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Evaluation point x"</span>, y <span class="op">=</span> <span class="st">"Polynomial value f(x)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-shamir-polynomial" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-shamir-polynomial-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-shamir-polynomial-1.png" class="img-fluid figure-img" width="2100">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-shamir-polynomial-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Shamir’s secret sharing illustrated: the secret (s = 1234) is the y-intercept of a degree-2 polynomial. Five shares (coloured points) are distributed to parties. Any 3 shares determine the polynomial uniquely via Lagrange interpolation (solid curve), while 2 shares admit infinitely many polynomials (dashed lines) that pass through them, each yielding a different intercept. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Show reconstruction accuracy as a function of number of shares used</span></span>
+<span><span class="va">reconstruction_tests</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, <span class="kw">function</span><span class="op">(</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">k</span> <span class="op">&gt;=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Use first k shares</span></span>
+<span>    <span class="va">subset_k</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span> <span class="op">|&gt;</span> <span class="fu">slice</span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">k</span><span class="op">)</span></span>
+<span>    <span class="va">recovered</span> <span class="op">&lt;-</span> <span class="fu">shamir_reconstruct</span><span class="op">(</span><span class="va">subset_k</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span></span>
+<span>    <span class="va">correct</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">recovered</span> <span class="op">==</span> <span class="va">secret</span><span class="op">)</span></span>
+<span>  <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>    <span class="co"># Below threshold — random result</span></span>
+<span>    <span class="va">subset_k</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">shares</span> <span class="op">|&gt;</span> <span class="fu">slice</span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">k</span><span class="op">)</span></span>
+<span>    <span class="va">recovered</span> <span class="op">&lt;-</span> <span class="fu">shamir_reconstruct</span><span class="op">(</span><span class="va">subset_k</span>, <span class="va">result</span><span class="op">$</span><span class="va">prime</span><span class="op">)</span></span>
+<span>    <span class="va">correct</span> <span class="op">&lt;-</span> <span class="cn">FALSE</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span></span>
+<span>    n_shares <span class="op">=</span> <span class="va">k</span>,</span>
+<span>    recovered_value <span class="op">=</span> <span class="va">recovered</span>,</span>
+<span>    correct <span class="op">=</span> <span class="va">correct</span>,</span>
+<span>    status <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">k</span> <span class="op">&gt;=</span> <span class="fl">3</span>, <span class="st">"Above threshold"</span>, <span class="st">"Below threshold"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">reconstruction_tests</span> <span class="op">&lt;-</span> <span class="va">reconstruction_tests</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Shares used: "</span>, <span class="va">n_shares</span>,</span>
+<span>                       <span class="st">"\nRecovered value: "</span>, <span class="va">recovered_value</span>,</span>
+<span>                       <span class="st">"\nCorrect: "</span>, <span class="va">correct</span>,</span>
+<span>                       <span class="st">"\nThreshold: 3"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_recon</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">reconstruction_tests</span>,</span>
+<span>                  <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">n_shares</span><span class="op">)</span>, y <span class="op">=</span> <span class="va">recovered_value</span>,</span>
+<span>                      fill <span class="op">=</span> <span class="va">status</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_col</span><span class="op">(</span>width <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="va">secret</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>,</span>
+<span>             color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">5.4</span>, y <span class="op">=</span> <span class="va">secret</span>,</span>
+<span>           label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"True secret = "</span>, <span class="va">secret</span><span class="op">)</span>,</span>
+<span>           hjust <span class="op">=</span> <span class="fl">1</span>, size <span class="op">=</span> <span class="fl">3</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Below threshold"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span>,</span>
+<span>               <span class="st">"Above threshold"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>    name <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Secret reconstruction vs number of shares"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Below threshold (t = 3): wrong value; at or above: correct reconstruction"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Number of shares used"</span>, y <span class="op">=</span> <span class="st">"Reconstructed value"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_recon</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-reconstruction-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-reconstruction-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-b3b96626ac3ee4f32684" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-b3b96626ac3ee4f32684">{"x":{"data":[{"orientation":"v","width":[0.59999999999999964,0.59999999999999964,0.59999999999999964],"base":[null,null,null],"x":[3,4,5],"y":[null,null,null],"text":["Shares used: 3<br />Recovered value: NaN<br />Correct: NA<br />Threshold: 3","Shares used: 4<br />Recovered value: NaN<br />Correct: NA<br />Threshold: 3","Shares used: 5<br />Recovered value: NaN<br />Correct: NA<br />Threshold: 3"],"type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(0,158,115,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"Above threshold","legendgroup":"Above threshold","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"orientation":"v","width":[0.60000000000000009,0.59999999999999987],"base":[0,null],"x":[1,2],"y":[1691,null],"text":["Shares used: 1<br />Recovered value: 1691<br />Correct: FALSE<br />Threshold: 3","Shares used: 2<br />Recovered value: NaN<br />Correct: FALSE<br />Threshold: 3"],"type":"bar","textposition":"none","marker":{"autocolorscale":false,"color":"rgba(213,94,0,1)","line":{"width":1.8897637795275593,"color":"transparent"}},"name":"Below threshold","legendgroup":"Below threshold","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0.40000000000000002,5.5999999999999996],"y":[1234,1234],"text":"","type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(213,94,0,1)","dash":"dash"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[5.4000000000000004],"y":[1234],"text":"True secret = 1234","hovertext":"","textfont":{"size":11.338582677165356,"color":"rgba(213,94,0,1)"},"type":"scatter","mode":"text","hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Secret reconstruction vs number of shares <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.40000000000000002,5.5999999999999996],"tickmode":"array","ticktext":["1","2","3","4","5"],"tickvals":[1,2,3,4,5],"categoryorder":"array","categoryarray":["1","2","3","4","5"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Number of shares used","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-84.550000000000011,1775.55],"tickmode":"array","ticktext":["0","500","1000","1500"],"tickvals":[0,499.99999999999994,1000,1500],"categoryorder":"array","categoryarray":["0","500","1000","1500"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Reconstructed value","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"25fe4f5fcc47":{"x":{},"y":{},"fill":{},"text":{},"type":"bar"},"25fe99f6827":{"yintercept":{}},"25fe520a0577":{"x":{},"y":{}}},"cur_data":"25fe4f5fcc47","visdat":{"25fe4f5fcc47":["function (y) ","x"],"25fe99f6827":["function (y) ","x"],"25fe520a0577":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-reconstruction-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>Shamir’s secret sharing elegantly demonstrates the threshold property: with the (3, 5) scheme, any three shares completely determine the polynomial and recover the secret, while two or fewer shares are information-theoretically useless — they are consistent with every possible secret value. This is not merely computational security (which could be broken with more computing power) but unconditional security grounded in the algebra of polynomial interpolation. The game-theoretic dimension adds a crucial layer: even if a protocol is cryptographically secure, rational parties may deviate if their incentive structure favours deviation. In our model, a coalition of <span class="math inline">\(t\)</span> or more parties can reconstruct the secret, so the threshold <span class="math inline">\(t\)</span> must be set considering the difficulty of forming such coalitions. The key insight from the rational MPC literature is that standard security definitions (simulation-based security) do not account for utility-maximising behaviour: a protocol might be “secure” against a malicious adversary yet still be susceptible to rational deviation when parties weigh the costs and benefits of following the protocol versus deviating. Designing protocols that are both cryptographically secure and incentive-compatible requires combining mechanism design with cryptography — ensuring that following the protocol is a Nash equilibrium for all parties. Recent advances in blockchain-based MPC (using smart contracts for penalty enforcement) and verifiable computation show how game-theoretic insights are shaping the next generation of secure protocols.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../zero-knowledge-proofs/">Zero-knowledge proofs and strategic verification</a> — cryptographic protocols with game-theoretic structure.</li>
+<li>
+<a href="../../mechanism-design/vickrey-second-price-auction/">Mechanism design and incentive compatibility</a> — designing rules for strategic agents.</li>
+<li>
+<a href="../../cooperative-gt/shapley-value/">The Shapley value</a> — fair division of cooperative surplus, related to cost sharing in MPC.</li>
+<li>
+<a href="../blockchain-consensus/">Blockchain consensus as a coordination game</a> — distributed trust with rational miners.</li>
+<li>
+<a href="../../bayesian-methods/bayesian-games-incomplete-information/">Bayesian games with incomplete information</a> — games with private types, the theoretical basis for MPC.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Secure Multi-Party Computation as a Game-Theoretic Problem},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/cryptography-and-gt/secure-multi-party-computation/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Secure Multi-Party Computation as a
+Game-Theoretic Problem.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/cryptography-and-gt/secure-multi-party-computation/">https://r-heller.github.io/equilibria/tutorials/cryptography-and-gt/secure-multi-party-computation/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Secure multi-party computation as a game-theoretic problem"</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Model secure multi-party computation as a game where parties have private inputs and incentives to deviate, implement Shamir's secret sharing in R, and visualize threshold schemes and security guarantees interactively."</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - cryptography-and-gt</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - secure-computation</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - secret-sharing</span></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["secure multi-party computation", "secret sharing", "Shamir", "game theory", "incentive compatibility", "threshold cryptography", "R"]</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["crypto-games", "protocol-design"]</span></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_cryptography-and-gt_secure-multi-party-computation"</span></span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Polynomial interpolation diagram showing Shamir secret sharing with threshold reconstruction"</span></span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/cryptography-and-gt/secure-multi-party-computation/</span></span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb35-36"><a href="#cb35-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb35-37"><a href="#cb35-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-38"><a href="#cb35-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb35-39"><a href="#cb35-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb35-40"><a href="#cb35-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-41"><a href="#cb35-41" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb35-42"><a href="#cb35-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb35-43"><a href="#cb35-43" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb35-44"><a href="#cb35-44" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb35-45"><a href="#cb35-45" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb35-46"><a href="#cb35-46" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb35-47"><a href="#cb35-47" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb35-48"><a href="#cb35-48" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb35-49"><a href="#cb35-49" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>)</span>
+<span id="cb35-50"><a href="#cb35-50" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb35-51"><a href="#cb35-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-52"><a href="#cb35-52" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-53"><a href="#cb35-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-54"><a href="#cb35-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-55"><a href="#cb35-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb35-56"><a href="#cb35-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-57"><a href="#cb35-57" aria-hidden="true" tabindex="-1"></a>Suppose several parties each hold private data — medical records, financial portfolios, strategic bids — and wish to jointly compute a function of their combined inputs without revealing any individual's data to the others. This is the problem of **secure multi-party computation (MPC)**, first formalised by Andrew Yao in 1982. While MPC is fundamentally a cryptographic challenge, it has a deep game-theoretic dimension: each party has incentives that may conflict with the protocol's requirements. A rational party might deviate from the protocol to learn more about others' inputs, free-ride on others' contributions, or provide false inputs to manipulate the output in their favour. The classical cryptographic security model assumes **honest-but-curious** (semi-honest) or **malicious** adversaries, but game theory asks a more nuanced question: when is following the protocol a **Nash equilibrium**? This connection was formalised by Dodis, Halevi, and Rabin (2000), who showed that standard MPC protocols are not always incentive-compatible — a party may benefit from aborting early after learning partial information. **Secret sharing** is the foundational primitive for MPC: Shamir's (1979) scheme splits a secret into $n$ shares such that any $t$ shares suffice to reconstruct the secret, but fewer than $t$ shares reveal nothing. This tutorial implements Shamir's secret sharing in R, explores the game-theoretic incentives surrounding MPC protocols, and visualizes the polynomial interpolation that makes threshold reconstruction possible.</span>
+<span id="cb35-58"><a href="#cb35-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-59"><a href="#cb35-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-60"><a href="#cb35-60" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb35-61"><a href="#cb35-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-62"><a href="#cb35-62" aria-hidden="true" tabindex="-1"></a>**Shamir's secret sharing** encodes a secret $s$ as the constant term of a random polynomial of degree $t-1$ over a finite field $\mathbb{F}_p$:</span>
+<span id="cb35-63"><a href="#cb35-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-64"><a href="#cb35-64" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-65"><a href="#cb35-65" aria-hidden="true" tabindex="-1"></a>f(x) = s + a_1 x + a_2 x^2 + \cdots + a_{t-1} x^{t-1} \pmod{p}</span>
+<span id="cb35-66"><a href="#cb35-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-67"><a href="#cb35-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-68"><a href="#cb35-68" aria-hidden="true" tabindex="-1"></a>where $a_1, \ldots, a_{t-1}$ are chosen uniformly at random from $\mathbb{F}_p$. Each party $i$ receives the share $(i, f(i) \bmod p)$. By Lagrange interpolation, any $t$ shares determine $f$ uniquely (and hence $s = f(0)$), while $t-1$ or fewer shares leave $s$ information-theoretically hidden.</span>
+<span id="cb35-69"><a href="#cb35-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-70"><a href="#cb35-70" aria-hidden="true" tabindex="-1"></a>The **Lagrange reconstruction** formula is:</span>
+<span id="cb35-71"><a href="#cb35-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-72"><a href="#cb35-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-73"><a href="#cb35-73" aria-hidden="true" tabindex="-1"></a>s = f(0) = \sum_{j=1}^{t} y_j \prod_{\substack{m=1 <span class="sc">\\</span> m \neq j}}^{t} \frac{-x_m}{x_j - x_m} \pmod{p}</span>
+<span id="cb35-74"><a href="#cb35-74" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-75"><a href="#cb35-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-76"><a href="#cb35-76" aria-hidden="true" tabindex="-1"></a>**Game-theoretic model**: Consider $n$ parties in a MPC game. Each party $i$ has private input $x_i$ and a utility function $u_i(\text{output}, \text{information learned})$. A protocol is an **$(t, n)$-Nash equilibrium** if no coalition of fewer than $t$ parties can increase their utility by deviating, given that the remaining parties follow the protocol. The key tension is between **output utility** (wanting the correct result) and **privacy utility** (not wanting others to learn your input).</span>
+<span id="cb35-77"><a href="#cb35-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-78"><a href="#cb35-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-79"><a href="#cb35-79" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb35-80"><a href="#cb35-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-83"><a href="#cb35-83" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-84"><a href="#cb35-84" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: shamir-secret-sharing</span></span>
+<span id="cb35-85"><a href="#cb35-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-86"><a href="#cb35-86" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Shamir's Secret Sharing (over integers for illustration) ---</span></span>
+<span id="cb35-87"><a href="#cb35-87" aria-hidden="true" tabindex="-1"></a><span class="co"># In production, all operations would be modular arithmetic over a prime field</span></span>
+<span id="cb35-88"><a href="#cb35-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-89"><a href="#cb35-89" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate shares for a (t, n) threshold scheme</span></span>
+<span id="cb35-90"><a href="#cb35-90" aria-hidden="true" tabindex="-1"></a>shamir_share <span class="ot">&lt;-</span> <span class="cf">function</span>(secret, n, t, <span class="at">prime =</span> <span class="dv">2089</span>) {</span>
+<span id="cb35-91"><a href="#cb35-91" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Random polynomial of degree t-1 with secret as constant term</span></span>
+<span id="cb35-92"><a href="#cb35-92" aria-hidden="true" tabindex="-1"></a>  coefficients <span class="ot">&lt;-</span> <span class="fu">c</span>(secret, <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>(prime <span class="sc">-</span> <span class="dv">1</span>), t <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb35-93"><a href="#cb35-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-94"><a href="#cb35-94" aria-hidden="true" tabindex="-1"></a>  shares <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb35-95"><a href="#cb35-95" aria-hidden="true" tabindex="-1"></a>    <span class="at">party =</span> <span class="dv">1</span><span class="sc">:</span>n,</span>
+<span id="cb35-96"><a href="#cb35-96" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="dv">1</span><span class="sc">:</span>n,</span>
+<span id="cb35-97"><a href="#cb35-97" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>n, <span class="cf">function</span>(xi) {</span>
+<span id="cb35-98"><a href="#cb35-98" aria-hidden="true" tabindex="-1"></a>      val <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb35-99"><a href="#cb35-99" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">seq_along</span>(coefficients)) {</span>
+<span id="cb35-100"><a href="#cb35-100" aria-hidden="true" tabindex="-1"></a>        val <span class="ot">&lt;-</span> (val <span class="sc">+</span> coefficients[k] <span class="sc">*</span> xi<span class="sc">^</span>(k<span class="dv">-1</span>)) <span class="sc">%%</span> prime</span>
+<span id="cb35-101"><a href="#cb35-101" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb35-102"><a href="#cb35-102" aria-hidden="true" tabindex="-1"></a>      val</span>
+<span id="cb35-103"><a href="#cb35-103" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb35-104"><a href="#cb35-104" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb35-105"><a href="#cb35-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-106"><a href="#cb35-106" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">shares =</span> shares, <span class="at">coefficients =</span> coefficients, <span class="at">prime =</span> prime)</span>
+<span id="cb35-107"><a href="#cb35-107" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-108"><a href="#cb35-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-109"><a href="#cb35-109" aria-hidden="true" tabindex="-1"></a><span class="co"># Reconstruct secret from t shares using Lagrange interpolation</span></span>
+<span id="cb35-110"><a href="#cb35-110" aria-hidden="true" tabindex="-1"></a>shamir_reconstruct <span class="ot">&lt;-</span> <span class="cf">function</span>(shares_subset, <span class="at">prime =</span> <span class="dv">2089</span>) {</span>
+<span id="cb35-111"><a href="#cb35-111" aria-hidden="true" tabindex="-1"></a>  xs <span class="ot">&lt;-</span> shares_subset<span class="sc">$</span>x</span>
+<span id="cb35-112"><a href="#cb35-112" aria-hidden="true" tabindex="-1"></a>  ys <span class="ot">&lt;-</span> shares_subset<span class="sc">$</span>y</span>
+<span id="cb35-113"><a href="#cb35-113" aria-hidden="true" tabindex="-1"></a>  t <span class="ot">&lt;-</span> <span class="fu">length</span>(xs)</span>
+<span id="cb35-114"><a href="#cb35-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-115"><a href="#cb35-115" aria-hidden="true" tabindex="-1"></a>  secret <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb35-116"><a href="#cb35-116" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>t) {</span>
+<span id="cb35-117"><a href="#cb35-117" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Lagrange basis polynomial evaluated at x = 0</span></span>
+<span id="cb35-118"><a href="#cb35-118" aria-hidden="true" tabindex="-1"></a>    numerator <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb35-119"><a href="#cb35-119" aria-hidden="true" tabindex="-1"></a>    denominator <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb35-120"><a href="#cb35-120" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (m <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>t) {</span>
+<span id="cb35-121"><a href="#cb35-121" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (m <span class="sc">!=</span> j) {</span>
+<span id="cb35-122"><a href="#cb35-122" aria-hidden="true" tabindex="-1"></a>        numerator <span class="ot">&lt;-</span> (numerator <span class="sc">*</span> (<span class="sc">-</span>xs[m])) <span class="sc">%%</span> prime</span>
+<span id="cb35-123"><a href="#cb35-123" aria-hidden="true" tabindex="-1"></a>        denominator <span class="ot">&lt;-</span> (denominator <span class="sc">*</span> (xs[j] <span class="sc">-</span> xs[m])) <span class="sc">%%</span> prime</span>
+<span id="cb35-124"><a href="#cb35-124" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb35-125"><a href="#cb35-125" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb35-126"><a href="#cb35-126" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Modular inverse via Fermat's little theorem</span></span>
+<span id="cb35-127"><a href="#cb35-127" aria-hidden="true" tabindex="-1"></a>    denom_inv <span class="ot">&lt;-</span> (denominator<span class="sc">^</span>(prime <span class="sc">-</span> <span class="dv">2</span>)) <span class="sc">%%</span> prime</span>
+<span id="cb35-128"><a href="#cb35-128" aria-hidden="true" tabindex="-1"></a>    lagrange_coeff <span class="ot">&lt;-</span> (numerator <span class="sc">*</span> denom_inv) <span class="sc">%%</span> prime</span>
+<span id="cb35-129"><a href="#cb35-129" aria-hidden="true" tabindex="-1"></a>    secret <span class="ot">&lt;-</span> (secret <span class="sc">+</span> ys[j] <span class="sc">*</span> lagrange_coeff) <span class="sc">%%</span> prime</span>
+<span id="cb35-130"><a href="#cb35-130" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb35-131"><a href="#cb35-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-132"><a href="#cb35-132" aria-hidden="true" tabindex="-1"></a>  secret</span>
+<span id="cb35-133"><a href="#cb35-133" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-134"><a href="#cb35-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-135"><a href="#cb35-135" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Demonstration: (3, 5) threshold scheme ---</span></span>
+<span id="cb35-136"><a href="#cb35-136" aria-hidden="true" tabindex="-1"></a>secret <span class="ot">&lt;-</span> <span class="dv">1234</span></span>
+<span id="cb35-137"><a href="#cb35-137" aria-hidden="true" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">shamir_share</span>(secret, <span class="at">n =</span> <span class="dv">5</span>, <span class="at">t =</span> <span class="dv">3</span>)</span>
+<span id="cb35-138"><a href="#cb35-138" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Shamir's (3, 5) Secret Sharing ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-139"><a href="#cb35-139" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Secret: %d</span><span class="sc">\n</span><span class="st">"</span>, secret))</span>
+<span id="cb35-140"><a href="#cb35-140" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Prime field: F_%d</span><span class="sc">\n</span><span class="st">"</span>, result<span class="sc">$</span>prime))</span>
+<span id="cb35-141"><a href="#cb35-141" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Polynomial: f(x) = %d + %dx + %dx^2 (mod %d)</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb35-142"><a href="#cb35-142" aria-hidden="true" tabindex="-1"></a>            result<span class="sc">$</span>coefficients[<span class="dv">1</span>], result<span class="sc">$</span>coefficients[<span class="dv">2</span>],</span>
+<span id="cb35-143"><a href="#cb35-143" aria-hidden="true" tabindex="-1"></a>            result<span class="sc">$</span>coefficients[<span class="dv">3</span>], result<span class="sc">$</span>prime))</span>
+<span id="cb35-144"><a href="#cb35-144" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Shares distributed to parties:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-145"><a href="#cb35-145" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(result<span class="sc">$</span>shares)</span>
+<span id="cb35-146"><a href="#cb35-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-147"><a href="#cb35-147" aria-hidden="true" tabindex="-1"></a><span class="co"># Reconstruct with exactly 3 shares (threshold met)</span></span>
+<span id="cb35-148"><a href="#cb35-148" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Reconstruction with 3 shares (parties 1, 3, 5) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-149"><a href="#cb35-149" aria-hidden="true" tabindex="-1"></a>subset_3 <span class="ot">&lt;-</span> result<span class="sc">$</span>shares <span class="sc">|&gt;</span> <span class="fu">filter</span>(party <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">5</span>))</span>
+<span id="cb35-150"><a href="#cb35-150" aria-hidden="true" tabindex="-1"></a>recovered <span class="ot">&lt;-</span> <span class="fu">shamir_reconstruct</span>(subset_3, result<span class="sc">$</span>prime)</span>
+<span id="cb35-151"><a href="#cb35-151" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Recovered secret: %d (correct: %s)</span><span class="sc">\n</span><span class="st">"</span>, recovered,</span>
+<span id="cb35-152"><a href="#cb35-152" aria-hidden="true" tabindex="-1"></a>            <span class="fu">ifelse</span>(recovered <span class="sc">==</span> secret, <span class="st">"YES"</span>, <span class="st">"NO"</span>)))</span>
+<span id="cb35-153"><a href="#cb35-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-154"><a href="#cb35-154" aria-hidden="true" tabindex="-1"></a><span class="co"># Attempt with only 2 shares (below threshold)</span></span>
+<span id="cb35-155"><a href="#cb35-155" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Attempting with 2 shares (below threshold) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-156"><a href="#cb35-156" aria-hidden="true" tabindex="-1"></a>subset_2 <span class="ot">&lt;-</span> result<span class="sc">$</span>shares <span class="sc">|&gt;</span> <span class="fu">filter</span>(party <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>))</span>
+<span id="cb35-157"><a href="#cb35-157" aria-hidden="true" tabindex="-1"></a>wrong <span class="ot">&lt;-</span> <span class="fu">shamir_reconstruct</span>(subset_2, result<span class="sc">$</span>prime)</span>
+<span id="cb35-158"><a href="#cb35-158" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Result with 2 shares: %d (correct: %s)</span><span class="sc">\n</span><span class="st">"</span>, wrong,</span>
+<span id="cb35-159"><a href="#cb35-159" aria-hidden="true" tabindex="-1"></a>            <span class="fu">ifelse</span>(wrong <span class="sc">==</span> secret, <span class="st">"YES"</span>, <span class="st">"NO"</span>)))</span>
+<span id="cb35-160"><a href="#cb35-160" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"With fewer than t shares, the secret remains hidden.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-161"><a href="#cb35-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-162"><a href="#cb35-162" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Game-theoretic analysis: incentive to deviate ---</span></span>
+<span id="cb35-163"><a href="#cb35-163" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== Game-Theoretic Analysis: Deviation Incentives ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-164"><a href="#cb35-164" aria-hidden="true" tabindex="-1"></a>n_parties <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb35-165"><a href="#cb35-165" aria-hidden="true" tabindex="-1"></a>threshold <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb35-166"><a href="#cb35-166" aria-hidden="true" tabindex="-1"></a><span class="co"># Model: each party values output at V and privacy at P</span></span>
+<span id="cb35-167"><a href="#cb35-167" aria-hidden="true" tabindex="-1"></a>V <span class="ot">&lt;-</span> <span class="dv">10</span>  <span class="co"># Value of learning the computed result</span></span>
+<span id="cb35-168"><a href="#cb35-168" aria-hidden="true" tabindex="-1"></a>P <span class="ot">&lt;-</span> <span class="dv">8</span>   <span class="co"># Cost of having input revealed</span></span>
+<span id="cb35-169"><a href="#cb35-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-170"><a href="#cb35-170" aria-hidden="true" tabindex="-1"></a>payoff_follow <span class="ot">&lt;-</span> V       <span class="co"># Follow protocol: get output, keep privacy</span></span>
+<span id="cb35-171"><a href="#cb35-171" aria-hidden="true" tabindex="-1"></a>payoff_abort  <span class="ot">&lt;-</span> <span class="dv">0</span>       <span class="co"># Abort: no output, keep privacy</span></span>
+<span id="cb35-172"><a href="#cb35-172" aria-hidden="true" tabindex="-1"></a>payoff_collude <span class="ot">&lt;-</span> V <span class="sc">+</span> <span class="dv">3</span>  <span class="co"># Collude (t parties): get output + extra info</span></span>
+<span id="cb35-173"><a href="#cb35-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-174"><a href="#cb35-174" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Payoff (follow protocol): %d</span><span class="sc">\n</span><span class="st">"</span>, payoff_follow))</span>
+<span id="cb35-175"><a href="#cb35-175" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Payoff (abort early):     %d</span><span class="sc">\n</span><span class="st">"</span>, payoff_abort))</span>
+<span id="cb35-176"><a href="#cb35-176" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"Payoff (collude, t=%d):    %d</span><span class="sc">\n</span><span class="st">"</span>, threshold, payoff_collude))</span>
+<span id="cb35-177"><a href="#cb35-177" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Following the protocol is a NE when V &gt; 0 and coalition size &lt; t.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-178"><a href="#cb35-178" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-179"><a href="#cb35-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-180"><a href="#cb35-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-181"><a href="#cb35-181" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb35-182"><a href="#cb35-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-185"><a href="#cb35-185" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-186"><a href="#cb35-186" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-shamir-polynomial</span></span>
+<span id="cb35-187"><a href="#cb35-187" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Shamir's secret sharing illustrated: the secret (s = 1234) is the y-intercept of a degree-2 polynomial. Five shares (coloured points) are distributed to parties. Any 3 shares determine the polynomial uniquely via Lagrange interpolation (solid curve), while 2 shares admit infinitely many polynomials (dashed lines) that pass through them, each yielding a different intercept. Okabe-Ito palette."</span></span>
+<span id="cb35-188"><a href="#cb35-188" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb35-189"><a href="#cb35-189" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 7</span></span>
+<span id="cb35-190"><a href="#cb35-190" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb35-191"><a href="#cb35-191" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb35-192"><a href="#cb35-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-193"><a href="#cb35-193" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot the true polynomial and shares</span></span>
+<span id="cb35-194"><a href="#cb35-194" aria-hidden="true" tabindex="-1"></a>x_plot <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">6</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
+<span id="cb35-195"><a href="#cb35-195" aria-hidden="true" tabindex="-1"></a>coefs <span class="ot">&lt;-</span> result<span class="sc">$</span>coefficients</span>
+<span id="cb35-196"><a href="#cb35-196" aria-hidden="true" tabindex="-1"></a>p_val <span class="ot">&lt;-</span> result<span class="sc">$</span>prime</span>
+<span id="cb35-197"><a href="#cb35-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-198"><a href="#cb35-198" aria-hidden="true" tabindex="-1"></a><span class="co"># Evaluate polynomial (without mod for visualization)</span></span>
+<span id="cb35-199"><a href="#cb35-199" aria-hidden="true" tabindex="-1"></a>y_true <span class="ot">&lt;-</span> coefs[<span class="dv">1</span>] <span class="sc">+</span> coefs[<span class="dv">2</span>] <span class="sc">*</span> x_plot <span class="sc">+</span> coefs[<span class="dv">3</span>] <span class="sc">*</span> x_plot<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb35-200"><a href="#cb35-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-201"><a href="#cb35-201" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate fake alternative polynomials through 2 points</span></span>
+<span id="cb35-202"><a href="#cb35-202" aria-hidden="true" tabindex="-1"></a>alt_polys <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">c</span>(<span class="dv">800</span>, <span class="dv">1234</span>, <span class="dv">1600</span>), <span class="cf">function</span>(fake_secret) {</span>
+<span id="cb35-203"><a href="#cb35-203" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Polynomial through (1, y1), (3, y3) with intercept fake_secret</span></span>
+<span id="cb35-204"><a href="#cb35-204" aria-hidden="true" tabindex="-1"></a>  <span class="co"># f(x) = fake_secret + a1*x + a2*x^2</span></span>
+<span id="cb35-205"><a href="#cb35-205" aria-hidden="true" tabindex="-1"></a>  <span class="co"># f(1) = y1 =&gt; fake_secret + a1 + a2 = y1</span></span>
+<span id="cb35-206"><a href="#cb35-206" aria-hidden="true" tabindex="-1"></a>  <span class="co"># f(3) = y3 =&gt; fake_secret + 3*a1 + 9*a2 = y3</span></span>
+<span id="cb35-207"><a href="#cb35-207" aria-hidden="true" tabindex="-1"></a>  y1 <span class="ot">&lt;-</span> result<span class="sc">$</span>shares<span class="sc">$</span>y[<span class="dv">1</span>]</span>
+<span id="cb35-208"><a href="#cb35-208" aria-hidden="true" tabindex="-1"></a>  y3 <span class="ot">&lt;-</span> result<span class="sc">$</span>shares<span class="sc">$</span>y[<span class="dv">3</span>]</span>
+<span id="cb35-209"><a href="#cb35-209" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Solve: a1 + a2 = y1 - fake_secret, 3*a1 + 9*a2 = y3 - fake_secret</span></span>
+<span id="cb35-210"><a href="#cb35-210" aria-hidden="true" tabindex="-1"></a>  A <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">1</span>, <span class="dv">9</span>), <span class="at">nrow =</span> <span class="dv">2</span>)</span>
+<span id="cb35-211"><a href="#cb35-211" aria-hidden="true" tabindex="-1"></a>  b <span class="ot">&lt;-</span> <span class="fu">c</span>(y1 <span class="sc">-</span> fake_secret, y3 <span class="sc">-</span> fake_secret)</span>
+<span id="cb35-212"><a href="#cb35-212" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">solve</span>(A, b)</span>
+<span id="cb35-213"><a href="#cb35-213" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">x =</span> x_plot,</span>
+<span id="cb35-214"><a href="#cb35-214" aria-hidden="true" tabindex="-1"></a>         <span class="at">y =</span> fake_secret <span class="sc">+</span> sol[<span class="dv">1</span>] <span class="sc">*</span> x_plot <span class="sc">+</span> sol[<span class="dv">2</span>] <span class="sc">*</span> x_plot<span class="sc">^</span><span class="dv">2</span>,</span>
+<span id="cb35-215"><a href="#cb35-215" aria-hidden="true" tabindex="-1"></a>         <span class="at">type =</span> <span class="fu">paste0</span>(<span class="st">"Alt (s = "</span>, fake_secret, <span class="st">")"</span>))</span>
+<span id="cb35-216"><a href="#cb35-216" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb35-217"><a href="#cb35-217" aria-hidden="true" tabindex="-1"></a>alt_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(alt_polys)</span>
+<span id="cb35-218"><a href="#cb35-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-219"><a href="#cb35-219" aria-hidden="true" tabindex="-1"></a>poly_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">x =</span> x_plot, <span class="at">y =</span> y_true, <span class="at">type =</span> <span class="st">"True polynomial"</span>)</span>
+<span id="cb35-220"><a href="#cb35-220" aria-hidden="true" tabindex="-1"></a>share_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">x =</span> result<span class="sc">$</span>shares<span class="sc">$</span>x, <span class="at">y =</span> result<span class="sc">$</span>shares<span class="sc">$</span>y,</span>
+<span id="cb35-221"><a href="#cb35-221" aria-hidden="true" tabindex="-1"></a>                   <span class="at">party =</span> <span class="fu">paste0</span>(<span class="st">"Party "</span>, result<span class="sc">$</span>shares<span class="sc">$</span>party))</span>
+<span id="cb35-222"><a href="#cb35-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-223"><a href="#cb35-223" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb35-224"><a href="#cb35-224" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> poly_df, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">color =</span> type), <span class="at">linewidth =</span> <span class="fl">1.2</span>) <span class="sc">+</span></span>
+<span id="cb35-225"><a href="#cb35-225" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> alt_df, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">group =</span> type),</span>
+<span id="cb35-226"><a href="#cb35-226" aria-hidden="true" tabindex="-1"></a>            <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"grey60"</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb35-227"><a href="#cb35-227" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> share_df, <span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">fill =</span> party),</span>
+<span id="cb35-228"><a href="#cb35-228" aria-hidden="true" tabindex="-1"></a>             <span class="at">shape =</span> <span class="dv">21</span>, <span class="at">size =</span> <span class="dv">4</span>, <span class="at">stroke =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb35-229"><a href="#cb35-229" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> secret), <span class="at">shape =</span> <span class="dv">18</span>, <span class="at">size =</span> <span class="dv">5</span>,</span>
+<span id="cb35-230"><a href="#cb35-230" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> okabe_ito[<span class="dv">6</span>]) <span class="sc">+</span></span>
+<span id="cb35-231"><a href="#cb35-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">0.3</span>, <span class="at">y =</span> secret, <span class="at">label =</span> <span class="fu">paste0</span>(<span class="st">"Secret = "</span>, secret),</span>
+<span id="cb35-232"><a href="#cb35-232" aria-hidden="true" tabindex="-1"></a>           <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="fl">3.5</span>, <span class="at">fontface =</span> <span class="st">"bold"</span>, <span class="at">color =</span> okabe_ito[<span class="dv">6</span>]) <span class="sc">+</span></span>
+<span id="cb35-233"><a href="#cb35-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"True polynomial"</span> <span class="ot">=</span> okabe_ito[<span class="dv">5</span>]), <span class="at">name =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb35-234"><a href="#cb35-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> okabe_ito[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>], <span class="at">name =</span> <span class="st">"Share holder"</span>) <span class="sc">+</span></span>
+<span id="cb35-235"><a href="#cb35-235" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb35-236"><a href="#cb35-236" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Shamir's secret sharing — polynomial interpolation"</span>,</span>
+<span id="cb35-237"><a href="#cb35-237" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"3-of-5 threshold: 3 points fix the polynomial; 2 points admit many solutions"</span>,</span>
+<span id="cb35-238"><a href="#cb35-238" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Evaluation point x"</span>, <span class="at">y =</span> <span class="st">"Polynomial value f(x)"</span></span>
+<span id="cb35-239"><a href="#cb35-239" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb35-240"><a href="#cb35-240" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb35-241"><a href="#cb35-241" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-242"><a href="#cb35-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-243"><a href="#cb35-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-244"><a href="#cb35-244" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb35-245"><a href="#cb35-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-248"><a href="#cb35-248" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-249"><a href="#cb35-249" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-reconstruction-interactive</span></span>
+<span id="cb35-250"><a href="#cb35-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-251"><a href="#cb35-251" aria-hidden="true" tabindex="-1"></a><span class="co"># Show reconstruction accuracy as a function of number of shares used</span></span>
+<span id="cb35-252"><a href="#cb35-252" aria-hidden="true" tabindex="-1"></a>reconstruction_tests <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="cf">function</span>(k) {</span>
+<span id="cb35-253"><a href="#cb35-253" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (k <span class="sc">&gt;=</span> <span class="dv">3</span>) {</span>
+<span id="cb35-254"><a href="#cb35-254" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use first k shares</span></span>
+<span id="cb35-255"><a href="#cb35-255" aria-hidden="true" tabindex="-1"></a>    subset_k <span class="ot">&lt;-</span> result<span class="sc">$</span>shares <span class="sc">|&gt;</span> <span class="fu">slice</span>(<span class="dv">1</span><span class="sc">:</span>k)</span>
+<span id="cb35-256"><a href="#cb35-256" aria-hidden="true" tabindex="-1"></a>    recovered <span class="ot">&lt;-</span> <span class="fu">shamir_reconstruct</span>(subset_k, result<span class="sc">$</span>prime)</span>
+<span id="cb35-257"><a href="#cb35-257" aria-hidden="true" tabindex="-1"></a>    correct <span class="ot">&lt;-</span> (recovered <span class="sc">==</span> secret)</span>
+<span id="cb35-258"><a href="#cb35-258" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb35-259"><a href="#cb35-259" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Below threshold — random result</span></span>
+<span id="cb35-260"><a href="#cb35-260" aria-hidden="true" tabindex="-1"></a>    subset_k <span class="ot">&lt;-</span> result<span class="sc">$</span>shares <span class="sc">|&gt;</span> <span class="fu">slice</span>(<span class="dv">1</span><span class="sc">:</span>k)</span>
+<span id="cb35-261"><a href="#cb35-261" aria-hidden="true" tabindex="-1"></a>    recovered <span class="ot">&lt;-</span> <span class="fu">shamir_reconstruct</span>(subset_k, result<span class="sc">$</span>prime)</span>
+<span id="cb35-262"><a href="#cb35-262" aria-hidden="true" tabindex="-1"></a>    correct <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb35-263"><a href="#cb35-263" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb35-264"><a href="#cb35-264" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb35-265"><a href="#cb35-265" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_shares =</span> k,</span>
+<span id="cb35-266"><a href="#cb35-266" aria-hidden="true" tabindex="-1"></a>    <span class="at">recovered_value =</span> recovered,</span>
+<span id="cb35-267"><a href="#cb35-267" aria-hidden="true" tabindex="-1"></a>    <span class="at">correct =</span> correct,</span>
+<span id="cb35-268"><a href="#cb35-268" aria-hidden="true" tabindex="-1"></a>    <span class="at">status =</span> <span class="fu">ifelse</span>(k <span class="sc">&gt;=</span> <span class="dv">3</span>, <span class="st">"Above threshold"</span>, <span class="st">"Below threshold"</span>)</span>
+<span id="cb35-269"><a href="#cb35-269" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb35-270"><a href="#cb35-270" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb35-271"><a href="#cb35-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-272"><a href="#cb35-272" aria-hidden="true" tabindex="-1"></a>reconstruction_tests <span class="ot">&lt;-</span> reconstruction_tests <span class="sc">|&gt;</span></span>
+<span id="cb35-273"><a href="#cb35-273" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Shares used: "</span>, n_shares,</span>
+<span id="cb35-274"><a href="#cb35-274" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Recovered value: "</span>, recovered_value,</span>
+<span id="cb35-275"><a href="#cb35-275" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Correct: "</span>, correct,</span>
+<span id="cb35-276"><a href="#cb35-276" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Threshold: 3"</span>))</span>
+<span id="cb35-277"><a href="#cb35-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-278"><a href="#cb35-278" aria-hidden="true" tabindex="-1"></a>p_recon <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(reconstruction_tests,</span>
+<span id="cb35-279"><a href="#cb35-279" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(n_shares), <span class="at">y =</span> recovered_value,</span>
+<span id="cb35-280"><a href="#cb35-280" aria-hidden="true" tabindex="-1"></a>                      <span class="at">fill =</span> status, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb35-281"><a href="#cb35-281" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb35-282"><a href="#cb35-282" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> secret, <span class="at">linetype =</span> <span class="st">"dashed"</span>,</span>
+<span id="cb35-283"><a href="#cb35-283" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> okabe_ito[<span class="dv">6</span>], <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb35-284"><a href="#cb35-284" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">5.4</span>, <span class="at">y =</span> secret,</span>
+<span id="cb35-285"><a href="#cb35-285" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="fu">paste0</span>(<span class="st">"True secret = "</span>, secret),</span>
+<span id="cb35-286"><a href="#cb35-286" aria-hidden="true" tabindex="-1"></a>           <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">color =</span> okabe_ito[<span class="dv">6</span>]) <span class="sc">+</span></span>
+<span id="cb35-287"><a href="#cb35-287" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(</span>
+<span id="cb35-288"><a href="#cb35-288" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"Below threshold"</span> <span class="ot">=</span> okabe_ito[<span class="dv">6</span>],</span>
+<span id="cb35-289"><a href="#cb35-289" aria-hidden="true" tabindex="-1"></a>               <span class="st">"Above threshold"</span> <span class="ot">=</span> okabe_ito[<span class="dv">3</span>]),</span>
+<span id="cb35-290"><a href="#cb35-290" aria-hidden="true" tabindex="-1"></a>    <span class="at">name =</span> <span class="cn">NULL</span></span>
+<span id="cb35-291"><a href="#cb35-291" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb35-292"><a href="#cb35-292" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb35-293"><a href="#cb35-293" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Secret reconstruction vs number of shares"</span>,</span>
+<span id="cb35-294"><a href="#cb35-294" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Below threshold (t = 3): wrong value; at or above: correct reconstruction"</span>,</span>
+<span id="cb35-295"><a href="#cb35-295" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Number of shares used"</span>, <span class="at">y =</span> <span class="st">"Reconstructed value"</span></span>
+<span id="cb35-296"><a href="#cb35-296" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb35-297"><a href="#cb35-297" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb35-298"><a href="#cb35-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-299"><a href="#cb35-299" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_recon, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb35-300"><a href="#cb35-300" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb35-301"><a href="#cb35-301" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb35-302"><a href="#cb35-302" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-303"><a href="#cb35-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-304"><a href="#cb35-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-305"><a href="#cb35-305" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb35-306"><a href="#cb35-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-307"><a href="#cb35-307" aria-hidden="true" tabindex="-1"></a>Shamir's secret sharing elegantly demonstrates the threshold property: with the (3, 5) scheme, any three shares completely determine the polynomial and recover the secret, while two or fewer shares are information-theoretically useless — they are consistent with every possible secret value. This is not merely computational security (which could be broken with more computing power) but unconditional security grounded in the algebra of polynomial interpolation. The game-theoretic dimension adds a crucial layer: even if a protocol is cryptographically secure, rational parties may deviate if their incentive structure favours deviation. In our model, a coalition of $t$ or more parties can reconstruct the secret, so the threshold $t$ must be set considering the difficulty of forming such coalitions. The key insight from the rational MPC literature is that standard security definitions (simulation-based security) do not account for utility-maximising behaviour: a protocol might be "secure" against a malicious adversary yet still be susceptible to rational deviation when parties weigh the costs and benefits of following the protocol versus deviating. Designing protocols that are both cryptographically secure and incentive-compatible requires combining mechanism design with cryptography — ensuring that following the protocol is a Nash equilibrium for all parties. Recent advances in blockchain-based MPC (using smart contracts for penalty enforcement) and verifiable computation show how game-theoretic insights are shaping the next generation of secure protocols.</span>
+<span id="cb35-308"><a href="#cb35-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-309"><a href="#cb35-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-310"><a href="#cb35-310" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb35-311"><a href="#cb35-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-312"><a href="#cb35-312" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Zero-knowledge proofs and strategic verification</span><span class="co">](../zero-knowledge-proofs/)</span> — cryptographic protocols with game-theoretic structure.</span>
+<span id="cb35-313"><a href="#cb35-313" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Mechanism design and incentive compatibility</span><span class="co">](../../mechanism-design/vickrey-second-price-auction/)</span> — designing rules for strategic agents.</span>
+<span id="cb35-314"><a href="#cb35-314" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">The Shapley value</span><span class="co">](../../cooperative-gt/shapley-value/)</span> — fair division of cooperative surplus, related to cost sharing in MPC.</span>
+<span id="cb35-315"><a href="#cb35-315" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Blockchain consensus as a coordination game</span><span class="co">](../blockchain-consensus/)</span> — distributed trust with rational miners.</span>
+<span id="cb35-316"><a href="#cb35-316" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Bayesian games with incomplete information</span><span class="co">](../../bayesian-methods/bayesian-games-incomplete-information/)</span> — games with private types, the theoretical basis for MPC.</span>
+<span id="cb35-317"><a href="#cb35-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-318"><a href="#cb35-318" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-319"><a href="#cb35-319" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb35-320"><a href="#cb35-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-321"><a href="#cb35-321" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb35-322"><a href="#cb35-322" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/cryptography-and-gt/secure-multi-party-computation/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/cryptography-and-gt/secure-multi-party-computation/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

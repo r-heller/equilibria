@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="replicator-mutator dynamics, mutation matrix, evolutionary game theory, deSolve, Rock-Paper-Scissors">
+<meta name="description" content="Extend the standard replicator equation with a mutation matrix Q, implement the ODE system using deSolve in R, and show how mutation stabilises the interior equilibrium of Rock-Paper-Scissors.">
+<title>Replicator-mutator dynamics — evolution with mutation – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-7945cf3d8e8e75b40d08f762a0e66ee2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/evolutionary-gt/replicator-mutator-dynamics/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/evolutionary-gt/replicator-mutator-dynamics/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Replicator-mutator dynamics — evolution with mutation</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">evolutionary-gt</div>
+    <div class="quarto-category">replicator-mutator</div>
+    <div class="quarto-category">mutation</div>
+    <div class="quarto-category">rock-paper-scissors</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Extend the standard replicator equation with a mutation matrix Q, implement the ODE system using deSolve in R, and show how mutation stabilises the interior equilibrium of Rock-Paper-Scissors.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>replicator-mutator dynamics, mutation matrix, evolutionary game theory, deSolve, Rock-Paper-Scissors</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>The replicator equation is the workhorse of evolutionary game theory. It captures the core Darwinian idea that strategies producing above-average fitness grow in frequency, while those performing below average decline. For many games of biological and economic interest, the replicator dynamics provides an elegant deterministic description of how populations evolve over time. Yet standard replicator dynamics rests on a critical simplifying assumption: offspring inherit their parent’s strategy perfectly, with no errors, no experimentation, and no random exploration of the strategy space. In biological reality, mutation is ubiquitous. In economic and social contexts, agents occasionally experiment with new strategies, make mistakes, or imitate imperfectly. The replicator-mutator equation extends the classical framework by introducing a mutation matrix <span class="math inline">\(Q\)</span> that governs the probability that offspring of a parent playing strategy <span class="math inline">\(j\)</span> instead adopt strategy <span class="math inline">\(i\)</span>. This seemingly modest extension has profound consequences for the qualitative behaviour of the dynamical system.</p>
+<p>The replicator-mutator equation was developed in the context of quasispecies theory by Eigen and Schuster in the late 1970s, originally to model the evolution of self-replicating RNA molecules. In their framework, the mutation matrix captures copying errors during molecular replication, and the interplay between selection and mutation determines which “quasispecies” — clouds of closely related sequences — dominate the population. The same mathematical structure later appeared independently in evolutionary game theory, where it models populations of agents who occasionally switch strategies through trembling-hand errors, experimentation, or imperfect social learning. The replicator-mutator equation has since become a central tool in theoretical biology, linguistics (modelling language evolution), and behavioural economics (modelling bounded rationality in learning dynamics).</p>
+<p>The game we use throughout this tutorial is Rock-Paper-Scissors (RPS). Under pure replicator dynamics, RPS exhibits neutrally stable cyclic orbits around the interior Nash equilibrium at <span class="math inline">\((1/3, 1/3, 1/3)\)</span>. The system possesses a conserved quantity <span class="math inline">\(V = x_R \cdot x_P \cdot x_S\)</span>, which means orbits neither converge to the equilibrium nor diverge to the boundary — they cycle perpetually. This structural property is fragile: it relies on the exact cancellation of forces in the skew-symmetric payoff matrix. Any perturbation — whether from stochastic noise, spatial structure, or mutation — will generically break the conservation law and change the qualitative behaviour of the system. Mutation, in particular, introduces a restoring force that pulls trajectories away from the boundary and toward the interior. The key question we investigate is: does mutation cause orbits to spiral inward (stabilising the equilibrium) or outward (destabilising it)?</p>
+<p>In this tutorial, we derive the replicator-mutator equation, implement it as an ODE system in R using the <code>deSolve</code> package, and simulate the dynamics for RPS with symmetric uniform mutation. We show that even a small mutation rate converts the neutrally stable centre of pure replicator dynamics into an asymptotically stable spiral — orbits converge to the interior equilibrium. We then explore how the convergence rate depends on the mutation rate <span class="math inline">\(\mu\)</span> and visualise the bifurcation that occurs as <span class="math inline">\(\mu\)</span> varies from zero to large values. The tutorial builds directly on the companion article on pure replicator dynamics for RPS and provides the foundation for understanding more complex evolutionary processes where mutation, selection, and drift interact.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>Let <span class="math inline">\(n\)</span> be the number of strategies and let <span class="math inline">\(x = (x_1, \ldots, x_n)\)</span> denote the population state on the <span class="math inline">\((n-1)\)</span>-simplex <span class="math inline">\(\Delta^{n-1}\)</span>. The payoff matrix is <span class="math inline">\(A \in \mathbb{R}^{n \times n}\)</span> where <span class="math inline">\(a_{ij}\)</span> is the payoff to strategy <span class="math inline">\(i\)</span> against strategy <span class="math inline">\(j\)</span>. The fitness of strategy <span class="math inline">\(i\)</span> is:</p>
+<p><span class="math display">\[
+f_i(x) = (Ax)_i = \sum_{j=1}^{n} a_{ij} x_j
+\]</span></p>
+<p>The average population fitness is <span class="math inline">\(\bar{f}(x) = x^\top A x = \sum_i x_i f_i(x)\)</span>.</p>
+<p>The mutation matrix <span class="math inline">\(Q = (q_{ij})\)</span> is a row-stochastic matrix where <span class="math inline">\(q_{ij}\)</span> is the probability that an offspring of a parent playing strategy <span class="math inline">\(j\)</span> adopts strategy <span class="math inline">\(i\)</span>. Note the convention: <span class="math inline">\(q_{ij}\)</span> gives the flow from <span class="math inline">\(j\)</span> to <span class="math inline">\(i\)</span>, so each column of <span class="math inline">\(Q\)</span> sums to one.</p>
+<p>The <strong>replicator-mutator equation</strong> is:</p>
+<p><span class="math display">\[
+\dot{x}_i = \sum_{j=1}^{n} x_j f_j(x) \, q_{ij} - x_i \bar{f}(x)
+\]</span></p>
+<p>The first term accounts for all the ways strategy <span class="math inline">\(i\)</span> can be produced: a parent of any type <span class="math inline">\(j\)</span>, present at frequency <span class="math inline">\(x_j\)</span> with fitness <span class="math inline">\(f_j\)</span>, mutates to produce an <span class="math inline">\(i\)</span>-offspring with probability <span class="math inline">\(q_{ij}\)</span>. The second term is the dilution due to population growth at the mean rate <span class="math inline">\(\bar{f}\)</span>.</p>
+<p>For symmetric uniform mutation with rate <span class="math inline">\(\mu \in [0, 1]\)</span>, the mutation matrix is:</p>
+<p><span class="math display">\[
+q_{ij} = \begin{cases} 1 - \mu &amp; \text{if } i = j \\ \frac{\mu}{n-1} &amp; \text{if } i \neq j \end{cases}
+\]</span></p>
+<p>When <span class="math inline">\(\mu = 0\)</span>, we recover the standard replicator equation. When <span class="math inline">\(\mu = 1\)</span>, all offspring are uniformly random regardless of the parent’s type, and selection is completely overwhelmed by mutation.</p>
+<p>For the RPS payoff matrix:</p>
+<p><span class="math display">\[
+A = \begin{pmatrix} 0 &amp; -1 &amp; 1 \\ 1 &amp; 0 &amp; -1 \\ -1 &amp; 1 &amp; 0 \end{pmatrix}
+\]</span></p>
+<p>the interior equilibrium <span class="math inline">\(x^* = (1/3, 1/3, 1/3)\)</span> remains a fixed point of the replicator-mutator equation for any symmetric <span class="math inline">\(Q\)</span> (by symmetry of both <span class="math inline">\(A\)</span> and <span class="math inline">\(Q\)</span>). A linear stability analysis around <span class="math inline">\(x^*\)</span> reveals that for <span class="math inline">\(\mu &gt; 0\)</span> the eigenvalues of the Jacobian acquire negative real parts, so <span class="math inline">\(x^*\)</span> becomes an asymptotically stable spiral. The imaginary parts of the eigenvalues generate oscillatory approach, but the real parts ensure convergence — the mutation breaks the conservation law of pure replicator dynamics.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<p>We implement the replicator-mutator ODE system and compare trajectories with and without mutation.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/tpetzoldt/deSolve/">deSolve</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># RPS payoff matrix</span></span>
+<span><span class="va">A_rps</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>,</span>
+<span>                   <span class="fl">1</span>,  <span class="fl">0</span>, <span class="op">-</span><span class="fl">1</span>,</span>
+<span>                  <span class="op">-</span><span class="fl">1</span>,  <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">3</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Mutation matrix: symmetric uniform mutation with rate mu</span></span>
+<span><span class="va">make_Q</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span>, <span class="va">mu</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">Q</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="va">mu</span> <span class="op">/</span> <span class="op">(</span><span class="va">n</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="va">n</span>, ncol <span class="op">=</span> <span class="va">n</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/diag.html">diag</a></span><span class="op">(</span><span class="va">Q</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="va">mu</span></span>
+<span>  <span class="va">Q</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Replicator-mutator ODE</span></span>
+<span><span class="va">replicator_mutator</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">t</span>, <span class="va">state</span>, <span class="va">parms</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x</span> <span class="op">&lt;-</span> <span class="va">state</span></span>
+<span>  <span class="va">A</span> <span class="op">&lt;-</span> <span class="va">parms</span><span class="op">$</span><span class="va">A</span></span>
+<span>  <span class="va">Q</span> <span class="op">&lt;-</span> <span class="va">parms</span><span class="op">$</span><span class="va">Q</span></span>
+<span>  <span class="va">fitness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">A</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">x</span><span class="op">)</span></span>
+<span>  <span class="va">avg_fitness</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">x</span> <span class="op">*</span> <span class="va">fitness</span><span class="op">)</span></span>
+<span>  <span class="co"># dx_i/dt = sum_j x_j f_j Q_ij - x_i * f_bar</span></span>
+<span>  <span class="va">dxdt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">as.numeric</a></span><span class="op">(</span><span class="va">Q</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="op">(</span><span class="va">x</span> <span class="op">*</span> <span class="va">fitness</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="va">x</span> <span class="op">*</span> <span class="va">avg_fitness</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="va">dxdt</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Simulation parameters</span></span>
+<span><span class="va">times</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">60</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">x0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.6</span>, <span class="fl">0.2</span>, <span class="fl">0.2</span><span class="op">)</span></span>
+<span><span class="va">mu_values</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">mu_values</span>, <span class="kw">function</span><span class="op">(</span><span class="va">mu</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">Q</span> <span class="op">&lt;-</span> <span class="fu">make_Q</span><span class="op">(</span><span class="fl">3</span>, <span class="va">mu</span><span class="op">)</span></span>
+<span>  <span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/deSolve/man/ode.html">ode</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">x0</span>, times <span class="op">=</span> <span class="va">times</span>, func <span class="op">=</span> <span class="va">replicator_mutator</span>,</span>
+<span>             parms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">A_rps</span>, Q <span class="op">=</span> <span class="va">Q</span><span class="op">)</span>, method <span class="op">=</span> <span class="st">"rk4"</span><span class="op">)</span></span>
+<span>  <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html">as.data.frame</a></span><span class="op">(</span><span class="va">sol</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"Rock"</span>, <span class="st">"Paper"</span>, <span class="st">"Scissors"</span><span class="op">)</span></span>
+<span>  <span class="va">df</span><span class="op">$</span><span class="va">mu</span> <span class="op">&lt;-</span> <span class="va">mu</span></span>
+<span>  <span class="va">df</span><span class="op">$</span><span class="va">label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"mu = "</span>, <span class="va">mu</span><span class="op">)</span></span>
+<span>  <span class="va">df</span><span class="op">$</span><span class="va">V</span> <span class="op">&lt;-</span> <span class="va">df</span><span class="op">$</span><span class="va">Rock</span> <span class="op">*</span> <span class="va">df</span><span class="op">$</span><span class="va">Paper</span> <span class="op">*</span> <span class="va">df</span><span class="op">$</span><span class="va">Scissors</span></span>
+<span>  <span class="va">df</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">traj_df</span> <span class="op">&lt;-</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="va">results</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Final state at t = 60 for each mutation rate:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Final state at t = 60 for each mutation rate:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">traj_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">label</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">summarise</span><span class="op">(</span></span>
+<span>    Rock <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Rock</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    Paper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Paper</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    Scissors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Scissors</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    V_final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">V</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>,</span>
+<span>    .groups <span class="op">=</span> <span class="st">"drop"</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 5
+  label      Rock Paper Scissors V_final
+  &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;
+1 mu = 0    0.598 0.219    0.184   0.024
+2 mu = 0.01 0.578 0.156    0.266   0.024
+3 mu = 0.05 0.178 0.226    0.596   0.024
+4 mu = 0.15 0.521 0.133    0.346   0.024</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\nDeviation from equilibrium (1/3, 1/3, 1/3) at t = 60:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Deviation from equilibrium (1/3, 1/3, 1/3) at t = 60:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">traj_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">group_by</span><span class="op">(</span><span class="va">label</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">summarise</span><span class="op">(</span></span>
+<span>    max_dev <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Rock</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span>,</span>
+<span>                        <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Paper</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span>,</span>
+<span>                        <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="fu">last</span><span class="op">(</span><span class="va">Scissors</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>,</span>
+<span>    .groups <span class="op">=</span> <span class="st">"drop"</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 2
+  label     max_dev
+  &lt;chr&gt;       &lt;dbl&gt;
+1 mu = 0      0.264
+2 mu = 0.01   0.245
+3 mu = 0.05   0.262
+4 mu = 0.15   0.200</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Measure convergence: distance from equilibrium at t = 60</span></span>
+<span><span class="va">mu_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.3</span>, by <span class="op">=</span> <span class="fl">0.005</span><span class="op">)</span></span>
+<span><span class="va">convergence_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">mu_grid</span>, <span class="kw">function</span><span class="op">(</span><span class="va">mu</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">Q</span> <span class="op">&lt;-</span> <span class="fu">make_Q</span><span class="op">(</span><span class="fl">3</span>, <span class="va">mu</span><span class="op">)</span></span>
+<span>  <span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/deSolve/man/ode.html">ode</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">x0</span>, times <span class="op">=</span> <span class="va">times</span>, func <span class="op">=</span> <span class="va">replicator_mutator</span>,</span>
+<span>             parms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">A_rps</span>, Q <span class="op">=</span> <span class="va">Q</span><span class="op">)</span>, method <span class="op">=</span> <span class="st">"rk4"</span><span class="op">)</span></span>
+<span>  <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html">as.data.frame</a></span><span class="op">(</span><span class="va">sol</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"Rock"</span>, <span class="st">"Paper"</span>, <span class="st">"Scissors"</span><span class="op">)</span></span>
+<span>  <span class="va">final</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html">tail</a></span><span class="op">(</span><span class="va">df</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">dev</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">sqrt</a></span><span class="op">(</span><span class="op">(</span><span class="va">final</span><span class="op">$</span><span class="va">Rock</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="op">(</span><span class="va">final</span><span class="op">$</span><span class="va">Paper</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span></span>
+<span>              <span class="op">(</span><span class="va">final</span><span class="op">$</span><span class="va">Scissors</span> <span class="op">-</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>mu <span class="op">=</span> <span class="va">mu</span>, distance <span class="op">=</span> <span class="va">dev</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">bif_df</span> <span class="op">&lt;-</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="va">convergence_data</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"Bifurcation data (selected mutation rates):\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Bifurcation data (selected mutation rates):</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">bif_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">mu</span> <span class="op"><a href="https://rdrr.io/r/base/match.html">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    mu  distance
+1 0.00 0.3247458
+2 0.01 0.3095473
+3 0.05 0.3231969
+4 0.10 0.3031747
+5 0.20 0.2556932
+6 0.30 0.2862639</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">traj_long</span> <span class="op">&lt;-</span> <span class="va">traj_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="va">mu</span> <span class="op"><a href="https://rdrr.io/r/base/match.html">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">select</span><span class="op">(</span><span class="va">time</span>, <span class="va">Rock</span>, <span class="va">Paper</span>, <span class="va">Scissors</span>, <span class="va">label</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">pivot_longer</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="va">Rock</span>, <span class="va">Paper</span>, <span class="va">Scissors</span><span class="op">)</span>,</span>
+<span>               names_to <span class="op">=</span> <span class="st">"Strategy"</span>, values_to <span class="op">=</span> <span class="st">"Frequency"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html">factor</a></span><span class="op">(</span><span class="va">label</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"mu = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">traj_long</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">time</span>, y <span class="op">=</span> <span class="va">Frequency</span>, color <span class="op">=</span> <span class="va">Strategy</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_hline</span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">1</span><span class="op">/</span><span class="fl">3</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="st">"grey50"</span>,</span>
+<span>             linewidth <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">facet_wrap</span><span class="op">(</span><span class="op">~</span><span class="va">label</span>, nrow <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span>Rock <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, Paper <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>                                 Scissors <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Replicator-mutator dynamics — Rock-Paper-Scissors"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Mutation stabilises the neutrally stable interior equilibrium; initial state = (0.6, 0.2, 0.2)"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Time"</span>, y <span class="op">=</span> <span class="st">"Population frequency"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme</span><span class="op">(</span>strip.text <span class="op">=</span> <span class="fu">element_text</span><span class="op">(</span>face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-replicator-mutator-comparison" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-replicator-mutator-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-replicator-mutator-comparison-1.png" class="img-fluid figure-img" width="3000">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-replicator-mutator-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Replicator-mutator dynamics for Rock-Paper-Scissors with varying mutation rates. Without mutation (mu = 0), strategies cycle indefinitely. With increasing mutation, orbits spiral inward to the equilibrium (1/3, 1/3, 1/3). The dashed grey line marks the equilibrium frequency. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">bif_df</span> <span class="op">&lt;-</span> <span class="va">bif_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">mutate</span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Mutation rate: %.3f\nDistance from eq.: %.5f"</span>,</span>
+<span>                         <span class="va">mu</span>, <span class="va">distance</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_bif</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">bif_df</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">mu</span>, y <span class="op">=</span> <span class="va">distance</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_vline</span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Bifurcation: distance from equilibrium at t = 60"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"mu = 0 gives persistent cycling; any mu &gt; 0 yields convergence"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Mutation rate (mu)"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Euclidean distance from (1/3, 1/3, 1/3)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_bif</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-bifurcation-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-bifurcation-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-30e4409849e39179307f" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-30e4409849e39179307f">{"x":{"data":[{"x":[0,null,0.0050000000000000001,null,0.01,null,0.014999999999999999,null,0.02,null,0.025000000000000001,null,0.029999999999999999,null,0.035000000000000003,null,0.040000000000000001,null,0.044999999999999998,null,0.050000000000000003,null,0.055,null,0.059999999999999998,null,0.065000000000000002,null,0.070000000000000007,null,0.074999999999999997,null,0.080000000000000002,null,0.085000000000000006,null,0.089999999999999997,null,0.095000000000000001,null,0.10000000000000001,null,0.105,null,0.11,null,0.115,null,0.12,null,0.125,null,0.13,null,0.13500000000000001,null,0.14000000000000001,null,0.14499999999999999,null,0.14999999999999999,null,0.155,null,0.16,null,0.16500000000000001,null,0.17000000000000001,null,0.17500000000000002,null,0.17999999999999999,null,0.185,null,0.19,null,0.19500000000000001,null,0.20000000000000001,null,0.20500000000000002,null,0.20999999999999999,null,0.215,null,0.22,null,0.22500000000000001,null,0.23000000000000001,null,0.23500000000000001,null,0.23999999999999999,null,0.245,null,0.25,null,0.255,null,0.26000000000000001,null,0.26500000000000001,null,0.27000000000000002,null,0.27500000000000002,null,0.28000000000000003,null,0.28500000000000003,null,0.28999999999999998,null,0.29499999999999998,null,0.29999999999999999],"y":[0.32474581992997487,null,0.32450722512444413,null,0.3095472810239287,null,0.28538254267661434,null,0.26281763173215644,null,0.25456886088034286,null,0.26604031892665675,null,0.28983295322558689,null,0.31303693143099748,null,0.32567698929087463,null,0.32319689546020192,null,0.30644750824860095,null,0.28173998859618932,null,0.26049696939142092,null,0.25504646545016424,null,0.26899124729408869,null,0.29348543014705447,null,0.31566566549464181,null,0.32628814537377343,null,0.32158388048276509,null,0.30317465413680672,null,0.27816524620760602,null,0.25851717956556902,null,0.25594806235217726,null,0.27216493174993928,null,0.29708267416042805,null,0.31804715386345678,null,0.32657508516833766,null,0.31967969047038625,null,0.29975688633559999,null,0.27469932282273563,null,0.25690774896648111,null,0.25725947505056379,null,0.27552046238776146,null,0.30059024041084348,null,0.32016339131373212,null,0.32653584434029936,null,0.31749816384013746,null,0.29622472873369116,null,0.27138373324665621,null,0.25569323413426165,null,0.25896039154716072,null,0.279016330305635,null,0.30397586751836292,null,0.32199875131444,null,0.3261706910670587,null,0.3150554963563178,null,0.29261097988121887,null,0.26825990668693472,null,0.25489252429668724,null,0.26102499863543954,null,0.28261109230095188,null,0.30720959205653403,null,0.32353995767847682,null,0.32548212688117656,null,0.31237026883736291,null,0.28895058691434028,null,0.26536850015964236,null,0.25451824519973776,null,0.26342274583277631,null,0.28626394090679724],"text":["Mutation rate: 0.000<br />Distance from eq.: 0.32475",null,"Mutation rate: 0.005<br />Distance from eq.: 0.32451",null,"Mutation rate: 0.010<br />Distance from eq.: 0.30955",null,"Mutation rate: 0.015<br />Distance from eq.: 0.28538",null,"Mutation rate: 0.020<br />Distance from eq.: 0.26282",null,"Mutation rate: 0.025<br />Distance from eq.: 0.25457",null,"Mutation rate: 0.030<br />Distance from eq.: 0.26604",null,"Mutation rate: 0.035<br />Distance from eq.: 0.28983",null,"Mutation rate: 0.040<br />Distance from eq.: 0.31304",null,"Mutation rate: 0.045<br />Distance from eq.: 0.32568",null,"Mutation rate: 0.050<br />Distance from eq.: 0.32320",null,"Mutation rate: 0.055<br />Distance from eq.: 0.30645",null,"Mutation rate: 0.060<br />Distance from eq.: 0.28174",null,"Mutation rate: 0.065<br />Distance from eq.: 0.26050",null,"Mutation rate: 0.070<br />Distance from eq.: 0.25505",null,"Mutation rate: 0.075<br />Distance from eq.: 0.26899",null,"Mutation rate: 0.080<br />Distance from eq.: 0.29349",null,"Mutation rate: 0.085<br />Distance from eq.: 0.31567",null,"Mutation rate: 0.090<br />Distance from eq.: 0.32629",null,"Mutation rate: 0.095<br />Distance from eq.: 0.32158",null,"Mutation rate: 0.100<br />Distance from eq.: 0.30317",null,"Mutation rate: 0.105<br />Distance from eq.: 0.27817",null,"Mutation rate: 0.110<br />Distance from eq.: 0.25852",null,"Mutation rate: 0.115<br />Distance from eq.: 0.25595",null,"Mutation rate: 0.120<br />Distance from eq.: 0.27216",null,"Mutation rate: 0.125<br />Distance from eq.: 0.29708",null,"Mutation rate: 0.130<br />Distance from eq.: 0.31805",null,"Mutation rate: 0.135<br />Distance from eq.: 0.32658",null,"Mutation rate: 0.140<br />Distance from eq.: 0.31968",null,"Mutation rate: 0.145<br />Distance from eq.: 0.29976",null,"Mutation rate: 0.150<br />Distance from eq.: 0.27470",null,"Mutation rate: 0.155<br />Distance from eq.: 0.25691",null,"Mutation rate: 0.160<br />Distance from eq.: 0.25726",null,"Mutation rate: 0.165<br />Distance from eq.: 0.27552",null,"Mutation rate: 0.170<br />Distance from eq.: 0.30059",null,"Mutation rate: 0.175<br />Distance from eq.: 0.32016",null,"Mutation rate: 0.180<br />Distance from eq.: 0.32654",null,"Mutation rate: 0.185<br />Distance from eq.: 0.31750",null,"Mutation rate: 0.190<br />Distance from eq.: 0.29622",null,"Mutation rate: 0.195<br />Distance from eq.: 0.27138",null,"Mutation rate: 0.200<br />Distance from eq.: 0.25569",null,"Mutation rate: 0.205<br />Distance from eq.: 0.25896",null,"Mutation rate: 0.210<br />Distance from eq.: 0.27902",null,"Mutation rate: 0.215<br />Distance from eq.: 0.30398",null,"Mutation rate: 0.220<br />Distance from eq.: 0.32200",null,"Mutation rate: 0.225<br />Distance from eq.: 0.32617",null,"Mutation rate: 0.230<br />Distance from eq.: 0.31506",null,"Mutation rate: 0.235<br />Distance from eq.: 0.29261",null,"Mutation rate: 0.240<br />Distance from eq.: 0.26826",null,"Mutation rate: 0.245<br />Distance from eq.: 0.25489",null,"Mutation rate: 0.250<br />Distance from eq.: 0.26102",null,"Mutation rate: 0.255<br />Distance from eq.: 0.28261",null,"Mutation rate: 0.260<br />Distance from eq.: 0.30721",null,"Mutation rate: 0.265<br />Distance from eq.: 0.32354",null,"Mutation rate: 0.270<br />Distance from eq.: 0.32548",null,"Mutation rate: 0.275<br />Distance from eq.: 0.31237",null,"Mutation rate: 0.280<br />Distance from eq.: 0.28895",null,"Mutation rate: 0.285<br />Distance from eq.: 0.26537",null,"Mutation rate: 0.290<br />Distance from eq.: 0.25452",null,"Mutation rate: 0.295<br />Distance from eq.: 0.26342",null,"Mutation rate: 0.300<br />Distance from eq.: 0.28626"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,0.0050000000000000001,0.01,0.014999999999999999,0.02,0.025000000000000001,0.029999999999999999,0.035000000000000003,0.040000000000000001,0.044999999999999998,0.050000000000000003,0.055,0.059999999999999998,0.065000000000000002,0.070000000000000007,0.074999999999999997,0.080000000000000002,0.085000000000000006,0.089999999999999997,0.095000000000000001,0.10000000000000001,0.105,0.11,0.115,0.12,0.125,0.13,0.13500000000000001,0.14000000000000001,0.14499999999999999,0.14999999999999999,0.155,0.16,0.16500000000000001,0.17000000000000001,0.17500000000000002,0.17999999999999999,0.185,0.19,0.19500000000000001,0.20000000000000001,0.20500000000000002,0.20999999999999999,0.215,0.22,0.22500000000000001,0.23000000000000001,0.23500000000000001,0.23999999999999999,0.245,0.25,0.255,0.26000000000000001,0.26500000000000001,0.27000000000000002,0.27500000000000002,0.28000000000000003,0.28500000000000003,0.28999999999999998,0.29499999999999998,0.29999999999999999],"y":[0.32474581992997487,0.32450722512444413,0.3095472810239287,0.28538254267661434,0.26281763173215644,0.25456886088034286,0.26604031892665675,0.28983295322558689,0.31303693143099748,0.32567698929087463,0.32319689546020192,0.30644750824860095,0.28173998859618932,0.26049696939142092,0.25504646545016424,0.26899124729408869,0.29348543014705447,0.31566566549464181,0.32628814537377343,0.32158388048276509,0.30317465413680672,0.27816524620760602,0.25851717956556902,0.25594806235217726,0.27216493174993928,0.29708267416042805,0.31804715386345678,0.32657508516833766,0.31967969047038625,0.29975688633559999,0.27469932282273563,0.25690774896648111,0.25725947505056379,0.27552046238776146,0.30059024041084348,0.32016339131373212,0.32653584434029936,0.31749816384013746,0.29622472873369116,0.27138373324665621,0.25569323413426165,0.25896039154716072,0.279016330305635,0.30397586751836292,0.32199875131444,0.3261706910670587,0.3150554963563178,0.29261097988121887,0.26825990668693472,0.25489252429668724,0.26102499863543954,0.28261109230095188,0.30720959205653403,0.32353995767847682,0.32548212688117656,0.31237026883736291,0.28895058691434028,0.26536850015964236,0.25451824519973776,0.26342274583277631,0.28626394090679724],"text":["Mutation rate: 0.000<br />Distance from eq.: 0.32475","Mutation rate: 0.005<br />Distance from eq.: 0.32451","Mutation rate: 0.010<br />Distance from eq.: 0.30955","Mutation rate: 0.015<br />Distance from eq.: 0.28538","Mutation rate: 0.020<br />Distance from eq.: 0.26282","Mutation rate: 0.025<br />Distance from eq.: 0.25457","Mutation rate: 0.030<br />Distance from eq.: 0.26604","Mutation rate: 0.035<br />Distance from eq.: 0.28983","Mutation rate: 0.040<br />Distance from eq.: 0.31304","Mutation rate: 0.045<br />Distance from eq.: 0.32568","Mutation rate: 0.050<br />Distance from eq.: 0.32320","Mutation rate: 0.055<br />Distance from eq.: 0.30645","Mutation rate: 0.060<br />Distance from eq.: 0.28174","Mutation rate: 0.065<br />Distance from eq.: 0.26050","Mutation rate: 0.070<br />Distance from eq.: 0.25505","Mutation rate: 0.075<br />Distance from eq.: 0.26899","Mutation rate: 0.080<br />Distance from eq.: 0.29349","Mutation rate: 0.085<br />Distance from eq.: 0.31567","Mutation rate: 0.090<br />Distance from eq.: 0.32629","Mutation rate: 0.095<br />Distance from eq.: 0.32158","Mutation rate: 0.100<br />Distance from eq.: 0.30317","Mutation rate: 0.105<br />Distance from eq.: 0.27817","Mutation rate: 0.110<br />Distance from eq.: 0.25852","Mutation rate: 0.115<br />Distance from eq.: 0.25595","Mutation rate: 0.120<br />Distance from eq.: 0.27216","Mutation rate: 0.125<br />Distance from eq.: 0.29708","Mutation rate: 0.130<br />Distance from eq.: 0.31805","Mutation rate: 0.135<br />Distance from eq.: 0.32658","Mutation rate: 0.140<br />Distance from eq.: 0.31968","Mutation rate: 0.145<br />Distance from eq.: 0.29976","Mutation rate: 0.150<br />Distance from eq.: 0.27470","Mutation rate: 0.155<br />Distance from eq.: 0.25691","Mutation rate: 0.160<br />Distance from eq.: 0.25726","Mutation rate: 0.165<br />Distance from eq.: 0.27552","Mutation rate: 0.170<br />Distance from eq.: 0.30059","Mutation rate: 0.175<br />Distance from eq.: 0.32016","Mutation rate: 0.180<br />Distance from eq.: 0.32654","Mutation rate: 0.185<br />Distance from eq.: 0.31750","Mutation rate: 0.190<br />Distance from eq.: 0.29622","Mutation rate: 0.195<br />Distance from eq.: 0.27138","Mutation rate: 0.200<br />Distance from eq.: 0.25569","Mutation rate: 0.205<br />Distance from eq.: 0.25896","Mutation rate: 0.210<br />Distance from eq.: 0.27902","Mutation rate: 0.215<br />Distance from eq.: 0.30398","Mutation rate: 0.220<br />Distance from eq.: 0.32200","Mutation rate: 0.225<br />Distance from eq.: 0.32617","Mutation rate: 0.230<br />Distance from eq.: 0.31506","Mutation rate: 0.235<br />Distance from eq.: 0.29261","Mutation rate: 0.240<br />Distance from eq.: 0.26826","Mutation rate: 0.245<br />Distance from eq.: 0.25489","Mutation rate: 0.250<br />Distance from eq.: 0.26102","Mutation rate: 0.255<br />Distance from eq.: 0.28261","Mutation rate: 0.260<br />Distance from eq.: 0.30721","Mutation rate: 0.265<br />Distance from eq.: 0.32354","Mutation rate: 0.270<br />Distance from eq.: 0.32548","Mutation rate: 0.275<br />Distance from eq.: 0.31237","Mutation rate: 0.280<br />Distance from eq.: 0.28895","Mutation rate: 0.285<br />Distance from eq.: 0.26537","Mutation rate: 0.290<br />Distance from eq.: 0.25452","Mutation rate: 0.295<br />Distance from eq.: 0.26342","Mutation rate: 0.300<br />Distance from eq.: 0.28626"],"type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,114,178,1)","opacity":1,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,114,178,1)"}},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,0],"y":[0.25091540320130779,0.33017792716676764],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(213,94,0,1)","dash":"dash"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Bifurcation: distance from equilibrium at t = 60 <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.014999999999999999,0.315],"tickmode":"array","ticktext":["0.0","0.1","0.2","0.3"],"tickvals":[0,0.10000000000000002,0.20000000000000007,0.30000000000000004],"categoryorder":"array","categoryarray":["0.0","0.1","0.2","0.3"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Mutation rate (mu)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.25091540320130779,0.33017792716676764],"tickmode":"array","ticktext":["0.27","0.29","0.31","0.33"],"tickvals":[0.27000000000000002,0.28999999999999998,0.31,0.33000000000000002],"categoryorder":"array","categoryarray":["0.27","0.29","0.31","0.33"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Euclidean distance from (1/3, 1/3, 1/3)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top"},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"451a179d8881":{"x":{},"y":{},"text":{},"type":"scatter"},"451a7149dd6c":{"x":{},"y":{},"text":{}},"451a34cd47b":{"xintercept":{}}},"cur_data":"451a179d8881","visdat":{"451a179d8881":["function (y) ","x"],"451a7149dd6c":["function (y) ","x"],"451a34cd47b":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-bifurcation-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The simulations reveal a sharp qualitative difference between pure replicator dynamics and the replicator-mutator equation. Under the standard replicator dynamics (<span class="math inline">\(\mu = 0\)</span>), the Rock-Paper-Scissors system produces closed cyclic orbits around the interior equilibrium <span class="math inline">\((1/3, 1/3, 1/3)\)</span>, as guaranteed by the conserved quantity <span class="math inline">\(V = x_R x_P x_S\)</span>. The orbit amplitude and period depend on the initial condition, but no trajectory ever converges to the equilibrium — the system is neutrally stable, a degenerate case poised between stability and instability. This behaviour, while mathematically elegant, is structurally fragile: any perturbation to the dynamics can tip the system one way or the other.</p>
+<p>Mutation provides exactly such a perturbation, and the direction it tips is always toward stability. Even a tiny mutation rate <span class="math inline">\(\mu = 0.01\)</span> converts the neutrally stable centre into an asymptotically stable spiral. The oscillations persist — the imaginary parts of the Jacobian eigenvalues at the equilibrium remain nonzero — but they decay exponentially, with the population state spiralling inward to <span class="math inline">\((1/3, 1/3, 1/3)\)</span>. At higher mutation rates (<span class="math inline">\(\mu = 0.05\)</span> and <span class="math inline">\(\mu = 0.15\)</span>), convergence is faster and the oscillatory transient is shorter. The bifurcation plot confirms that the transition is discontinuous in a qualitative sense: at <span class="math inline">\(\mu = 0\)</span> the system cycles forever (distance from equilibrium remains positive and constant), while for any <span class="math inline">\(\mu &gt; 0\)</span> the distance decays to zero. This is a supercritical Hopf-like bifurcation in reverse — as mutation increases from zero, a centre becomes a stable focus.</p>
+<p>The mechanism behind this stabilisation is intuitive. In pure replicator dynamics, a strategy that becomes rare faces no intrinsic restoring force — its growth rate depends only on its relative fitness, which in RPS creates a perpetual chase. Mutation introduces a baseline flow of individuals into every strategy regardless of fitness. When Rock is rare, some Paper and Scissors players “mutate” to Rock, providing a demographic floor. When Rock is common, some Rock players mutate away, providing a ceiling. This mean-reverting force acts like friction in a physical system: it dissipates the “energy” that sustains the conservative orbits and brings the system to rest at the equilibrium.</p>
+<p>The bifurcation analysis further reveals that the convergence rate (measured by the distance from equilibrium at a fixed time horizon) increases monotonically with <span class="math inline">\(\mu\)</span>, but with diminishing returns. There is a trade-off: higher mutation accelerates convergence but also means the population spends more time exploring suboptimal strategies. In biological contexts, this corresponds to the mutation-selection balance — too much mutation degrades adaptation, while too little fails to explore the fitness landscape. The intermediate regime, where mutation is strong enough to stabilise dynamics but weak enough that selection still matters, is the most biologically relevant. This tutorial demonstrates how to systematically explore this trade-off using numerical ODE solutions and bifurcation diagrams, techniques that generalise immediately to games with more strategies and more complex mutation structures.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../replicator-dynamics-rps/">Replicator dynamics for Rock-Paper-Scissors</a> — the baseline model without mutation, showing conserved cyclic orbits.</li>
+<li>
+<a href="../moran-process-finite-populations/">Moran process in finite populations</a> — stochastic evolutionary dynamics where genetic drift interacts with selection and mutation.</li>
+<li>
+<a href="../evolutionarily-stable-strategies/">Evolutionarily stable strategies (ESS)</a> — understanding when equilibria resist invasion, with and without mutation.</li>
+<li>
+<a href="../hawk-dove-war-of-attrition/">Hawk-Dove and the war of attrition</a> — applying replicator-mutator dynamics to asymmetric contests.</li>
+<li>
+<a href="../../simulations/spatial-prisoners-dilemma-nowak-may/">Spatial evolutionary games</a> — how spatial structure provides an alternative stabilisation mechanism.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Replicator-Mutator Dynamics — Evolution with Mutation},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/replicator-mutator-dynamics/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Replicator-Mutator Dynamics — Evolution with
+Mutation.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/replicator-mutator-dynamics/">https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/replicator-mutator-dynamics/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Replicator-mutator dynamics — evolution with mutation"</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Extend the standard replicator equation with a mutation matrix Q, implement the ODE system using deSolve in R, and show how mutation stabilises the interior equilibrium of Rock-Paper-Scissors."</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - evolutionary-gt</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - replicator-mutator</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - mutation</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - rock-paper-scissors</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["replicator-mutator dynamics", "mutation matrix", "evolutionary game theory", "deSolve", "Rock-Paper-Scissors"]</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["evolutionary-dynamics", "mutation"]</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_evolutionary-gt_replicator-mutator-dynamics"</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Time series comparing replicator dynamics with and without mutation in Rock-Paper-Scissors, showing how mutation stabilises cyclic orbits"</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/evolutionary-gt/replicator-mutator-dynamics/</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a>The replicator equation is the workhorse of evolutionary game theory. It captures the core Darwinian idea that strategies producing above-average fitness grow in frequency, while those performing below average decline. For many games of biological and economic interest, the replicator dynamics provides an elegant deterministic description of how populations evolve over time. Yet standard replicator dynamics rests on a critical simplifying assumption: offspring inherit their parent's strategy perfectly, with no errors, no experimentation, and no random exploration of the strategy space. In biological reality, mutation is ubiquitous. In economic and social contexts, agents occasionally experiment with new strategies, make mistakes, or imitate imperfectly. The replicator-mutator equation extends the classical framework by introducing a mutation matrix $Q$ that governs the probability that offspring of a parent playing strategy $j$ instead adopt strategy $i$. This seemingly modest extension has profound consequences for the qualitative behaviour of the dynamical system.</span>
+<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-55"><a href="#cb15-55" aria-hidden="true" tabindex="-1"></a>The replicator-mutator equation was developed in the context of quasispecies theory by Eigen and Schuster in the late 1970s, originally to model the evolution of self-replicating RNA molecules. In their framework, the mutation matrix captures copying errors during molecular replication, and the interplay between selection and mutation determines which "quasispecies" — clouds of closely related sequences — dominate the population. The same mathematical structure later appeared independently in evolutionary game theory, where it models populations of agents who occasionally switch strategies through trembling-hand errors, experimentation, or imperfect social learning. The replicator-mutator equation has since become a central tool in theoretical biology, linguistics (modelling language evolution), and behavioural economics (modelling bounded rationality in learning dynamics).</span>
+<span id="cb15-56"><a href="#cb15-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-57"><a href="#cb15-57" aria-hidden="true" tabindex="-1"></a>The game we use throughout this tutorial is Rock-Paper-Scissors (RPS). Under pure replicator dynamics, RPS exhibits neutrally stable cyclic orbits around the interior Nash equilibrium at $(1/3, 1/3, 1/3)$. The system possesses a conserved quantity $V = x_R \cdot x_P \cdot x_S$, which means orbits neither converge to the equilibrium nor diverge to the boundary — they cycle perpetually. This structural property is fragile: it relies on the exact cancellation of forces in the skew-symmetric payoff matrix. Any perturbation — whether from stochastic noise, spatial structure, or mutation — will generically break the conservation law and change the qualitative behaviour of the system. Mutation, in particular, introduces a restoring force that pulls trajectories away from the boundary and toward the interior. The key question we investigate is: does mutation cause orbits to spiral inward (stabilising the equilibrium) or outward (destabilising it)?</span>
+<span id="cb15-58"><a href="#cb15-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-59"><a href="#cb15-59" aria-hidden="true" tabindex="-1"></a>In this tutorial, we derive the replicator-mutator equation, implement it as an ODE system in R using the <span class="in">`deSolve`</span> package, and simulate the dynamics for RPS with symmetric uniform mutation. We show that even a small mutation rate converts the neutrally stable centre of pure replicator dynamics into an asymptotically stable spiral — orbits converge to the interior equilibrium. We then explore how the convergence rate depends on the mutation rate $\mu$ and visualise the bifurcation that occurs as $\mu$ varies from zero to large values. The tutorial builds directly on the companion article on pure replicator dynamics for RPS and provides the foundation for understanding more complex evolutionary processes where mutation, selection, and drift interact.</span>
+<span id="cb15-60"><a href="#cb15-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a>Let $n$ be the number of strategies and let $x = (x_1, \ldots, x_n)$ denote the population state on the $(n-1)$-simplex $\Delta^{n-1}$. The payoff matrix is $A \in \mathbb{R}^{n \times n}$ where $a_{ij}$ is the payoff to strategy $i$ against strategy $j$. The fitness of strategy $i$ is:</span>
+<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a>f_i(x) = (Ax)_i = \sum_{j=1}^{n} a_{ij} x_j</span>
+<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a>The average population fitness is $\bar{f}(x) = x^\top A x = \sum_i x_i f_i(x)$.</span>
+<span id="cb15-71"><a href="#cb15-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-72"><a href="#cb15-72" aria-hidden="true" tabindex="-1"></a>The mutation matrix $Q = (q_{ij})$ is a row-stochastic matrix where $q_{ij}$ is the probability that an offspring of a parent playing strategy $j$ adopts strategy $i$. Note the convention: $q_{ij}$ gives the flow from $j$ to $i$, so each column of $Q$ sums to one.</span>
+<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a>The **replicator-mutator equation** is:</span>
+<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a>\dot{x}_i = \sum_{j=1}^{n} x_j f_j(x) \, q_{ij} - x_i \bar{f}(x)</span>
+<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a>The first term accounts for all the ways strategy $i$ can be produced: a parent of any type $j$, present at frequency $x_j$ with fitness $f_j$, mutates to produce an $i$-offspring with probability $q_{ij}$. The second term is the dilution due to population growth at the mean rate $\bar{f}$.</span>
+<span id="cb15-81"><a href="#cb15-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-82"><a href="#cb15-82" aria-hidden="true" tabindex="-1"></a>For symmetric uniform mutation with rate $\mu \in <span class="co">[</span><span class="ot">0, 1</span><span class="co">]</span>$, the mutation matrix is:</span>
+<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a>q_{ij} = \begin{cases} 1 - \mu &amp; \text{if } i = j <span class="sc">\\</span> \frac{\mu}{n-1} &amp; \text{if } i \neq j \end{cases}</span>
+<span id="cb15-86"><a href="#cb15-86" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-87"><a href="#cb15-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a>When $\mu = 0$, we recover the standard replicator equation. When $\mu = 1$, all offspring are uniformly random regardless of the parent's type, and selection is completely overwhelmed by mutation.</span>
+<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a>For the RPS payoff matrix:</span>
+<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a>A = \begin{pmatrix} 0 &amp; -1 &amp; 1 <span class="sc">\\</span> 1 &amp; 0 &amp; -1 <span class="sc">\\</span> -1 &amp; 1 &amp; 0 \end{pmatrix}</span>
+<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a>the interior equilibrium $x^* = (1/3, 1/3, 1/3)$ remains a fixed point of the replicator-mutator equation for any symmetric $Q$ (by symmetry of both $A$ and $Q$). A linear stability analysis around $x^*$ reveals that for $\mu &gt; 0$ the eigenvalues of the Jacobian acquire negative real parts, so $x^*$ becomes an asymptotically stable spiral. The imaginary parts of the eigenvalues generate oscillatory approach, but the real parts ensure convergence — the mutation breaks the conservation law of pure replicator dynamics.</span>
+<span id="cb15-97"><a href="#cb15-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-98"><a href="#cb15-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a>We implement the replicator-mutator ODE system and compare trajectories with and without mutation.</span>
+<span id="cb15-102"><a href="#cb15-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: replicator-mutator-ode</span></span>
+<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-108"><a href="#cb15-108" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(deSolve)</span>
+<span id="cb15-109"><a href="#cb15-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a><span class="co"># RPS payoff matrix</span></span>
+<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a>A_rps <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>,</span>
+<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a>                   <span class="dv">1</span>,  <span class="dv">0</span>, <span class="sc">-</span><span class="dv">1</span>,</span>
+<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a>                  <span class="sc">-</span><span class="dv">1</span>,  <span class="dv">1</span>, <span class="dv">0</span>), <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-117"><a href="#cb15-117" aria-hidden="true" tabindex="-1"></a><span class="co"># Mutation matrix: symmetric uniform mutation with rate mu</span></span>
+<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a>make_Q <span class="ot">&lt;-</span> <span class="cf">function</span>(n, mu) {</span>
+<span id="cb15-119"><a href="#cb15-119" aria-hidden="true" tabindex="-1"></a>  Q <span class="ot">&lt;-</span> <span class="fu">matrix</span>(mu <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>), <span class="at">nrow =</span> n, <span class="at">ncol =</span> n)</span>
+<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(Q) <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> mu</span>
+<span id="cb15-121"><a href="#cb15-121" aria-hidden="true" tabindex="-1"></a>  Q</span>
+<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-123"><a href="#cb15-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-124"><a href="#cb15-124" aria-hidden="true" tabindex="-1"></a><span class="co"># Replicator-mutator ODE</span></span>
+<span id="cb15-125"><a href="#cb15-125" aria-hidden="true" tabindex="-1"></a>replicator_mutator <span class="ot">&lt;-</span> <span class="cf">function</span>(t, state, parms) {</span>
+<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> state</span>
+<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a>  A <span class="ot">&lt;-</span> parms<span class="sc">$</span>A</span>
+<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a>  Q <span class="ot">&lt;-</span> parms<span class="sc">$</span>Q</span>
+<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a>  fitness <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(A <span class="sc">%*%</span> x)</span>
+<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a>  avg_fitness <span class="ot">&lt;-</span> <span class="fu">sum</span>(x <span class="sc">*</span> fitness)</span>
+<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a>  <span class="co"># dx_i/dt = sum_j x_j f_j Q_ij - x_i * f_bar</span></span>
+<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a>  dxdt <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(Q <span class="sc">%*%</span> (x <span class="sc">*</span> fitness)) <span class="sc">-</span> x <span class="sc">*</span> avg_fitness</span>
+<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(dxdt)</span>
+<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulation parameters</span></span>
+<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a>times <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">60</span>, <span class="at">by =</span> <span class="fl">0.05</span>)</span>
+<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a>x0 <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.6</span>, <span class="fl">0.2</span>, <span class="fl">0.2</span>)</span>
+<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a>mu_values <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span>)</span>
+<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">lapply</span>(mu_values, <span class="cf">function</span>(mu) {</span>
+<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a>  Q <span class="ot">&lt;-</span> <span class="fu">make_Q</span>(<span class="dv">3</span>, mu)</span>
+<span id="cb15-143"><a href="#cb15-143" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">ode</span>(<span class="at">y =</span> x0, <span class="at">times =</span> times, <span class="at">func =</span> replicator_mutator,</span>
+<span id="cb15-144"><a href="#cb15-144" aria-hidden="true" tabindex="-1"></a>             <span class="at">parms =</span> <span class="fu">list</span>(<span class="at">A =</span> A_rps, <span class="at">Q =</span> Q), <span class="at">method =</span> <span class="st">"rk4"</span>)</span>
+<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(sol)</span>
+<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(df) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"time"</span>, <span class="st">"Rock"</span>, <span class="st">"Paper"</span>, <span class="st">"Scissors"</span>)</span>
+<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a>  df<span class="sc">$</span>mu <span class="ot">&lt;-</span> mu</span>
+<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a>  df<span class="sc">$</span>label <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"mu = "</span>, mu)</span>
+<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a>  df<span class="sc">$</span>V <span class="ot">&lt;-</span> df<span class="sc">$</span>Rock <span class="sc">*</span> df<span class="sc">$</span>Paper <span class="sc">*</span> df<span class="sc">$</span>Scissors</span>
+<span id="cb15-150"><a href="#cb15-150" aria-hidden="true" tabindex="-1"></a>  df</span>
+<span id="cb15-151"><a href="#cb15-151" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a>traj_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(results)</span>
+<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Final state at t = 60 for each mutation rate:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a>traj_df <span class="sc">|&gt;</span></span>
+<span id="cb15-157"><a href="#cb15-157" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(label) <span class="sc">|&gt;</span></span>
+<span id="cb15-158"><a href="#cb15-158" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a>    <span class="at">Rock =</span> <span class="fu">round</span>(<span class="fu">last</span>(Rock), <span class="dv">4</span>),</span>
+<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a>    <span class="at">Paper =</span> <span class="fu">round</span>(<span class="fu">last</span>(Paper), <span class="dv">4</span>),</span>
+<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a>    <span class="at">Scissors =</span> <span class="fu">round</span>(<span class="fu">last</span>(Scissors), <span class="dv">4</span>),</span>
+<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a>    <span class="at">V_final =</span> <span class="fu">round</span>(<span class="fu">last</span>(V), <span class="dv">6</span>),</span>
+<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>()</span>
+<span id="cb15-166"><a href="#cb15-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-167"><a href="#cb15-167" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Deviation from equilibrium (1/3, 1/3, 1/3) at t = 60:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a>traj_df <span class="sc">|&gt;</span></span>
+<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(label) <span class="sc">|&gt;</span></span>
+<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a>    <span class="at">max_dev =</span> <span class="fu">round</span>(<span class="fu">max</span>(<span class="fu">abs</span>(<span class="fu">last</span>(Rock) <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>),</span>
+<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">abs</span>(<span class="fu">last</span>(Paper) <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>),</span>
+<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">abs</span>(<span class="fu">last</span>(Scissors) <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)), <span class="dv">6</span>),</span>
+<span id="cb15-174"><a href="#cb15-174" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb15-175"><a href="#cb15-175" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>()</span>
+<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: bifurcation-analysis</span></span>
+<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a><span class="co"># Measure convergence: distance from equilibrium at t = 60</span></span>
+<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a>mu_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">0.3</span>, <span class="at">by =</span> <span class="fl">0.005</span>)</span>
+<span id="cb15-186"><a href="#cb15-186" aria-hidden="true" tabindex="-1"></a>convergence_data <span class="ot">&lt;-</span> <span class="fu">lapply</span>(mu_grid, <span class="cf">function</span>(mu) {</span>
+<span id="cb15-187"><a href="#cb15-187" aria-hidden="true" tabindex="-1"></a>  Q <span class="ot">&lt;-</span> <span class="fu">make_Q</span>(<span class="dv">3</span>, mu)</span>
+<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a>  sol <span class="ot">&lt;-</span> <span class="fu">ode</span>(<span class="at">y =</span> x0, <span class="at">times =</span> times, <span class="at">func =</span> replicator_mutator,</span>
+<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a>             <span class="at">parms =</span> <span class="fu">list</span>(<span class="at">A =</span> A_rps, <span class="at">Q =</span> Q), <span class="at">method =</span> <span class="st">"rk4"</span>)</span>
+<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(sol)</span>
+<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(df) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"time"</span>, <span class="st">"Rock"</span>, <span class="st">"Paper"</span>, <span class="st">"Scissors"</span>)</span>
+<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a>  final <span class="ot">&lt;-</span> <span class="fu">tail</span>(df, <span class="dv">1</span>)</span>
+<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>  dev <span class="ot">&lt;-</span> <span class="fu">sqrt</span>((final<span class="sc">$</span>Rock <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (final<span class="sc">$</span>Paper <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span></span>
+<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a>              (final<span class="sc">$</span>Scissors <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb15-195"><a href="#cb15-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">mu =</span> mu, <span class="at">distance =</span> dev)</span>
+<span id="cb15-196"><a href="#cb15-196" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a>bif_df <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(convergence_data)</span>
+<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Bifurcation data (selected mutation rates):</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a>bif_df <span class="sc">|&gt;</span></span>
+<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(mu <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>()</span>
+<span id="cb15-204"><a href="#cb15-204" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-205"><a href="#cb15-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb15-212"><a href="#cb15-212" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-replicator-mutator-comparison</span></span>
+<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Replicator-mutator dynamics for Rock-Paper-Scissors with varying mutation rates. Without mutation (mu = 0), strategies cycle indefinitely. With increasing mutation, orbits spiral inward to the equilibrium (1/3, 1/3, 1/3). The dashed grey line marks the equilibrium frequency. Okabe-Ito palette."</span></span>
+<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 10</span></span>
+<span id="cb15-216"><a href="#cb15-216" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a>traj_long <span class="ot">&lt;-</span> traj_df <span class="sc">|&gt;</span></span>
+<span id="cb15-220"><a href="#cb15-220" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(mu <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb15-221"><a href="#cb15-221" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(time, Rock, Paper, Scissors, label) <span class="sc">|&gt;</span></span>
+<span id="cb15-222"><a href="#cb15-222" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">c</span>(Rock, Paper, Scissors),</span>
+<span id="cb15-223"><a href="#cb15-223" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">"Strategy"</span>, <span class="at">values_to =</span> <span class="st">"Frequency"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-224"><a href="#cb15-224" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">label =</span> <span class="fu">factor</span>(label, <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="st">"mu = "</span>, <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.01</span>, <span class="fl">0.05</span>, <span class="fl">0.15</span>))))</span>
+<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a>p_static <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(traj_long, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> Frequency, <span class="at">color =</span> Strategy)) <span class="sc">+</span></span>
+<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"grey50"</span>,</span>
+<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a>             <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>label, <span class="at">nrow =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="at">Rock =</span> okabe_ito[<span class="dv">1</span>], <span class="at">Paper =</span> okabe_ito[<span class="dv">5</span>],</span>
+<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">Scissors =</span> okabe_ito[<span class="dv">3</span>])) <span class="sc">+</span></span>
+<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Replicator-mutator dynamics — Rock-Paper-Scissors"</span>,</span>
+<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Mutation stabilises the neutrally stable interior equilibrium; initial state = (0.6, 0.2, 0.2)"</span>,</span>
+<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Time"</span>, <span class="at">y =</span> <span class="st">"Population frequency"</span></span>
+<span id="cb15-237"><a href="#cb15-237" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb15-238"><a href="#cb15-238" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>() <span class="sc">+</span></span>
+<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a>p_static</span>
+<span id="cb15-242"><a href="#cb15-242" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-243"><a href="#cb15-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-249"><a href="#cb15-249" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb15-250"><a href="#cb15-250" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-bifurcation-interactive</span></span>
+<span id="cb15-251"><a href="#cb15-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-252"><a href="#cb15-252" aria-hidden="true" tabindex="-1"></a>bif_df <span class="ot">&lt;-</span> bif_df <span class="sc">|&gt;</span></span>
+<span id="cb15-253"><a href="#cb15-253" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">text =</span> <span class="fu">sprintf</span>(<span class="st">"Mutation rate: %.3f</span><span class="sc">\n</span><span class="st">Distance from eq.: %.5f"</span>,</span>
+<span id="cb15-254"><a href="#cb15-254" aria-hidden="true" tabindex="-1"></a>                         mu, distance))</span>
+<span id="cb15-255"><a href="#cb15-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-256"><a href="#cb15-256" aria-hidden="true" tabindex="-1"></a>p_bif <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(bif_df, <span class="fu">aes</span>(<span class="at">x =</span> mu, <span class="at">y =</span> distance, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb15-257"><a href="#cb15-257" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> okabe_ito[<span class="dv">5</span>], <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb15-258"><a href="#cb15-258" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> okabe_ito[<span class="dv">5</span>], <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb15-259"><a href="#cb15-259" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> okabe_ito[<span class="dv">6</span>]) <span class="sc">+</span></span>
+<span id="cb15-260"><a href="#cb15-260" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb15-261"><a href="#cb15-261" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Bifurcation: distance from equilibrium at t = 60"</span>,</span>
+<span id="cb15-262"><a href="#cb15-262" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"mu = 0 gives persistent cycling; any mu &gt; 0 yields convergence"</span>,</span>
+<span id="cb15-263"><a href="#cb15-263" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Mutation rate (mu)"</span>,</span>
+<span id="cb15-264"><a href="#cb15-264" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Euclidean distance from (1/3, 1/3, 1/3)"</span></span>
+<span id="cb15-265"><a href="#cb15-265" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb15-266"><a href="#cb15-266" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb15-267"><a href="#cb15-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-268"><a href="#cb15-268" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_bif, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-269"><a href="#cb15-269" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-270"><a href="#cb15-270" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb15-271"><a href="#cb15-271" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-272"><a href="#cb15-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-273"><a href="#cb15-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-274"><a href="#cb15-274" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb15-275"><a href="#cb15-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-276"><a href="#cb15-276" aria-hidden="true" tabindex="-1"></a>The simulations reveal a sharp qualitative difference between pure replicator dynamics and the replicator-mutator equation. Under the standard replicator dynamics ($\mu = 0$), the Rock-Paper-Scissors system produces closed cyclic orbits around the interior equilibrium $(1/3, 1/3, 1/3)$, as guaranteed by the conserved quantity $V = x_R x_P x_S$. The orbit amplitude and period depend on the initial condition, but no trajectory ever converges to the equilibrium — the system is neutrally stable, a degenerate case poised between stability and instability. This behaviour, while mathematically elegant, is structurally fragile: any perturbation to the dynamics can tip the system one way or the other.</span>
+<span id="cb15-277"><a href="#cb15-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-278"><a href="#cb15-278" aria-hidden="true" tabindex="-1"></a>Mutation provides exactly such a perturbation, and the direction it tips is always toward stability. Even a tiny mutation rate $\mu = 0.01$ converts the neutrally stable centre into an asymptotically stable spiral. The oscillations persist — the imaginary parts of the Jacobian eigenvalues at the equilibrium remain nonzero — but they decay exponentially, with the population state spiralling inward to $(1/3, 1/3, 1/3)$. At higher mutation rates ($\mu = 0.05$ and $\mu = 0.15$), convergence is faster and the oscillatory transient is shorter. The bifurcation plot confirms that the transition is discontinuous in a qualitative sense: at $\mu = 0$ the system cycles forever (distance from equilibrium remains positive and constant), while for any $\mu &gt; 0$ the distance decays to zero. This is a supercritical Hopf-like bifurcation in reverse — as mutation increases from zero, a centre becomes a stable focus.</span>
+<span id="cb15-279"><a href="#cb15-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-280"><a href="#cb15-280" aria-hidden="true" tabindex="-1"></a>The mechanism behind this stabilisation is intuitive. In pure replicator dynamics, a strategy that becomes rare faces no intrinsic restoring force — its growth rate depends only on its relative fitness, which in RPS creates a perpetual chase. Mutation introduces a baseline flow of individuals into every strategy regardless of fitness. When Rock is rare, some Paper and Scissors players "mutate" to Rock, providing a demographic floor. When Rock is common, some Rock players mutate away, providing a ceiling. This mean-reverting force acts like friction in a physical system: it dissipates the "energy" that sustains the conservative orbits and brings the system to rest at the equilibrium.</span>
+<span id="cb15-281"><a href="#cb15-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-282"><a href="#cb15-282" aria-hidden="true" tabindex="-1"></a>The bifurcation analysis further reveals that the convergence rate (measured by the distance from equilibrium at a fixed time horizon) increases monotonically with $\mu$, but with diminishing returns. There is a trade-off: higher mutation accelerates convergence but also means the population spends more time exploring suboptimal strategies. In biological contexts, this corresponds to the mutation-selection balance — too much mutation degrades adaptation, while too little fails to explore the fitness landscape. The intermediate regime, where mutation is strong enough to stabilise dynamics but weak enough that selection still matters, is the most biologically relevant. This tutorial demonstrates how to systematically explore this trade-off using numerical ODE solutions and bifurcation diagrams, techniques that generalise immediately to games with more strategies and more complex mutation structures.</span>
+<span id="cb15-283"><a href="#cb15-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-284"><a href="#cb15-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-285"><a href="#cb15-285" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb15-286"><a href="#cb15-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-287"><a href="#cb15-287" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Replicator dynamics for Rock-Paper-Scissors</span><span class="co">](../replicator-dynamics-rps/)</span> — the baseline model without mutation, showing conserved cyclic orbits.</span>
+<span id="cb15-288"><a href="#cb15-288" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Moran process in finite populations</span><span class="co">](../moran-process-finite-populations/)</span> — stochastic evolutionary dynamics where genetic drift interacts with selection and mutation.</span>
+<span id="cb15-289"><a href="#cb15-289" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Evolutionarily stable strategies (ESS)</span><span class="co">](../evolutionarily-stable-strategies/)</span> — understanding when equilibria resist invasion, with and without mutation.</span>
+<span id="cb15-290"><a href="#cb15-290" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Hawk-Dove and the war of attrition</span><span class="co">](../hawk-dove-war-of-attrition/)</span> — applying replicator-mutator dynamics to asymmetric contests.</span>
+<span id="cb15-291"><a href="#cb15-291" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Spatial evolutionary games</span><span class="co">](../../simulations/spatial-prisoners-dilemma-nowak-may/)</span> — how spatial structure provides an alternative stabilisation mechanism.</span>
+<span id="cb15-292"><a href="#cb15-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-293"><a href="#cb15-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-294"><a href="#cb15-294" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb15-295"><a href="#cb15-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-296"><a href="#cb15-296" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb15-297"><a href="#cb15-297" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/evolutionary-gt/replicator-mutator-dynamics/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/evolutionary-gt/replicator-mutator-dynamics/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>

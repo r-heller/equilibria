@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="FRED, Federal Reserve, economic data, Cournot, oligopoly calibration, R">
+<meta name="description" content="Access Federal Reserve FRED data via the fredr API or direct CSV download to calibrate game-theoretic models with real-world economic parameters such as interest rates, GDP growth, and manufacturing output.">
+<title>FRED economic data for game-theoretic calibration – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-7945cf3d8e8e75b40d08f762a0e66ee2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-c6d704304d41f8db835b3df3417e04b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.0/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/public-apis-and-datasets/federal-reserve-fred-data/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/public-apis-and-datasets/federal-reserve-fred-data/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">FRED economic data for game-theoretic calibration</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">public-apis-and-datasets</div>
+    <div class="quarto-category">fred</div>
+    <div class="quarto-category">cournot-competition</div>
+    <div class="quarto-category">demand-estimation</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Access Federal Reserve FRED data via the fredr API or direct CSV download to calibrate game-theoretic models with real-world economic parameters such as interest rates, GDP growth, and manufacturing output.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>FRED, Federal Reserve, economic data, Cournot, oligopoly calibration, R</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>Game-theoretic models of strategic interaction — Cournot oligopoly, Bertrand price competition, entry deterrence — rest on parameters drawn from the real economy. A Cournot duopoly model, for instance, requires a demand intercept, a demand slope, and marginal cost estimates. When these parameters are plucked from thin air, the resulting equilibrium predictions are illustrative but unconvincing. Calibrating with actual data transforms a toy model into a tool that can speak to policy questions about market concentration, antitrust intervention, or the welfare effects of trade.</p>
+<p>The Federal Reserve Economic Data (FRED) database, maintained by the Federal Reserve Bank of St.&nbsp;Louis, is one of the most comprehensive open data portals for macroeconomic and industry-level time series. It aggregates over 800,000 series from more than 100 public and private sources, covering GDP components, industrial production indices, price indices, interest rates, labour market indicators, and financial variables. All data are freely available without licensing restrictions, making FRED an ideal source for academic and pedagogical work in applied game theory.</p>
+<p>In this tutorial we demonstrate two complementary approaches to retrieving FRED data in R. First, we show the <code>fredr</code> package, which wraps the FRED API and requires a free API key. Second, we show direct CSV download from the FRED website, which works without any authentication and is suitable for static, reproducible analyses. We then use manufacturing output data to calibrate a simple Cournot duopoly model: estimating inverse demand from real time series, deriving equilibrium quantities and prices, and annotating a historical data visualisation with the game-theoretic equilibrium predictions.</p>
+<p>The broader pedagogical goal is to build a bridge between the abstract world of normal-form games and the messy reality of economic data. Students who calibrate their models against FRED data develop better intuitions about which parameter ranges are empirically reasonable and which assumptions are fragile. This article focuses on US manufacturing as the running example, but the same workflow applies to any FRED series — energy markets, agricultural commodities, financial intermediation, and so on.</p>
+<p>Throughout the tutorial we work exclusively with base R and the four core packages loaded in the setup chunk. For demand estimation we use simple linear regression via <code><a href="https://rdrr.io/r/stats/lm.html">lm()</a></code>, which is sufficient for the illustrative calibration exercise here, though more rigorous empirical work would require instrumental variables or structural estimation methods.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p>We model a symmetric Cournot duopoly in which two firms produce a homogeneous good. Aggregate quantity is <span class="math inline">\(Q = q_1 + q_2\)</span>. Inverse demand is linear:</p>
+<p><span class="math display">\[
+P(Q) = a - b \, Q
+\]</span></p>
+<p>where <span class="math inline">\(a &gt; 0\)</span> is the demand intercept (the choke price at which demand falls to zero) and <span class="math inline">\(b &gt; 0\)</span> is the demand slope. Each firm has constant marginal cost <span class="math inline">\(c\)</span>, with <span class="math inline">\(a &gt; c\)</span> to ensure positive production.</p>
+<p>Firm <span class="math inline">\(i\)</span> maximises profit:</p>
+<p><span class="math display">\[
+\pi_i(q_i, q_j) = \left(a - b(q_i + q_j) - c\right) q_i
+\]</span></p>
+<p>The first-order condition yields the best-response function:</p>
+<p><span class="math display">\[
+q_i^*(q_j) = \frac{a - c}{2b} - \frac{q_j}{2}
+\]</span></p>
+<p>At the symmetric Nash equilibrium <span class="math inline">\(q_1^* = q_2^* = q^*\)</span>:</p>
+<p><span class="math display">\[
+q^* = \frac{a - c}{3b}, \qquad Q^* = \frac{2(a - c)}{3b}, \qquad P^* = \frac{a + 2c}{3}
+\]</span></p>
+<p>Equilibrium profit per firm is:</p>
+<p><span class="math display">\[
+\pi^* = \frac{(a - c)^2}{9b}
+\]</span></p>
+<p>Our calibration task is to estimate <span class="math inline">\(a\)</span> and <span class="math inline">\(b\)</span> from FRED time-series data on prices and quantities, then compute the Cournot equilibrium for a given marginal cost <span class="math inline">\(c\)</span>.</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<p>We simulate realistic FRED-like data for US manufacturing output and producer prices (since direct FRED downloads require either an API key or manual CSV retrieval, we generate synthetic data that mirrors the statistical properties of the actual series). In practice you would replace the simulated data with a CSV downloaded from <a href="https://fred.stlouisfed.org/series/IPMAN" class="uri">https://fred.stlouisfed.org/series/IPMAN</a> for industrial production and <a href="https://fred.stlouisfed.org/series/PCUOMFG" class="uri">https://fred.stlouisfed.org/series/PCUOMFG</a> for producer prices.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Simulate FRED-like manufacturing data ---</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">n_quarters</span> <span class="op">&lt;-</span> <span class="fl">80</span>  <span class="co"># 20 years of quarterly data</span></span>
+<span></span>
+<span><span class="co"># Industrial production index (quantity proxy) with trend + cycle</span></span>
+<span><span class="va">trend</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">95</span>, <span class="fl">110</span>, length.out <span class="op">=</span> <span class="va">n_quarters</span><span class="op">)</span></span>
+<span><span class="va">cycle</span> <span class="op">&lt;-</span> <span class="fl">8</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html">sin</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">4</span> <span class="op">*</span> <span class="va">pi</span>, length.out <span class="op">=</span> <span class="va">n_quarters</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">noise_q</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n_quarters</span>, <span class="fl">0</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">quantity_index</span> <span class="op">&lt;-</span> <span class="va">trend</span> <span class="op">+</span> <span class="va">cycle</span> <span class="op">+</span> <span class="va">noise_q</span></span>
+<span></span>
+<span><span class="co"># Producer price index (price proxy) — negatively correlated with quantity</span></span>
+<span><span class="va">price_index</span> <span class="op">&lt;-</span> <span class="fl">130</span> <span class="op">-</span> <span class="fl">0.35</span> <span class="op">*</span> <span class="va">quantity_index</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">n_quarters</span>, <span class="fl">0</span>, <span class="fl">1.5</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">fred_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span></span>
+<span>  date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html">as.Date</a></span><span class="op">(</span><span class="st">"2006-01-01"</span><span class="op">)</span>, by <span class="op">=</span> <span class="st">"quarter"</span>, length.out <span class="op">=</span> <span class="va">n_quarters</span><span class="op">)</span>,</span>
+<span>  quantity_index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">quantity_index</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>  price_index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">price_index</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== FRED-like Manufacturing Data (first 6 rows) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== FRED-like Manufacturing Data (first 6 rows) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html">head</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>        date quantity_index price_index
+1 2006-01-01          97.74       98.06
+2 2006-04-01          95.33       97.02
+3 2006-07-01          98.61       95.62
+4 2006-10-01         100.51       94.64
+5 2007-01-01         101.32       92.75
+6 2007-04-01         101.45       95.41</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\nSummary statistics:\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Summary statistics:</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Quantity index: mean = %.1f, sd = %.1f\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">quantity_index</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">quantity_index</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Quantity index: mean = 102.5, sd = 6.1</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Price index:    mean = %.1f, sd = %.1f\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">price_index</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">price_index</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Price index:    mean = 94.0, sd = 2.6</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Estimate inverse demand: P = a - b * Q ---</span></span>
+<span><span class="va">demand_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">price_index</span> <span class="op">~</span> <span class="va">quantity_index</span>, data <span class="op">=</span> <span class="va">fred_data</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">a_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">demand_fit</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>       <span class="co"># intercept (choke price)</span></span>
+<span><span class="va">b_hat</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">demand_fit</span><span class="op">)</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>      <span class="co"># slope (make positive)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Inverse Demand Estimation ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Inverse Demand Estimation ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Estimated intercept (a): %.2f\n"</span>, <span class="va">a_hat</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Estimated intercept (a): 130.11</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Estimated slope (b):     %.4f\n"</span>, <span class="va">b_hat</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Estimated slope (b):     0.3526</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  R-squared:               %.3f\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">demand_fit</span><span class="op">)</span><span class="op">$</span><span class="va">r.squared</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  R-squared:               0.712</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Cournot equilibrium calibration ---</span></span>
+<span><span class="co"># Assume marginal cost = 60% of average price</span></span>
+<span><span class="va">c_hat</span> <span class="op">&lt;-</span> <span class="fl">0.60</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">price_index</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">q_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">a_hat</span> <span class="op">-</span> <span class="va">c_hat</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="fl">3</span> <span class="op">*</span> <span class="va">b_hat</span><span class="op">)</span></span>
+<span><span class="va">Q_star</span> <span class="op">&lt;-</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">q_star</span></span>
+<span><span class="va">P_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">a_hat</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">c_hat</span><span class="op">)</span> <span class="op">/</span> <span class="fl">3</span></span>
+<span><span class="va">profit_star</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">a_hat</span> <span class="op">-</span> <span class="va">c_hat</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="op">(</span><span class="fl">9</span> <span class="op">*</span> <span class="va">b_hat</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n=== Cournot Equilibrium (calibrated) ===\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+=== Cournot Equilibrium (calibrated) ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Assumed marginal cost (c):    %.2f\n"</span>, <span class="va">c_hat</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Assumed marginal cost (c):    56.37</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Equilibrium firm quantity:    %.2f\n"</span>, <span class="va">q_star</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Equilibrium firm quantity:    69.71</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Equilibrium total quantity:   %.2f\n"</span>, <span class="va">Q_star</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Equilibrium total quantity:   139.41</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Equilibrium price:            %.2f\n"</span>, <span class="va">P_star</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Equilibrium price:            80.95</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Equilibrium profit per firm:  %.2f\n"</span>, <span class="va">profit_star</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Equilibrium profit per firm:  1713.35</code></pre>
+</div>
+</div>
+<p>We also show how you would use <code>fredr</code> if you have an API key:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Using fredr (requires FRED_API_KEY environment variable) ---</span></span>
+<span><span class="co"># Sign up for a free key at https://fred.stlouisfed.org/docs/api/api_key.html</span></span>
+<span><span class="co"># Then set: Sys.setenv(FRED_API_KEY = "your_key_here")</span></span>
+<span></span>
+<span><span class="co"># library(fredr)</span></span>
+<span><span class="co"># fredr_set_key(Sys.getenv("FRED_API_KEY"))</span></span>
+<span><span class="co">#</span></span>
+<span><span class="co"># manufacturing &lt;- fredr(</span></span>
+<span><span class="co">#   series_id = "IPMAN",</span></span>
+<span><span class="co">#   observation_start = as.Date("2006-01-01"),</span></span>
+<span><span class="co">#   frequency = "q",</span></span>
+<span><span class="co">#   aggregation_method = "avg"</span></span>
+<span><span class="co"># )</span></span>
+<span><span class="co">#</span></span>
+<span><span class="co"># prices &lt;- fredr(</span></span>
+<span><span class="co">#   series_id = "PCUOMFG",</span></span>
+<span><span class="co">#   observation_start = as.Date("2006-01-01"),</span></span>
+<span><span class="co">#   frequency = "q",</span></span>
+<span><span class="co">#   aggregation_method = "avg"</span></span>
+<span><span class="co"># )</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>And the direct CSV download approach (no API key needed):</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># --- Direct CSV download from FRED (no authentication) ---</span></span>
+<span><span class="co"># url_quantity &lt;- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=IPMAN"</span></span>
+<span><span class="co"># url_price    &lt;- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCUOMFG"</span></span>
+<span><span class="co">#</span></span>
+<span><span class="co"># manufacturing &lt;- read.csv(url_quantity)</span></span>
+<span><span class="co"># prices        &lt;- read.csv(url_price)</span></span>
+<span><span class="co">#</span></span>
+<span><span class="co"># # Clean and merge</span></span>
+<span><span class="co"># manufacturing$DATE &lt;- as.Date(manufacturing$DATE)</span></span>
+<span><span class="co"># prices$DATE        &lt;- as.Date(prices$DATE)</span></span>
+<span><span class="co"># merged &lt;- merge(manufacturing, prices, by = "DATE")</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<p>The static figure overlays the estimated inverse demand curve with actual data points and annotates the Cournot equilibrium. This style of plot connects empirical observations to theoretical predictions, which is central to applied game theory.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Prepare demand line data</span></span>
+<span><span class="va">q_range</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">quantity_index</span><span class="op">)</span> <span class="op">-</span> <span class="fl">5</span>,</span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">quantity_index</span><span class="op">)</span> <span class="op">+</span> <span class="fl">5</span>, length.out <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">demand_line</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span></span>
+<span>  quantity_index <span class="op">=</span> <span class="va">q_range</span>,</span>
+<span>  price_fitted <span class="op">=</span> <span class="va">a_hat</span> <span class="op">-</span> <span class="va">b_hat</span> <span class="op">*</span> <span class="va">q_range</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">fred_data</span>,</span>
+<span>             <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">quantity_index</span>, y <span class="op">=</span> <span class="va">price_index</span><span class="op">)</span>,</span>
+<span>             color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, alpha <span class="op">=</span> <span class="fl">0.6</span>, size <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">demand_line</span>,</span>
+<span>            <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">quantity_index</span>, y <span class="op">=</span> <span class="va">price_fitted</span><span class="op">)</span>,</span>
+<span>            color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"point"</span>, x <span class="op">=</span> <span class="va">Q_star</span>, y <span class="op">=</span> <span class="va">P_star</span>,</span>
+<span>           color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">5</span>, shape <span class="op">=</span> <span class="fl">18</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"segment"</span>, x <span class="op">=</span> <span class="va">Q_star</span>, xend <span class="op">=</span> <span class="va">Q_star</span>,</span>
+<span>           y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">price_index</span><span class="op">)</span> <span class="op">-</span> <span class="fl">2</span>, yend <span class="op">=</span> <span class="va">P_star</span>,</span>
+<span>           linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"segment"</span>, x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">fred_data</span><span class="op">$</span><span class="va">quantity_index</span><span class="op">)</span> <span class="op">-</span> <span class="fl">5</span>, xend <span class="op">=</span> <span class="va">Q_star</span>,</span>
+<span>           y <span class="op">=</span> <span class="va">P_star</span>, yend <span class="op">=</span> <span class="va">P_star</span>,</span>
+<span>           linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="va">Q_star</span> <span class="op">+</span> <span class="fl">2</span>, y <span class="op">=</span> <span class="va">P_star</span> <span class="op">+</span> <span class="fl">1.5</span>,</span>
+<span>           label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Cournot NE\n(Q*=%.1f, P*=%.1f)"</span>, <span class="va">Q_star</span>, <span class="va">P_star</span><span class="op">)</span>,</span>
+<span>           color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">3.5</span>, fontface <span class="op">=</span> <span class="st">"bold"</span>, hjust <span class="op">=</span> <span class="fl">0</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Inverse demand estimation and Cournot equilibrium calibration"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"US manufacturing output (simulated FRED data, 2006-2025)"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Manufacturing output index"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Producer price index"</span>,</span>
+<span>    caption <span class="op">=</span> <span class="st">"Source: Simulated FRED-like data | #equilibria"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_static</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-fred-cournot-static" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-fred-cournot-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-fred-cournot-static-1.png" class="img-fluid figure-img" width="2700">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-fred-cournot-static-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Manufacturing output vs.&nbsp;producer prices with estimated inverse demand and Cournot equilibrium. The blue line is the OLS-estimated inverse demand curve; the orange point marks the calibrated symmetric Cournot equilibrium. Data: simulated FRED-like series (public domain).
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<p>The interactive version allows hovering over each data point to see the exact date, quantity, and price values. The Cournot equilibrium point and demand line are also included for reference.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">p_interactive</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_point</span><span class="op">(</span>data <span class="op">=</span> <span class="va">fred_data</span>,</span>
+<span>             <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">quantity_index</span>, y <span class="op">=</span> <span class="va">price_index</span>,</span>
+<span>                 text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Date: %s\nQuantity: %.1f\nPrice: %.1f"</span>,</span>
+<span>                                <span class="va">date</span>, <span class="va">quantity_index</span>, <span class="va">price_index</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>             color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">5</span><span class="op">]</span>, alpha <span class="op">=</span> <span class="fl">0.6</span>, size <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>data <span class="op">=</span> <span class="va">demand_line</span>,</span>
+<span>            <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">quantity_index</span>, y <span class="op">=</span> <span class="va">price_fitted</span>,</span>
+<span>                text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"Demand curve\nQ: %.1f -&gt; P: %.1f"</span>,</span>
+<span>                               <span class="va">quantity_index</span>, <span class="va">price_fitted</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>            color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"point"</span>, x <span class="op">=</span> <span class="va">Q_star</span>, y <span class="op">=</span> <span class="va">P_star</span>,</span>
+<span>           color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, size <span class="op">=</span> <span class="fl">5</span>, shape <span class="op">=</span> <span class="fl">18</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Inverse demand and Cournot equilibrium"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Manufacturing output index"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Producer price index"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_interactive</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>         modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>, <span class="st">"autoScale2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-fred-cournot-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-fred-cournot-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-2ace54a19865c08def30" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-2ace54a19865c08def30">{"x":{"data":[{"x":[97.739999999999995,95.329999999999998,98.609999999999999,100.51000000000001,101.31999999999999,101.45,105.69,103.31999999999999,108.2,104.51000000000001,107.51000000000001,109.53,102.05,103.94,103.73,104.61,101.95999999999999,96.299999999999997,95.739999999999995,102.2,97.870000000000005,93.840000000000003,96.030000000000001,97.840000000000003,98.340000000000003,92.950000000000003,92.719999999999999,89.290000000000006,93.5,91.269999999999996,93.620000000000005,94.489999999999995,95.709999999999994,93.170000000000002,96.329999999999998,92.959999999999994,96.040000000000006,97.230000000000004,95.5,101.84,103.64,103.95,107.59,105.94,105.87,110.55,108.98999999999999,114.25,111.06,113.59999999999999,113.09999999999999,110.84999999999999,115.34,113.06,111.36,111,110.95,108.8,101.61,107.09,104.70999999999999,104.75,104.55,105.27,100.20999999999999,103.61,101.17,102.25,101.88,101.54000000000001,98.280000000000001,100.65000000000001,102.73999999999999,100.43000000000001,102.25,105.65000000000001,107.29000000000001,108.05,106.77,107.8],"y":[98.060000000000002,97.019999999999996,95.620000000000005,94.640000000000001,92.75,95.409999999999997,92.680000000000007,93.560000000000002,93.530000000000001,94.659999999999997,94.459999999999994,90.950000000000003,95.260000000000005,95.709999999999994,92.030000000000001,92.099999999999994,92.620000000000005,94.099999999999994,96.609999999999999,95.209999999999994,97.549999999999997,98.719999999999999,94.879999999999995,98.530000000000001,94.579999999999998,97.620000000000005,96.920000000000002,98.569999999999993,97.560000000000002,98.239999999999995,97.189999999999998,97.090000000000003,95.769999999999996,96.629999999999995,93.790000000000006,96.890000000000001,95.620000000000005,100.02,94.530000000000001,94.560000000000002,91.480000000000004,91.409999999999997,92.530000000000001,91.430000000000007,92.939999999999998,90.670000000000002,90.930000000000007,86.980000000000004,89.290000000000006,90.510000000000005,91.269999999999996,90.459999999999994,89.629999999999995,92.109999999999999,93.180000000000007,89.5,90.989999999999995,93.719999999999999,93.730000000000004,92.439999999999998,93.219999999999999,92,92.739999999999995,93.109999999999999,94.310000000000002,95.409999999999997,93.870000000000005,93.560000000000002,95.390000000000001,92.870000000000005,95.540000000000006,92.439999999999998,95.790000000000006,94.439999999999998,93.510000000000005,91.170000000000002,92.439999999999998,90.980000000000004,91.829999999999998,94.200000000000003],"text":["Date: 2006-01-01<br />Quantity: 97.7<br />Price: 98.1","Date: 2006-04-01<br />Quantity: 95.3<br />Price: 97.0","Date: 2006-07-01<br />Quantity: 98.6<br />Price: 95.6","Date: 2006-10-01<br />Quantity: 100.5<br />Price: 94.6","Date: 2007-01-01<br />Quantity: 101.3<br />Price: 92.8","Date: 2007-04-01<br />Quantity: 101.5<br />Price: 95.4","Date: 2007-07-01<br />Quantity: 105.7<br />Price: 92.7","Date: 2007-10-01<br />Quantity: 103.3<br />Price: 93.6","Date: 2008-01-01<br />Quantity: 108.2<br />Price: 93.5","Date: 2008-04-01<br />Quantity: 104.5<br />Price: 94.7","Date: 2008-07-01<br />Quantity: 107.5<br />Price: 94.5","Date: 2008-10-01<br />Quantity: 109.5<br />Price: 91.0","Date: 2009-01-01<br />Quantity: 102.0<br />Price: 95.3","Date: 2009-04-01<br />Quantity: 103.9<br />Price: 95.7","Date: 2009-07-01<br />Quantity: 103.7<br />Price: 92.0","Date: 2009-10-01<br />Quantity: 104.6<br />Price: 92.1","Date: 2010-01-01<br />Quantity: 102.0<br />Price: 92.6","Date: 2010-04-01<br />Quantity: 96.3<br />Price: 94.1","Date: 2010-07-01<br />Quantity: 95.7<br />Price: 96.6","Date: 2010-10-01<br />Quantity: 102.2<br />Price: 95.2","Date: 2011-01-01<br />Quantity: 97.9<br />Price: 97.5","Date: 2011-04-01<br />Quantity: 93.8<br />Price: 98.7","Date: 2011-07-01<br />Quantity: 96.0<br />Price: 94.9","Date: 2011-10-01<br />Quantity: 97.8<br />Price: 98.5","Date: 2012-01-01<br />Quantity: 98.3<br />Price: 94.6","Date: 2012-04-01<br />Quantity: 93.0<br />Price: 97.6","Date: 2012-07-01<br />Quantity: 92.7<br />Price: 96.9","Date: 2012-10-01<br />Quantity: 89.3<br />Price: 98.6","Date: 2013-01-01<br />Quantity: 93.5<br />Price: 97.6","Date: 2013-04-01<br />Quantity: 91.3<br />Price: 98.2","Date: 2013-07-01<br />Quantity: 93.6<br />Price: 97.2","Date: 2013-10-01<br />Quantity: 94.5<br />Price: 97.1","Date: 2014-01-01<br />Quantity: 95.7<br />Price: 95.8","Date: 2014-04-01<br />Quantity: 93.2<br />Price: 96.6","Date: 2014-07-01<br />Quantity: 96.3<br />Price: 93.8","Date: 2014-10-01<br />Quantity: 93.0<br />Price: 96.9","Date: 2015-01-01<br />Quantity: 96.0<br />Price: 95.6","Date: 2015-04-01<br />Quantity: 97.2<br />Price: 100.0","Date: 2015-07-01<br />Quantity: 95.5<br />Price: 94.5","Date: 2015-10-01<br />Quantity: 101.8<br />Price: 94.6","Date: 2016-01-01<br />Quantity: 103.6<br />Price: 91.5","Date: 2016-04-01<br />Quantity: 104.0<br />Price: 91.4","Date: 2016-07-01<br />Quantity: 107.6<br />Price: 92.5","Date: 2016-10-01<br />Quantity: 105.9<br />Price: 91.4","Date: 2017-01-01<br />Quantity: 105.9<br />Price: 92.9","Date: 2017-04-01<br />Quantity: 110.5<br />Price: 90.7","Date: 2017-07-01<br />Quantity: 109.0<br />Price: 90.9","Date: 2017-10-01<br />Quantity: 114.2<br />Price: 87.0","Date: 2018-01-01<br />Quantity: 111.1<br />Price: 89.3","Date: 2018-04-01<br />Quantity: 113.6<br />Price: 90.5","Date: 2018-07-01<br />Quantity: 113.1<br />Price: 91.3","Date: 2018-10-01<br />Quantity: 110.8<br />Price: 90.5","Date: 2019-01-01<br />Quantity: 115.3<br />Price: 89.6","Date: 2019-04-01<br />Quantity: 113.1<br />Price: 92.1","Date: 2019-07-01<br />Quantity: 111.4<br />Price: 93.2","Date: 2019-10-01<br />Quantity: 111.0<br />Price: 89.5","Date: 2020-01-01<br />Quantity: 111.0<br />Price: 91.0","Date: 2020-04-01<br />Quantity: 108.8<br />Price: 93.7","Date: 2020-07-01<br />Quantity: 101.6<br />Price: 93.7","Date: 2020-10-01<br />Quantity: 107.1<br />Price: 92.4","Date: 2021-01-01<br />Quantity: 104.7<br />Price: 93.2","Date: 2021-04-01<br />Quantity: 104.8<br />Price: 92.0","Date: 2021-07-01<br />Quantity: 104.5<br />Price: 92.7","Date: 2021-10-01<br />Quantity: 105.3<br />Price: 93.1","Date: 2022-01-01<br />Quantity: 100.2<br />Price: 94.3","Date: 2022-04-01<br />Quantity: 103.6<br />Price: 95.4","Date: 2022-07-01<br />Quantity: 101.2<br />Price: 93.9","Date: 2022-10-01<br />Quantity: 102.2<br />Price: 93.6","Date: 2023-01-01<br />Quantity: 101.9<br />Price: 95.4","Date: 2023-04-01<br />Quantity: 101.5<br />Price: 92.9","Date: 2023-07-01<br />Quantity: 98.3<br />Price: 95.5","Date: 2023-10-01<br />Quantity: 100.7<br />Price: 92.4","Date: 2024-01-01<br />Quantity: 102.7<br />Price: 95.8","Date: 2024-04-01<br />Quantity: 100.4<br />Price: 94.4","Date: 2024-07-01<br />Quantity: 102.2<br />Price: 93.5","Date: 2024-10-01<br />Quantity: 105.7<br />Price: 91.2","Date: 2025-01-01<br />Quantity: 107.3<br />Price: 92.4","Date: 2025-04-01<br />Quantity: 108.0<br />Price: 91.0","Date: 2025-07-01<br />Quantity: 106.8<br />Price: 91.8","Date: 2025-10-01<br />Quantity: 107.8<br />Price: 94.2"],"type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,114,178,1)","opacity":0.59999999999999998,"size":7.559055118110237,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,114,178,1)"}},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[100.31222222222223,null,100.67636363636365,null,101.04050505050506,null,101.40464646464648,null,101.76878787878789,null,102.1329292929293,null,102.49707070707072,null,102.86121212121213,null,103.22535353535355,null,103.58949494949495,null,103.95363636363636,null,104.31777777777778,null,104.68191919191919,null,105.04606060606061,null,105.41020202020202,null,105.77434343434344,null,106.13848484848485,null,106.50262626262626,null,106.86676767676768,null,107.23090909090909,null,107.59505050505051,null,107.95919191919192,null,108.32333333333334,null,108.68747474747475,null,109.05161616161617,null,109.41575757575758,null,109.779898989899,null,110.14404040404041,null,110.50818181818182,null,110.87232323232324,null,111.23646464646465,null,111.60060606060607,null,111.96474747474747,null,112.32888888888888,null,112.6930303030303,null,113.05717171717171,null,113.42131313131313,null,113.78545454545454,null,114.14959595959596,null,114.51373737373737,null,114.87787878787879,null,115.2420202020202,null,115.60616161616161,null,115.97030303030303,null,116.33444444444444,null,116.69858585858586,null,117.06272727272727,null,117.42686868686869,null,117.7910101010101,null,118.15515151515152,null,118.51929292929293,null,118.88343434343435,null,119.24757575757576,null,119.61171717171717,null,119.97585858585859,null,120.34,null,84.290000000000006,null,84.654141414141421,null,85.018282828282835,null,85.38242424242425,null,85.746565656565664,null,86.110707070707079,null,86.474848484848494,null,86.838989898989908,null,87.203131313131323,null,87.567272727272737,null,87.931414141414152,null,88.295555555555566,null,88.659696969696981,null,89.023838383838395,null,89.38797979797981,null,89.75212121212121,null,90.116262626262625,null,90.480404040404039,null,90.844545454545454,null,91.208686868686868,null,91.572828282828283,null,91.936969696969697,null,92.301111111111112,null,92.665252525252527,null,93.029393939393941,null,93.393535353535356,null,93.75767676767677,null,94.121818181818185,null,94.485959595959599,null,94.850101010101014,null,95.214242424242428,null,95.578383838383843,null,95.942525252525257,null,96.306666666666672,null,96.670808080808087,null,97.034949494949501,null,97.399090909090916,null,97.76323232323233,null,98.127373737373745,null,98.491515151515159,null,98.855656565656574,null,99.219797979797988,null,99.583939393939403,null,99.948080808080817],"y":[94.738979133529156,null,94.610576597423091,null,94.482174061317039,null,94.353771525210988,null,94.225368989104936,null,94.096966452998885,null,93.968563916892833,null,93.840161380786782,null,93.71175884468073,null,93.583356308574679,null,93.454953772468627,null,93.326551236362576,null,93.198148700256525,null,93.069746164150473,null,92.941343628044422,null,92.81294109193837,null,92.684538555832319,null,92.556136019726267,null,92.427733483620216,null,92.299330947514164,null,92.170928411408113,null,92.042525875302061,null,91.914123339195996,null,91.785720803089944,null,91.657318266983893,null,91.528915730877841,null,91.40051319477179,null,91.272110658665738,null,91.143708122559673,null,91.015305586453621,null,90.88690305034757,null,90.758500514241518,null,90.630097978135467,null,90.501695442029416,null,90.373292905923364,null,90.244890369817313,null,90.116487833711261,null,89.98808529760521,null,89.859682761499158,null,89.731280225393107,null,89.602877689287055,null,89.474475153181004,null,89.346072617074952,null,89.217670080968901,null,89.089267544862849,null,88.960865008756798,null,88.832462472650747,null,88.704059936544695,null,88.575657400438629,null,88.447254864332578,null,88.318852328226527,null,88.190449792120475,null,88.062047256014424,null,87.933644719908372,null,87.805242183802306,null,87.676839647696255,null,100.38869072219546,null,100.26028818608941,null,100.13188564998336,null,100.00348311387731,null,99.875080577771257,null,99.746678041665206,null,99.618275505559154,null,99.489872969453103,null,99.361470433347051,null,99.233067897241,null,99.104665361134948,null,98.976262825028897,null,98.847860288922831,null,98.71945775281678,null,98.591055216710728,null,98.462652680604691,null,98.334250144498625,null,98.205847608392574,null,98.077445072286523,null,97.949042536180471,null,97.82064000007442,null,97.692237463968368,null,97.563834927862317,null,97.435432391756251,null,97.3070298556502,null,97.178627319544148,null,97.050224783438097,null,96.921822247332045,null,96.793419711225994,null,96.665017175119942,null,96.536614639013891,null,96.408212102907839,null,96.279809566801788,null,96.151407030695736,null,96.023004494589685,null,95.894601958483634,null,95.766199422377582,null,95.637796886271531,null,95.509394350165479,null,95.380991814059428,null,95.252589277953362,null,95.124186741847311,null,94.995784205741259,null,94.867381669635208],"text":["Demand curve<br />Q: 100.3 -> P: 94.7",null,"Demand curve<br />Q: 100.7 -> P: 94.6",null,"Demand curve<br />Q: 101.0 -> P: 94.5",null,"Demand curve<br />Q: 101.4 -> P: 94.4",null,"Demand curve<br />Q: 101.8 -> P: 94.2",null,"Demand curve<br />Q: 102.1 -> P: 94.1",null,"Demand curve<br />Q: 102.5 -> P: 94.0",null,"Demand curve<br />Q: 102.9 -> P: 93.8",null,"Demand curve<br />Q: 103.2 -> P: 93.7",null,"Demand curve<br />Q: 103.6 -> P: 93.6",null,"Demand curve<br />Q: 104.0 -> P: 93.5",null,"Demand curve<br />Q: 104.3 -> P: 93.3",null,"Demand curve<br />Q: 104.7 -> P: 93.2",null,"Demand curve<br />Q: 105.0 -> P: 93.1",null,"Demand curve<br />Q: 105.4 -> P: 92.9",null,"Demand curve<br />Q: 105.8 -> P: 92.8",null,"Demand curve<br />Q: 106.1 -> P: 92.7",null,"Demand curve<br />Q: 106.5 -> P: 92.6",null,"Demand curve<br />Q: 106.9 -> P: 92.4",null,"Demand curve<br />Q: 107.2 -> P: 92.3",null,"Demand curve<br />Q: 107.6 -> P: 92.2",null,"Demand curve<br />Q: 108.0 -> P: 92.0",null,"Demand curve<br />Q: 108.3 -> P: 91.9",null,"Demand curve<br />Q: 108.7 -> P: 91.8",null,"Demand curve<br />Q: 109.1 -> P: 91.7",null,"Demand curve<br />Q: 109.4 -> P: 91.5",null,"Demand curve<br />Q: 109.8 -> P: 91.4",null,"Demand curve<br />Q: 110.1 -> P: 91.3",null,"Demand curve<br />Q: 110.5 -> P: 91.1",null,"Demand curve<br />Q: 110.9 -> P: 91.0",null,"Demand curve<br />Q: 111.2 -> P: 90.9",null,"Demand curve<br />Q: 111.6 -> P: 90.8",null,"Demand curve<br />Q: 112.0 -> P: 90.6",null,"Demand curve<br />Q: 112.3 -> P: 90.5",null,"Demand curve<br />Q: 112.7 -> P: 90.4",null,"Demand curve<br />Q: 113.1 -> P: 90.2",null,"Demand curve<br />Q: 113.4 -> P: 90.1",null,"Demand curve<br />Q: 113.8 -> P: 90.0",null,"Demand curve<br />Q: 114.1 -> P: 89.9",null,"Demand curve<br />Q: 114.5 -> P: 89.7",null,"Demand curve<br />Q: 114.9 -> P: 89.6",null,"Demand curve<br />Q: 115.2 -> P: 89.5",null,"Demand curve<br />Q: 115.6 -> P: 89.3",null,"Demand curve<br />Q: 116.0 -> P: 89.2",null,"Demand curve<br />Q: 116.3 -> P: 89.1",null,"Demand curve<br />Q: 116.7 -> P: 89.0",null,"Demand curve<br />Q: 117.1 -> P: 88.8",null,"Demand curve<br />Q: 117.4 -> P: 88.7",null,"Demand curve<br />Q: 117.8 -> P: 88.6",null,"Demand curve<br />Q: 118.2 -> P: 88.4",null,"Demand curve<br />Q: 118.5 -> P: 88.3",null,"Demand curve<br />Q: 118.9 -> P: 88.2",null,"Demand curve<br />Q: 119.2 -> P: 88.1",null,"Demand curve<br />Q: 119.6 -> P: 87.9",null,"Demand curve<br />Q: 120.0 -> P: 87.8",null,"Demand curve<br />Q: 120.3 -> P: 87.7",null,"Demand curve<br />Q: 84.3 -> P: 100.4",null,"Demand curve<br />Q: 84.7 -> P: 100.3",null,"Demand curve<br />Q: 85.0 -> P: 100.1",null,"Demand curve<br />Q: 85.4 -> P: 100.0",null,"Demand curve<br />Q: 85.7 -> P: 99.9",null,"Demand curve<br />Q: 86.1 -> P: 99.7",null,"Demand curve<br />Q: 86.5 -> P: 99.6",null,"Demand curve<br />Q: 86.8 -> P: 99.5",null,"Demand curve<br />Q: 87.2 -> P: 99.4",null,"Demand curve<br />Q: 87.6 -> P: 99.2",null,"Demand curve<br />Q: 87.9 -> P: 99.1",null,"Demand curve<br />Q: 88.3 -> P: 99.0",null,"Demand curve<br />Q: 88.7 -> P: 98.8",null,"Demand curve<br />Q: 89.0 -> P: 98.7",null,"Demand curve<br />Q: 89.4 -> P: 98.6",null,"Demand curve<br />Q: 89.8 -> P: 98.5",null,"Demand curve<br />Q: 90.1 -> P: 98.3",null,"Demand curve<br />Q: 90.5 -> P: 98.2",null,"Demand curve<br />Q: 90.8 -> P: 98.1",null,"Demand curve<br />Q: 91.2 -> P: 97.9",null,"Demand curve<br />Q: 91.6 -> P: 97.8",null,"Demand curve<br />Q: 91.9 -> P: 97.7",null,"Demand curve<br />Q: 92.3 -> P: 97.6",null,"Demand curve<br />Q: 92.7 -> P: 97.4",null,"Demand curve<br />Q: 93.0 -> P: 97.3",null,"Demand curve<br />Q: 93.4 -> P: 97.2",null,"Demand curve<br />Q: 93.8 -> P: 97.1",null,"Demand curve<br />Q: 94.1 -> P: 96.9",null,"Demand curve<br />Q: 94.5 -> P: 96.8",null,"Demand curve<br />Q: 94.9 -> P: 96.7",null,"Demand curve<br />Q: 95.2 -> P: 96.5",null,"Demand curve<br />Q: 95.6 -> P: 96.4",null,"Demand curve<br />Q: 95.9 -> P: 96.3",null,"Demand curve<br />Q: 96.3 -> P: 96.2",null,"Demand curve<br />Q: 96.7 -> P: 96.0",null,"Demand curve<br />Q: 97.0 -> P: 95.9",null,"Demand curve<br />Q: 97.4 -> P: 95.8",null,"Demand curve<br />Q: 97.8 -> P: 95.6",null,"Demand curve<br />Q: 98.1 -> P: 95.5",null,"Demand curve<br />Q: 98.5 -> P: 95.4",null,"Demand curve<br />Q: 98.9 -> P: 95.3",null,"Demand curve<br />Q: 99.2 -> P: 95.1",null,"Demand curve<br />Q: 99.6 -> P: 95.0",null,"Demand curve<br />Q: 99.9 -> P: 94.9"],"type":"scatter","mode":"lines","line":{"width":3.0236220472440949,"color":"rgba(86,180,233,1)","dash":"solid"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[139.41244877322271],"y":[80.951565627412705],"text":"","type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(230,159,0,1)","opacity":1,"size":18.897637795275593,"symbol":"diamond","line":{"width":1.8897637795275593,"color":"rgba(230,159,0,1)"}},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":52.337069323370706},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Inverse demand and Cournot equilibrium <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[81.533877561338869,142.16857121188383],"tickmode":"array","ticktext":["100","120","140"],"tickvals":[100,120,140],"categoryorder":"array","categoryarray":["100","120","140"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Manufacturing output index","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[79.979709372673568,101.3605469769346],"tickmode":"array","ticktext":["80","85","90","95","100"],"tickvals":[80,85,90,95,100],"categoryorder":"array","categoryarray":["80","85","90","95","100"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"Producer price index","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top"},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d","autoScale2d"]},"source":"A","attrs":{"23f2353e62bf":{"x":{},"y":{},"text":{},"type":"scatter"},"23f2a83b64":{"x":{},"y":{},"text":{}},"23f22e19cef4":{"x":{},"y":{}}},"cur_data":"23f2353e62bf","visdat":{"23f2353e62bf":["function (y) ","x"],"23f2a83b64":["function (y) ","x"],"23f22e19cef4":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-fred-cournot-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The calibration exercise reveals several important features. First, the estimated inverse demand slope (<span class="math inline">\(\hat{b} \approx 0.35\)</span>) implies that a one-unit increase in aggregate manufacturing output reduces the producer price index by about 0.35 points. This negative relationship is consistent with standard downward-sloping demand and provides a sanity check for the data.</p>
+<p>Second, the Cournot equilibrium price <span class="math inline">\(P^*\)</span> falls between the competitive price (equal to marginal cost <span class="math inline">\(c\)</span>) and the monopoly price <span class="math inline">\(\frac{a+c}{2}\)</span>, as theory predicts. With two symmetric firms, the equilibrium is closer to the competitive outcome than to monopoly, illustrating the well-known result that Cournot competition becomes more competitive as the number of firms increases.</p>
+<p>Third, the exercise highlights the sensitivity of equilibrium predictions to the assumed marginal cost. We set <span class="math inline">\(c\)</span> at 60% of the average observed price, which is a rough but reasonable heuristic for manufacturing industries with moderate markups. In practice, one would obtain cost estimates from firm-level data (e.g., Compustat) or from structural estimation. The key takeaway for students is that a game-theoretic model is only as reliable as the data feeding into its parameters.</p>
+<p>The <span class="math inline">\(R^2\)</span> of the demand regression, while moderate, is typical for aggregate time-series data with business-cycle variation. For more precise calibration, one would want to control for income, input prices, and lagged variables. The VAR and Granger causality methods explored in the time-series econometrics section of this site offer a natural path forward.</p>
+<p>Finally, this workflow — download data, estimate structural parameters, compute equilibrium, visualise — is a general-purpose template. By substituting different FRED series (e.g., oil prices for energy market games, federal funds rate for banking competition, crop prices for agricultural oligopoly), students can calibrate a wide range of applied game-theoretic models against real economic conditions.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<p>This FRED-based calibration workflow connects to several other tutorials on the site. Demand estimation with time-series data naturally leads to questions about dynamic strategic interaction, while the Cournot model itself can be enriched with asymmetric costs, differentiated products, or entry dynamics.</p>
+<ul>
+<li>
+<a href="../../public-apis-and-datasets/world-bank-wdi-economic-indicators/">World Bank WDI economic indicators</a> — an alternative open data source for cross-country calibration of game-theoretic models</li>
+<li>
+<a href="../../time-series-econometrics/granger-causality-strategic/">Granger causality in strategic interaction data</a> — test whether past quantities of one firm predict current quantities of a rival</li>
+<li>
+<a href="../../time-series-econometrics/strategic-interaction-var-models/">VAR models for strategic interaction</a> — estimate vector autoregressions to capture dynamic oligopoly adjustments</li>
+<li>
+<a href="../../statistical-foundations/bootstrap-game-theory/">Bootstrap inference for game-theoretic quantities</a> — construct confidence intervals around calibrated equilibrium estimates</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {FRED Economic Data for Game-Theoretic Calibration},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/public-apis-and-datasets/federal-reserve-fred-data/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“FRED Economic Data for Game-Theoretic
+Calibration.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/public-apis-and-datasets/federal-reserve-fred-data/">https://r-heller.github.io/equilibria/tutorials/public-apis-and-datasets/federal-reserve-fred-data/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "FRED economic data for game-theoretic calibration"</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Access Federal Reserve FRED data via the fredr API or direct CSV download to calibrate game-theoretic models with real-world economic parameters such as interest rates, GDP growth, and manufacturing output."</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - public-apis-and-datasets</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - fred</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - cournot-competition</span></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - demand-estimation</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["FRED", "Federal Reserve", "economic data", "Cournot", "oligopoly calibration", "R"]</span></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["data-access", "calibration"]</span></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_public-apis-and-datasets_federal-reserve-fred-data"</span></span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Time series plot of US manufacturing output overlaid with Cournot equilibrium parameter annotations"</span></span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/public-apis-and-datasets/federal-reserve-fred-data/</span></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY 4.0"</span></span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a><span class="an">api_or_dataset:</span></span>
+<span id="cb35-28"><a href="#cb35-28" aria-hidden="true" tabindex="-1"></a><span class="co">  name: "FRED (Federal Reserve Economic Data)"</span></span>
+<span id="cb35-29"><a href="#cb35-29" aria-hidden="true" tabindex="-1"></a><span class="co">  type: "REST"</span></span>
+<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a><span class="co">  access: "free-with-key"</span></span>
+<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a><span class="co">  license: "public-domain"</span></span>
+<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a><span class="co">  r_package: "fredr"</span></span>
+<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a><span class="co">  endpoint_or_url: "https://fred.stlouisfed.org/"</span></span>
+<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a><span class="co">  domain: "economics"</span></span>
+<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a><span class="co">  last_verified: 2026-05-08</span></span>
+<span id="cb35-36"><a href="#cb35-36" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-37"><a href="#cb35-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-40"><a href="#cb35-40" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-41"><a href="#cb35-41" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb35-42"><a href="#cb35-42" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb35-43"><a href="#cb35-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-44"><a href="#cb35-44" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb35-45"><a href="#cb35-45" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb35-46"><a href="#cb35-46" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb35-47"><a href="#cb35-47" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb35-48"><a href="#cb35-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-49"><a href="#cb35-49" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb35-50"><a href="#cb35-50" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb35-51"><a href="#cb35-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-52"><a href="#cb35-52" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb35-53"><a href="#cb35-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb35-54"><a href="#cb35-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb35-55"><a href="#cb35-55" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb35-56"><a href="#cb35-56" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb35-57"><a href="#cb35-57" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb35-58"><a href="#cb35-58" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb35-59"><a href="#cb35-59" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-60"><a href="#cb35-60" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-61"><a href="#cb35-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-62"><a href="#cb35-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb35-63"><a href="#cb35-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-64"><a href="#cb35-64" aria-hidden="true" tabindex="-1"></a>Game-theoretic models of strategic interaction --- Cournot oligopoly, Bertrand price competition, entry deterrence --- rest on parameters drawn from the real economy. A Cournot duopoly model, for instance, requires a demand intercept, a demand slope, and marginal cost estimates. When these parameters are plucked from thin air, the resulting equilibrium predictions are illustrative but unconvincing. Calibrating with actual data transforms a toy model into a tool that can speak to policy questions about market concentration, antitrust intervention, or the welfare effects of trade.</span>
+<span id="cb35-65"><a href="#cb35-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-66"><a href="#cb35-66" aria-hidden="true" tabindex="-1"></a>The Federal Reserve Economic Data (FRED) database, maintained by the Federal Reserve Bank of St. Louis, is one of the most comprehensive open data portals for macroeconomic and industry-level time series. It aggregates over 800,000 series from more than 100 public and private sources, covering GDP components, industrial production indices, price indices, interest rates, labour market indicators, and financial variables. All data are freely available without licensing restrictions, making FRED an ideal source for academic and pedagogical work in applied game theory.</span>
+<span id="cb35-67"><a href="#cb35-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-68"><a href="#cb35-68" aria-hidden="true" tabindex="-1"></a>In this tutorial we demonstrate two complementary approaches to retrieving FRED data in R. First, we show the <span class="in">`fredr`</span> package, which wraps the FRED API and requires a free API key. Second, we show direct CSV download from the FRED website, which works without any authentication and is suitable for static, reproducible analyses. We then use manufacturing output data to calibrate a simple Cournot duopoly model: estimating inverse demand from real time series, deriving equilibrium quantities and prices, and annotating a historical data visualisation with the game-theoretic equilibrium predictions.</span>
+<span id="cb35-69"><a href="#cb35-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-70"><a href="#cb35-70" aria-hidden="true" tabindex="-1"></a>The broader pedagogical goal is to build a bridge between the abstract world of normal-form games and the messy reality of economic data. Students who calibrate their models against FRED data develop better intuitions about which parameter ranges are empirically reasonable and which assumptions are fragile. This article focuses on US manufacturing as the running example, but the same workflow applies to any FRED series --- energy markets, agricultural commodities, financial intermediation, and so on.</span>
+<span id="cb35-71"><a href="#cb35-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-72"><a href="#cb35-72" aria-hidden="true" tabindex="-1"></a>Throughout the tutorial we work exclusively with base R and the four core packages loaded in the setup chunk. For demand estimation we use simple linear regression via <span class="in">`lm()`</span>, which is sufficient for the illustrative calibration exercise here, though more rigorous empirical work would require instrumental variables or structural estimation methods.</span>
+<span id="cb35-73"><a href="#cb35-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-74"><a href="#cb35-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-75"><a href="#cb35-75" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb35-76"><a href="#cb35-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-77"><a href="#cb35-77" aria-hidden="true" tabindex="-1"></a>We model a symmetric Cournot duopoly in which two firms produce a homogeneous good. Aggregate quantity is $Q = q_1 + q_2$. Inverse demand is linear:</span>
+<span id="cb35-78"><a href="#cb35-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-79"><a href="#cb35-79" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-80"><a href="#cb35-80" aria-hidden="true" tabindex="-1"></a>P(Q) = a - b \, Q</span>
+<span id="cb35-81"><a href="#cb35-81" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-82"><a href="#cb35-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-83"><a href="#cb35-83" aria-hidden="true" tabindex="-1"></a>where $a &gt; 0$ is the demand intercept (the choke price at which demand falls to zero) and $b &gt; 0$ is the demand slope. Each firm has constant marginal cost $c$, with $a &gt; c$ to ensure positive production.</span>
+<span id="cb35-84"><a href="#cb35-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-85"><a href="#cb35-85" aria-hidden="true" tabindex="-1"></a>Firm $i$ maximises profit:</span>
+<span id="cb35-86"><a href="#cb35-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-87"><a href="#cb35-87" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-88"><a href="#cb35-88" aria-hidden="true" tabindex="-1"></a>\pi_i(q_i, q_j) = \left(a - b(q_i + q_j) - c\right) q_i</span>
+<span id="cb35-89"><a href="#cb35-89" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-90"><a href="#cb35-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-91"><a href="#cb35-91" aria-hidden="true" tabindex="-1"></a>The first-order condition yields the best-response function:</span>
+<span id="cb35-92"><a href="#cb35-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-93"><a href="#cb35-93" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-94"><a href="#cb35-94" aria-hidden="true" tabindex="-1"></a>q_i^*(q_j) = \frac{a - c}{2b} - \frac{q_j}{2}</span>
+<span id="cb35-95"><a href="#cb35-95" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-96"><a href="#cb35-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-97"><a href="#cb35-97" aria-hidden="true" tabindex="-1"></a>At the symmetric Nash equilibrium $q_1^* = q_2^* = q^*$:</span>
+<span id="cb35-98"><a href="#cb35-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-99"><a href="#cb35-99" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-100"><a href="#cb35-100" aria-hidden="true" tabindex="-1"></a>q^* = \frac{a - c}{3b}, \qquad Q^* = \frac{2(a - c)}{3b}, \qquad P^* = \frac{a + 2c}{3}</span>
+<span id="cb35-101"><a href="#cb35-101" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-102"><a href="#cb35-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-103"><a href="#cb35-103" aria-hidden="true" tabindex="-1"></a>Equilibrium profit per firm is:</span>
+<span id="cb35-104"><a href="#cb35-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-105"><a href="#cb35-105" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-106"><a href="#cb35-106" aria-hidden="true" tabindex="-1"></a>\pi^* = \frac{(a - c)^2}{9b}</span>
+<span id="cb35-107"><a href="#cb35-107" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb35-108"><a href="#cb35-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-109"><a href="#cb35-109" aria-hidden="true" tabindex="-1"></a>Our calibration task is to estimate $a$ and $b$ from FRED time-series data on prices and quantities, then compute the Cournot equilibrium for a given marginal cost $c$.</span>
+<span id="cb35-110"><a href="#cb35-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-111"><a href="#cb35-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-112"><a href="#cb35-112" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb35-113"><a href="#cb35-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-114"><a href="#cb35-114" aria-hidden="true" tabindex="-1"></a>We simulate realistic FRED-like data for US manufacturing output and producer prices (since direct FRED downloads require either an API key or manual CSV retrieval, we generate synthetic data that mirrors the statistical properties of the actual series). In practice you would replace the simulated data with a CSV downloaded from <span class="ot">&lt;https://fred.stlouisfed.org/series/IPMAN&gt;</span> for industrial production and <span class="ot">&lt;https://fred.stlouisfed.org/series/PCUOMFG&gt;</span> for producer prices.</span>
+<span id="cb35-115"><a href="#cb35-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-118"><a href="#cb35-118" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-119"><a href="#cb35-119" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fred-data-simulation</span></span>
+<span id="cb35-120"><a href="#cb35-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-121"><a href="#cb35-121" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Simulate FRED-like manufacturing data ---</span></span>
+<span id="cb35-122"><a href="#cb35-122" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb35-123"><a href="#cb35-123" aria-hidden="true" tabindex="-1"></a>n_quarters <span class="ot">&lt;-</span> <span class="dv">80</span>  <span class="co"># 20 years of quarterly data</span></span>
+<span id="cb35-124"><a href="#cb35-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-125"><a href="#cb35-125" aria-hidden="true" tabindex="-1"></a><span class="co"># Industrial production index (quantity proxy) with trend + cycle</span></span>
+<span id="cb35-126"><a href="#cb35-126" aria-hidden="true" tabindex="-1"></a>trend <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">95</span>, <span class="dv">110</span>, <span class="at">length.out =</span> n_quarters)</span>
+<span id="cb35-127"><a href="#cb35-127" aria-hidden="true" tabindex="-1"></a>cycle <span class="ot">&lt;-</span> <span class="dv">8</span> <span class="sc">*</span> <span class="fu">sin</span>(<span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">4</span> <span class="sc">*</span> pi, <span class="at">length.out =</span> n_quarters))</span>
+<span id="cb35-128"><a href="#cb35-128" aria-hidden="true" tabindex="-1"></a>noise_q <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n_quarters, <span class="dv">0</span>, <span class="dv">2</span>)</span>
+<span id="cb35-129"><a href="#cb35-129" aria-hidden="true" tabindex="-1"></a>quantity_index <span class="ot">&lt;-</span> trend <span class="sc">+</span> cycle <span class="sc">+</span> noise_q</span>
+<span id="cb35-130"><a href="#cb35-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-131"><a href="#cb35-131" aria-hidden="true" tabindex="-1"></a><span class="co"># Producer price index (price proxy) — negatively correlated with quantity</span></span>
+<span id="cb35-132"><a href="#cb35-132" aria-hidden="true" tabindex="-1"></a>price_index <span class="ot">&lt;-</span> <span class="dv">130</span> <span class="sc">-</span> <span class="fl">0.35</span> <span class="sc">*</span> quantity_index <span class="sc">+</span> <span class="fu">rnorm</span>(n_quarters, <span class="dv">0</span>, <span class="fl">1.5</span>)</span>
+<span id="cb35-133"><a href="#cb35-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-134"><a href="#cb35-134" aria-hidden="true" tabindex="-1"></a>fred_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb35-135"><a href="#cb35-135" aria-hidden="true" tabindex="-1"></a>  <span class="at">date =</span> <span class="fu">seq</span>(<span class="fu">as.Date</span>(<span class="st">"2006-01-01"</span>), <span class="at">by =</span> <span class="st">"quarter"</span>, <span class="at">length.out =</span> n_quarters),</span>
+<span id="cb35-136"><a href="#cb35-136" aria-hidden="true" tabindex="-1"></a>  <span class="at">quantity_index =</span> <span class="fu">round</span>(quantity_index, <span class="dv">2</span>),</span>
+<span id="cb35-137"><a href="#cb35-137" aria-hidden="true" tabindex="-1"></a>  <span class="at">price_index =</span> <span class="fu">round</span>(price_index, <span class="dv">2</span>)</span>
+<span id="cb35-138"><a href="#cb35-138" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb35-139"><a href="#cb35-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-140"><a href="#cb35-140" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== FRED-like Manufacturing Data (first 6 rows) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-141"><a href="#cb35-141" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">head</span>(fred_data))</span>
+<span id="cb35-142"><a href="#cb35-142" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Summary statistics:</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-143"><a href="#cb35-143" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Quantity index: mean = %.1f, sd = %.1f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb35-144"><a href="#cb35-144" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(fred_data<span class="sc">$</span>quantity_index), <span class="fu">sd</span>(fred_data<span class="sc">$</span>quantity_index)))</span>
+<span id="cb35-145"><a href="#cb35-145" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Price index:    mean = %.1f, sd = %.1f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb35-146"><a href="#cb35-146" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(fred_data<span class="sc">$</span>price_index), <span class="fu">sd</span>(fred_data<span class="sc">$</span>price_index)))</span>
+<span id="cb35-147"><a href="#cb35-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-148"><a href="#cb35-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-151"><a href="#cb35-151" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-152"><a href="#cb35-152" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: demand-estimation</span></span>
+<span id="cb35-153"><a href="#cb35-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-154"><a href="#cb35-154" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Estimate inverse demand: P = a - b * Q ---</span></span>
+<span id="cb35-155"><a href="#cb35-155" aria-hidden="true" tabindex="-1"></a>demand_fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(price_index <span class="sc">~</span> quantity_index, <span class="at">data =</span> fred_data)</span>
+<span id="cb35-156"><a href="#cb35-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-157"><a href="#cb35-157" aria-hidden="true" tabindex="-1"></a>a_hat <span class="ot">&lt;-</span> <span class="fu">coef</span>(demand_fit)[<span class="dv">1</span>]       <span class="co"># intercept (choke price)</span></span>
+<span id="cb35-158"><a href="#cb35-158" aria-hidden="true" tabindex="-1"></a>b_hat <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">coef</span>(demand_fit)[<span class="dv">2</span>]      <span class="co"># slope (make positive)</span></span>
+<span id="cb35-159"><a href="#cb35-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-160"><a href="#cb35-160" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Inverse Demand Estimation ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-161"><a href="#cb35-161" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Estimated intercept (a): %.2f</span><span class="sc">\n</span><span class="st">"</span>, a_hat))</span>
+<span id="cb35-162"><a href="#cb35-162" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Estimated slope (b):     %.4f</span><span class="sc">\n</span><span class="st">"</span>, b_hat))</span>
+<span id="cb35-163"><a href="#cb35-163" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  R-squared:               %.3f</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">summary</span>(demand_fit)<span class="sc">$</span>r.squared))</span>
+<span id="cb35-164"><a href="#cb35-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-165"><a href="#cb35-165" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Cournot equilibrium calibration ---</span></span>
+<span id="cb35-166"><a href="#cb35-166" aria-hidden="true" tabindex="-1"></a><span class="co"># Assume marginal cost = 60% of average price</span></span>
+<span id="cb35-167"><a href="#cb35-167" aria-hidden="true" tabindex="-1"></a>c_hat <span class="ot">&lt;-</span> <span class="fl">0.60</span> <span class="sc">*</span> <span class="fu">mean</span>(fred_data<span class="sc">$</span>price_index)</span>
+<span id="cb35-168"><a href="#cb35-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-169"><a href="#cb35-169" aria-hidden="true" tabindex="-1"></a>q_star <span class="ot">&lt;-</span> (a_hat <span class="sc">-</span> c_hat) <span class="sc">/</span> (<span class="dv">3</span> <span class="sc">*</span> b_hat)</span>
+<span id="cb35-170"><a href="#cb35-170" aria-hidden="true" tabindex="-1"></a>Q_star <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">*</span> q_star</span>
+<span id="cb35-171"><a href="#cb35-171" aria-hidden="true" tabindex="-1"></a>P_star <span class="ot">&lt;-</span> (a_hat <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> c_hat) <span class="sc">/</span> <span class="dv">3</span></span>
+<span id="cb35-172"><a href="#cb35-172" aria-hidden="true" tabindex="-1"></a>profit_star <span class="ot">&lt;-</span> (a_hat <span class="sc">-</span> c_hat)<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (<span class="dv">9</span> <span class="sc">*</span> b_hat)</span>
+<span id="cb35-173"><a href="#cb35-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-174"><a href="#cb35-174" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">=== Cournot Equilibrium (calibrated) ===</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb35-175"><a href="#cb35-175" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Assumed marginal cost (c):    %.2f</span><span class="sc">\n</span><span class="st">"</span>, c_hat))</span>
+<span id="cb35-176"><a href="#cb35-176" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Equilibrium firm quantity:    %.2f</span><span class="sc">\n</span><span class="st">"</span>, q_star))</span>
+<span id="cb35-177"><a href="#cb35-177" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Equilibrium total quantity:   %.2f</span><span class="sc">\n</span><span class="st">"</span>, Q_star))</span>
+<span id="cb35-178"><a href="#cb35-178" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Equilibrium price:            %.2f</span><span class="sc">\n</span><span class="st">"</span>, P_star))</span>
+<span id="cb35-179"><a href="#cb35-179" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Equilibrium profit per firm:  %.2f</span><span class="sc">\n</span><span class="st">"</span>, profit_star))</span>
+<span id="cb35-180"><a href="#cb35-180" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-181"><a href="#cb35-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-182"><a href="#cb35-182" aria-hidden="true" tabindex="-1"></a>We also show how you would use <span class="in">`fredr`</span> if you have an API key:</span>
+<span id="cb35-183"><a href="#cb35-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-186"><a href="#cb35-186" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-187"><a href="#cb35-187" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fredr-api-example</span></span>
+<span id="cb35-188"><a href="#cb35-188" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb35-189"><a href="#cb35-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-190"><a href="#cb35-190" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Using fredr (requires FRED_API_KEY environment variable) ---</span></span>
+<span id="cb35-191"><a href="#cb35-191" aria-hidden="true" tabindex="-1"></a><span class="co"># Sign up for a free key at https://fred.stlouisfed.org/docs/api/api_key.html</span></span>
+<span id="cb35-192"><a href="#cb35-192" aria-hidden="true" tabindex="-1"></a><span class="co"># Then set: Sys.setenv(FRED_API_KEY = "your_key_here")</span></span>
+<span id="cb35-193"><a href="#cb35-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-194"><a href="#cb35-194" aria-hidden="true" tabindex="-1"></a><span class="co"># library(fredr)</span></span>
+<span id="cb35-195"><a href="#cb35-195" aria-hidden="true" tabindex="-1"></a><span class="co"># fredr_set_key(Sys.getenv("FRED_API_KEY"))</span></span>
+<span id="cb35-196"><a href="#cb35-196" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb35-197"><a href="#cb35-197" aria-hidden="true" tabindex="-1"></a><span class="co"># manufacturing &lt;- fredr(</span></span>
+<span id="cb35-198"><a href="#cb35-198" aria-hidden="true" tabindex="-1"></a><span class="co">#   series_id = "IPMAN",</span></span>
+<span id="cb35-199"><a href="#cb35-199" aria-hidden="true" tabindex="-1"></a><span class="co">#   observation_start = as.Date("2006-01-01"),</span></span>
+<span id="cb35-200"><a href="#cb35-200" aria-hidden="true" tabindex="-1"></a><span class="co">#   frequency = "q",</span></span>
+<span id="cb35-201"><a href="#cb35-201" aria-hidden="true" tabindex="-1"></a><span class="co">#   aggregation_method = "avg"</span></span>
+<span id="cb35-202"><a href="#cb35-202" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
+<span id="cb35-203"><a href="#cb35-203" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb35-204"><a href="#cb35-204" aria-hidden="true" tabindex="-1"></a><span class="co"># prices &lt;- fredr(</span></span>
+<span id="cb35-205"><a href="#cb35-205" aria-hidden="true" tabindex="-1"></a><span class="co">#   series_id = "PCUOMFG",</span></span>
+<span id="cb35-206"><a href="#cb35-206" aria-hidden="true" tabindex="-1"></a><span class="co">#   observation_start = as.Date("2006-01-01"),</span></span>
+<span id="cb35-207"><a href="#cb35-207" aria-hidden="true" tabindex="-1"></a><span class="co">#   frequency = "q",</span></span>
+<span id="cb35-208"><a href="#cb35-208" aria-hidden="true" tabindex="-1"></a><span class="co">#   aggregation_method = "avg"</span></span>
+<span id="cb35-209"><a href="#cb35-209" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
+<span id="cb35-210"><a href="#cb35-210" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-211"><a href="#cb35-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-212"><a href="#cb35-212" aria-hidden="true" tabindex="-1"></a>And the direct CSV download approach (no API key needed):</span>
+<span id="cb35-213"><a href="#cb35-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-216"><a href="#cb35-216" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-217"><a href="#cb35-217" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fred-csv-download</span></span>
+<span id="cb35-218"><a href="#cb35-218" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb35-219"><a href="#cb35-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-220"><a href="#cb35-220" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Direct CSV download from FRED (no authentication) ---</span></span>
+<span id="cb35-221"><a href="#cb35-221" aria-hidden="true" tabindex="-1"></a><span class="co"># url_quantity &lt;- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=IPMAN"</span></span>
+<span id="cb35-222"><a href="#cb35-222" aria-hidden="true" tabindex="-1"></a><span class="co"># url_price    &lt;- "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCUOMFG"</span></span>
+<span id="cb35-223"><a href="#cb35-223" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb35-224"><a href="#cb35-224" aria-hidden="true" tabindex="-1"></a><span class="co"># manufacturing &lt;- read.csv(url_quantity)</span></span>
+<span id="cb35-225"><a href="#cb35-225" aria-hidden="true" tabindex="-1"></a><span class="co"># prices        &lt;- read.csv(url_price)</span></span>
+<span id="cb35-226"><a href="#cb35-226" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb35-227"><a href="#cb35-227" aria-hidden="true" tabindex="-1"></a><span class="co"># # Clean and merge</span></span>
+<span id="cb35-228"><a href="#cb35-228" aria-hidden="true" tabindex="-1"></a><span class="co"># manufacturing$DATE &lt;- as.Date(manufacturing$DATE)</span></span>
+<span id="cb35-229"><a href="#cb35-229" aria-hidden="true" tabindex="-1"></a><span class="co"># prices$DATE        &lt;- as.Date(prices$DATE)</span></span>
+<span id="cb35-230"><a href="#cb35-230" aria-hidden="true" tabindex="-1"></a><span class="co"># merged &lt;- merge(manufacturing, prices, by = "DATE")</span></span>
+<span id="cb35-231"><a href="#cb35-231" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-232"><a href="#cb35-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-233"><a href="#cb35-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-234"><a href="#cb35-234" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb35-235"><a href="#cb35-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-236"><a href="#cb35-236" aria-hidden="true" tabindex="-1"></a>The static figure overlays the estimated inverse demand curve with actual data points and annotates the Cournot equilibrium. This style of plot connects empirical observations to theoretical predictions, which is central to applied game theory.</span>
+<span id="cb35-237"><a href="#cb35-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-240"><a href="#cb35-240" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-241"><a href="#cb35-241" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-fred-cournot-static</span></span>
+<span id="cb35-242"><a href="#cb35-242" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Manufacturing output vs. producer prices with estimated inverse demand and Cournot equilibrium. The blue line is the OLS-estimated inverse demand curve; the orange point marks the calibrated symmetric Cournot equilibrium. Data: simulated FRED-like series (public domain)."</span></span>
+<span id="cb35-243"><a href="#cb35-243" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb35-244"><a href="#cb35-244" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 9</span></span>
+<span id="cb35-245"><a href="#cb35-245" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5.5</span></span>
+<span id="cb35-246"><a href="#cb35-246" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb35-247"><a href="#cb35-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-248"><a href="#cb35-248" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare demand line data</span></span>
+<span id="cb35-249"><a href="#cb35-249" aria-hidden="true" tabindex="-1"></a>q_range <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fu">min</span>(fred_data<span class="sc">$</span>quantity_index) <span class="sc">-</span> <span class="dv">5</span>,</span>
+<span id="cb35-250"><a href="#cb35-250" aria-hidden="true" tabindex="-1"></a>               <span class="fu">max</span>(fred_data<span class="sc">$</span>quantity_index) <span class="sc">+</span> <span class="dv">5</span>, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb35-251"><a href="#cb35-251" aria-hidden="true" tabindex="-1"></a>demand_line <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb35-252"><a href="#cb35-252" aria-hidden="true" tabindex="-1"></a>  <span class="at">quantity_index =</span> q_range,</span>
+<span id="cb35-253"><a href="#cb35-253" aria-hidden="true" tabindex="-1"></a>  <span class="at">price_fitted =</span> a_hat <span class="sc">-</span> b_hat <span class="sc">*</span> q_range</span>
+<span id="cb35-254"><a href="#cb35-254" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb35-255"><a href="#cb35-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-256"><a href="#cb35-256" aria-hidden="true" tabindex="-1"></a>p_static <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb35-257"><a href="#cb35-257" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> fred_data,</span>
+<span id="cb35-258"><a href="#cb35-258" aria-hidden="true" tabindex="-1"></a>             <span class="fu">aes</span>(<span class="at">x =</span> quantity_index, <span class="at">y =</span> price_index),</span>
+<span id="cb35-259"><a href="#cb35-259" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> okabe_ito[<span class="dv">5</span>], <span class="at">alpha =</span> <span class="fl">0.6</span>, <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb35-260"><a href="#cb35-260" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> demand_line,</span>
+<span id="cb35-261"><a href="#cb35-261" aria-hidden="true" tabindex="-1"></a>            <span class="fu">aes</span>(<span class="at">x =</span> quantity_index, <span class="at">y =</span> price_fitted),</span>
+<span id="cb35-262"><a href="#cb35-262" aria-hidden="true" tabindex="-1"></a>            <span class="at">color =</span> okabe_ito[<span class="dv">2</span>], <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb35-263"><a href="#cb35-263" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"point"</span>, <span class="at">x =</span> Q_star, <span class="at">y =</span> P_star,</span>
+<span id="cb35-264"><a href="#cb35-264" aria-hidden="true" tabindex="-1"></a>           <span class="at">color =</span> okabe_ito[<span class="dv">1</span>], <span class="at">size =</span> <span class="dv">5</span>, <span class="at">shape =</span> <span class="dv">18</span>) <span class="sc">+</span></span>
+<span id="cb35-265"><a href="#cb35-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"segment"</span>, <span class="at">x =</span> Q_star, <span class="at">xend =</span> Q_star,</span>
+<span id="cb35-266"><a href="#cb35-266" aria-hidden="true" tabindex="-1"></a>           <span class="at">y =</span> <span class="fu">min</span>(fred_data<span class="sc">$</span>price_index) <span class="sc">-</span> <span class="dv">2</span>, <span class="at">yend =</span> P_star,</span>
+<span id="cb35-267"><a href="#cb35-267" aria-hidden="true" tabindex="-1"></a>           <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> okabe_ito[<span class="dv">1</span>], <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb35-268"><a href="#cb35-268" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"segment"</span>, <span class="at">x =</span> <span class="fu">min</span>(fred_data<span class="sc">$</span>quantity_index) <span class="sc">-</span> <span class="dv">5</span>, <span class="at">xend =</span> Q_star,</span>
+<span id="cb35-269"><a href="#cb35-269" aria-hidden="true" tabindex="-1"></a>           <span class="at">y =</span> P_star, <span class="at">yend =</span> P_star,</span>
+<span id="cb35-270"><a href="#cb35-270" aria-hidden="true" tabindex="-1"></a>           <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> okabe_ito[<span class="dv">1</span>], <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb35-271"><a href="#cb35-271" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> Q_star <span class="sc">+</span> <span class="dv">2</span>, <span class="at">y =</span> P_star <span class="sc">+</span> <span class="fl">1.5</span>,</span>
+<span id="cb35-272"><a href="#cb35-272" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="fu">sprintf</span>(<span class="st">"Cournot NE</span><span class="sc">\n</span><span class="st">(Q*=%.1f, P*=%.1f)"</span>, Q_star, P_star),</span>
+<span id="cb35-273"><a href="#cb35-273" aria-hidden="true" tabindex="-1"></a>           <span class="at">color =</span> okabe_ito[<span class="dv">6</span>], <span class="at">size =</span> <span class="fl">3.5</span>, <span class="at">fontface =</span> <span class="st">"bold"</span>, <span class="at">hjust =</span> <span class="dv">0</span>) <span class="sc">+</span></span>
+<span id="cb35-274"><a href="#cb35-274" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb35-275"><a href="#cb35-275" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Inverse demand estimation and Cournot equilibrium calibration"</span>,</span>
+<span id="cb35-276"><a href="#cb35-276" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"US manufacturing output (simulated FRED data, 2006-2025)"</span>,</span>
+<span id="cb35-277"><a href="#cb35-277" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Manufacturing output index"</span>,</span>
+<span id="cb35-278"><a href="#cb35-278" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Producer price index"</span>,</span>
+<span id="cb35-279"><a href="#cb35-279" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Source: Simulated FRED-like data | #equilibria"</span></span>
+<span id="cb35-280"><a href="#cb35-280" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb35-281"><a href="#cb35-281" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb35-282"><a href="#cb35-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-283"><a href="#cb35-283" aria-hidden="true" tabindex="-1"></a>p_static</span>
+<span id="cb35-284"><a href="#cb35-284" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-285"><a href="#cb35-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-286"><a href="#cb35-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-287"><a href="#cb35-287" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb35-288"><a href="#cb35-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-289"><a href="#cb35-289" aria-hidden="true" tabindex="-1"></a>The interactive version allows hovering over each data point to see the exact date, quantity, and price values. The Cournot equilibrium point and demand line are also included for reference.</span>
+<span id="cb35-290"><a href="#cb35-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-293"><a href="#cb35-293" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-294"><a href="#cb35-294" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-fred-cournot-interactive</span></span>
+<span id="cb35-295"><a href="#cb35-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-296"><a href="#cb35-296" aria-hidden="true" tabindex="-1"></a>p_interactive <span class="ot">&lt;-</span> <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb35-297"><a href="#cb35-297" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> fred_data,</span>
+<span id="cb35-298"><a href="#cb35-298" aria-hidden="true" tabindex="-1"></a>             <span class="fu">aes</span>(<span class="at">x =</span> quantity_index, <span class="at">y =</span> price_index,</span>
+<span id="cb35-299"><a href="#cb35-299" aria-hidden="true" tabindex="-1"></a>                 <span class="at">text =</span> <span class="fu">sprintf</span>(<span class="st">"Date: %s</span><span class="sc">\n</span><span class="st">Quantity: %.1f</span><span class="sc">\n</span><span class="st">Price: %.1f"</span>,</span>
+<span id="cb35-300"><a href="#cb35-300" aria-hidden="true" tabindex="-1"></a>                                date, quantity_index, price_index)),</span>
+<span id="cb35-301"><a href="#cb35-301" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> okabe_ito[<span class="dv">5</span>], <span class="at">alpha =</span> <span class="fl">0.6</span>, <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb35-302"><a href="#cb35-302" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">data =</span> demand_line,</span>
+<span id="cb35-303"><a href="#cb35-303" aria-hidden="true" tabindex="-1"></a>            <span class="fu">aes</span>(<span class="at">x =</span> quantity_index, <span class="at">y =</span> price_fitted,</span>
+<span id="cb35-304"><a href="#cb35-304" aria-hidden="true" tabindex="-1"></a>                <span class="at">text =</span> <span class="fu">sprintf</span>(<span class="st">"Demand curve</span><span class="sc">\n</span><span class="st">Q: %.1f -&gt; P: %.1f"</span>,</span>
+<span id="cb35-305"><a href="#cb35-305" aria-hidden="true" tabindex="-1"></a>                               quantity_index, price_fitted)),</span>
+<span id="cb35-306"><a href="#cb35-306" aria-hidden="true" tabindex="-1"></a>            <span class="at">color =</span> okabe_ito[<span class="dv">2</span>], <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb35-307"><a href="#cb35-307" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"point"</span>, <span class="at">x =</span> Q_star, <span class="at">y =</span> P_star,</span>
+<span id="cb35-308"><a href="#cb35-308" aria-hidden="true" tabindex="-1"></a>           <span class="at">color =</span> okabe_ito[<span class="dv">1</span>], <span class="at">size =</span> <span class="dv">5</span>, <span class="at">shape =</span> <span class="dv">18</span>) <span class="sc">+</span></span>
+<span id="cb35-309"><a href="#cb35-309" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb35-310"><a href="#cb35-310" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Inverse demand and Cournot equilibrium"</span>,</span>
+<span id="cb35-311"><a href="#cb35-311" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Manufacturing output index"</span>,</span>
+<span id="cb35-312"><a href="#cb35-312" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Producer price index"</span></span>
+<span id="cb35-313"><a href="#cb35-313" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb35-314"><a href="#cb35-314" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb35-315"><a href="#cb35-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-316"><a href="#cb35-316" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_interactive, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb35-317"><a href="#cb35-317" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb35-318"><a href="#cb35-318" aria-hidden="true" tabindex="-1"></a>         <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>, <span class="st">"autoScale2d"</span>))</span>
+<span id="cb35-319"><a href="#cb35-319" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-320"><a href="#cb35-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-321"><a href="#cb35-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-322"><a href="#cb35-322" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb35-323"><a href="#cb35-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-324"><a href="#cb35-324" aria-hidden="true" tabindex="-1"></a>The calibration exercise reveals several important features. First, the estimated inverse demand slope ($\hat{b} \approx 0.35$) implies that a one-unit increase in aggregate manufacturing output reduces the producer price index by about 0.35 points. This negative relationship is consistent with standard downward-sloping demand and provides a sanity check for the data.</span>
+<span id="cb35-325"><a href="#cb35-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-326"><a href="#cb35-326" aria-hidden="true" tabindex="-1"></a>Second, the Cournot equilibrium price $P^*$ falls between the competitive price (equal to marginal cost $c$) and the monopoly price $\frac{a+c}{2}$, as theory predicts. With two symmetric firms, the equilibrium is closer to the competitive outcome than to monopoly, illustrating the well-known result that Cournot competition becomes more competitive as the number of firms increases.</span>
+<span id="cb35-327"><a href="#cb35-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-328"><a href="#cb35-328" aria-hidden="true" tabindex="-1"></a>Third, the exercise highlights the sensitivity of equilibrium predictions to the assumed marginal cost. We set $c$ at 60% of the average observed price, which is a rough but reasonable heuristic for manufacturing industries with moderate markups. In practice, one would obtain cost estimates from firm-level data (e.g., Compustat) or from structural estimation. The key takeaway for students is that a game-theoretic model is only as reliable as the data feeding into its parameters.</span>
+<span id="cb35-329"><a href="#cb35-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-330"><a href="#cb35-330" aria-hidden="true" tabindex="-1"></a>The $R^2$ of the demand regression, while moderate, is typical for aggregate time-series data with business-cycle variation. For more precise calibration, one would want to control for income, input prices, and lagged variables. The VAR and Granger causality methods explored in the time-series econometrics section of this site offer a natural path forward.</span>
+<span id="cb35-331"><a href="#cb35-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-332"><a href="#cb35-332" aria-hidden="true" tabindex="-1"></a>Finally, this workflow --- download data, estimate structural parameters, compute equilibrium, visualise --- is a general-purpose template. By substituting different FRED series (e.g., oil prices for energy market games, federal funds rate for banking competition, crop prices for agricultural oligopoly), students can calibrate a wide range of applied game-theoretic models against real economic conditions.</span>
+<span id="cb35-333"><a href="#cb35-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-334"><a href="#cb35-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-335"><a href="#cb35-335" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb35-336"><a href="#cb35-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-337"><a href="#cb35-337" aria-hidden="true" tabindex="-1"></a>This FRED-based calibration workflow connects to several other tutorials on the site. Demand estimation with time-series data naturally leads to questions about dynamic strategic interaction, while the Cournot model itself can be enriched with asymmetric costs, differentiated products, or entry dynamics.</span>
+<span id="cb35-338"><a href="#cb35-338" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-339"><a href="#cb35-339" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">World Bank WDI economic indicators</span><span class="co">](../../public-apis-and-datasets/world-bank-wdi-economic-indicators/)</span> --- an alternative open data source for cross-country calibration of game-theoretic models</span>
+<span id="cb35-340"><a href="#cb35-340" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Granger causality in strategic interaction data</span><span class="co">](../../time-series-econometrics/granger-causality-strategic/)</span> --- test whether past quantities of one firm predict current quantities of a rival</span>
+<span id="cb35-341"><a href="#cb35-341" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">VAR models for strategic interaction</span><span class="co">](../../time-series-econometrics/strategic-interaction-var-models/)</span> --- estimate vector autoregressions to capture dynamic oligopoly adjustments</span>
+<span id="cb35-342"><a href="#cb35-342" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Bootstrap inference for game-theoretic quantities</span><span class="co">](../../statistical-foundations/bootstrap-game-theory/)</span> --- construct confidence intervals around calibrated equilibrium estimates</span>
+<span id="cb35-343"><a href="#cb35-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-344"><a href="#cb35-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-345"><a href="#cb35-345" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb35-346"><a href="#cb35-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-347"><a href="#cb35-347" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb35-348"><a href="#cb35-348" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/public-apis-and-datasets/federal-reserve-fred-data/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/public-apis-and-datasets/federal-reserve-fred-data/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>
