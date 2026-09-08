@@ -1,0 +1,86 @@
+name: Publish site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Legal-readiness gate
+        run: |
+          fail=0
+          if grep -rq "TODO_IMPRESSUM" impressum.qmd 2>/dev/null; then
+            echo "::error::impressum.qmd contains TODO_IMPRESSUM placeholder(s) — refusing to deploy"
+            fail=1
+          fi
+          if grep -rq "TODO_DATENSCHUTZ" datenschutz.qmd 2>/dev/null; then
+            echo "::error::datenschutz.qmd contains TODO_DATENSCHUTZ placeholder(s) — refusing to deploy"
+            fail=1
+          fi
+          exit $fail
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.9.37
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.2'
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::tidyverse
+            any::here
+            any::knitr
+            any::kableExtra
+            any::plotly
+            any::scales
+            any::yaml
+            any::jsonlite
+            any::reticulate
+            any::gridExtra
+            any::R6
+            any::deSolve
+            any::dplyr
+            any::fredr
+            any::ggplot2
+            any::igraph
+            any::lpSolve
+            any::tidyr
+            any::shiny
+            any::downlit
+            any::xml2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r python/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Render site
+        uses: quarto-dev/quarto-actions/render@v2
+
+      - name: Build Pagefind index
+        run: bash scripts/build_pagefind.sh
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true

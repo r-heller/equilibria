@@ -1,0 +1,68 @@
+name: Commercial-source gate
+on:
+  pull_request:
+    paths:
+      - 'tutorials/**/*.qmd'
+      - 'shiny/tutorials/**/*.qmd'
+      - 'references.bib'
+
+# Hard-fails when any tutorial/bib content references a textbook/teaching
+# commercial product page (Klett, Cornelsen, etc.) or a textbook landing
+# page on a major academic publisher. Peer-reviewed papers at those
+# publishers are still acceptable when linked via DOI or the
+# publisher's research/article path.
+jobs:
+  commercial-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for disallowed commercial sources
+        run: |
+          set +e
+          # Strict-deny domains (any URL hit fails)
+          STRICT='klett\.de|cornelsen\.de|pearson\.com|mheducation\.com'
+          # Conditional-deny: allow research/article paths on these
+          # publishers, deny everything else (textbook/product pages).
+          # oup.com:        allow /research/article/  -> path
+          # cambridge.org:  allow /core/journals/     -> path
+          # wiley.com:      allow /doi/               -> path
+          set -o pipefail || true
+
+          fail=0
+
+          hits=$(grep -RInE "$STRICT" tutorials/ shiny/tutorials/ references.bib 2>/dev/null || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Disallowed commercial sources found:"
+            echo "$hits"
+            fail=1
+          fi
+
+          # oup.com — anything other than /research/article/
+          hits=$(grep -RInE "oup\.com" tutorials/ shiny/tutorials/ references.bib 2>/dev/null | grep -v "oup\.com/.*/research/article/" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::oup.com URLs outside /research/article/ are disallowed:"
+            echo "$hits"
+            fail=1
+          fi
+
+          # cambridge.org — anything other than /core/journals/
+          hits=$(grep -RInE "cambridge\.org" tutorials/ shiny/tutorials/ references.bib 2>/dev/null | grep -v "cambridge\.org/core/journals/" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::cambridge.org URLs outside /core/journals/ are disallowed:"
+            echo "$hits"
+            fail=1
+          fi
+
+          # wiley.com — anything other than /doi/
+          hits=$(grep -RInE "wiley\.com" tutorials/ shiny/tutorials/ references.bib 2>/dev/null | grep -v "wiley\.com/doi/" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::wiley.com URLs outside /doi/ are disallowed:"
+            echo "$hits"
+            fail=1
+          fi
+
+          if [ "$fail" -eq 0 ]; then
+            echo "OK — no disallowed commercial sources detected."
+          fi
+          exit $fail
