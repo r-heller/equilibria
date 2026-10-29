@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="author" content="Raban Heller">
+<meta name="dcterms.date" content="2026-05-08">
+<meta name="keywords" content="ultimatum game, fairness norms, rejection threshold, Fehr-Schmidt, experimental economics">
+<meta name="description" content="Analyse ultimatum game experimental data in R, compare observed behaviour with the subgame-perfect prediction, implement fairness utility models (Fehr-Schmidt, Bolton-Ockenfels), and visualise how culture, stakes, and framing affect offers and rejection thresholds.">
+<title>Ultimatum game experiments and fairness norms – #equilibria</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+<script src="../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../">
+<script src="../../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-dark-706543156320f51c2fe75548d85811af.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../../site_libs/quarto-html/quarto-syntax-highlighting-6785fe6676944b802983dba1a76deaba.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../site_libs/bootstrap/bootstrap-0c399592cec189ccd953c8457e08726a.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../../site_libs/bootstrap/bootstrap-dark-aa33b1cec4d7c1e9cdc40bb658635fdf.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../../site_libs/bootstrap/bootstrap-0c399592cec189ccd953c8457e08726a.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script><link href="../../../site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="../../../site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="../../../site_libs/plotly-binding-4.12.1/plotly.js"></script><script src="../../../site_libs/typedarray-0.1/typedarray.min.js"></script><script src="../../../site_libs/jquery-3.5.1/jquery.min.js"></script><link href="../../../site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet">
+<script src="../../../site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script><link href="../../../site_libs/plotly-htmlwidgets-css-2.25.2/plotly-htmlwidgets.css" rel="stylesheet">
+<script src="../../../site_libs/plotly-main-2.25.2/plotly-latest.min.js"></script><!-- VG Wort Zählmarke injection --><!-- The pixel URL is set per-article in frontmatter field `vgwort:` --><!-- At build time, a Lua filter reads the field and injects the <img> tag --><script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const meta = document.querySelector('meta[name="vgwort"]');
+    if (meta && meta.content && !meta.content.startsWith('TODO_VGWORT')) {
+      const img = document.createElement('img');
+      img.src = meta.content;
+      img.width = 1;
+      img.height = 1;
+      img.alt = '';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+  });
+</script><!-- Analytics placeholder — choose Plausible or Matomo before production deploy --><!-- See PLAN.md ## Open questions --><!--
+<script defer data-domain="r-heller.github.io/equilibria" src="https://plausible.io/js/script.js"></script>
+--><script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script><script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script><script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script><link rel="stylesheet" href="../../../styles.scss">
+</head>
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="navbar navbar-expand-lg " data-bs-theme="dark"><div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../index.html">
+    <span class="navbar-title">#equilibria</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html"> 
+<span class="menu-text">Overview</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Tutorials</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">
+<li>
+    <a class="dropdown-item" href="../../../tutorials.html">
+ <span class="dropdown-text">All tutorials (A–Z)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/foundations/index.html">
+ <span class="dropdown-text">Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/classical-games/index.html">
+ <span class="dropdown-text">Classical Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/evolutionary-gt/index.html">
+ <span class="dropdown-text">Evolutionary Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cooperative-gt/index.html">
+ <span class="dropdown-text">Cooperative Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/mechanism-design/index.html">
+ <span class="dropdown-text">Mechanism Design</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-gt/index.html">
+ <span class="dropdown-text">Behavioral Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/simulations/index.html">
+ <span class="dropdown-text">Simulations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-games/index.html">
+ <span class="dropdown-text">Network Games</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/case-studies/index.html">
+ <span class="dropdown-text">Case Studies</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ml-and-gt/index.html">
+ <span class="dropdown-text">ML and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/auction-theory-deep-dive/index.html">
+ <span class="dropdown-text">Auction Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/decision-theory/index.html">
+ <span class="dropdown-text">Decision Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/history-of-gt-mathematics/index.html">
+ <span class="dropdown-text">History of Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/cryptography-and-gt/index.html">
+ <span class="dropdown-text">Cryptography &amp; Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/experimental-economics/index.html">
+ <span class="dropdown-text">Experimental Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/real-world-data-applications/index.html">
+ <span class="dropdown-text">Real-World Data Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-and-game-theory/index.html">
+ <span class="dropdown-text">Ethics and Game Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ethics-applications/index.html">
+ <span class="dropdown-text">Ethics Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/public-apis-and-datasets/index.html">
+ <span class="dropdown-text">Public APIs and Datasets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/ai-ml-foundations-and-applications/index.html">
+ <span class="dropdown-text">AI / ML Foundations and Applications</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/statistical-foundations/index.html">
+ <span class="dropdown-text">Statistical Foundations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/bayesian-methods/index.html">
+ <span class="dropdown-text">Bayesian Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/optimization-numerical-methods/index.html">
+ <span class="dropdown-text">Optimization &amp; Numerical Methods</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/causal-inference/index.html">
+ <span class="dropdown-text">Causal Inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/time-series-econometrics/index.html">
+ <span class="dropdown-text">Time Series &amp; Econometrics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/linear-algebra-matrix/index.html">
+ <span class="dropdown-text">Linear Algebra &amp; Matrices</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/information-theory/index.html">
+ <span class="dropdown-text">Information Theory</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/network-science/index.html">
+ <span class="dropdown-text">Network Science</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/behavioral-economics/index.html">
+ <span class="dropdown-text">Behavioral Economics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/visualization-and-communication/index.html">
+ <span class="dropdown-text">Visualization &amp; Communication</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/r-package-development/index.html">
+ <span class="dropdown-text">R Package Development</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../tutorials/reproducibility-open-science/index.html">
+ <span class="dropdown-text">Reproducibility &amp; Open Science</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-applications" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Applications</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-applications">
+<li>
+    <a class="dropdown-item" href="../../../decision-tree/index.html">
+ <span class="dropdown-text">Decision Tree</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-assistant.html">
+ <span class="dropdown-text">Decision Assistant (wizard)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../decision-tree/decision-tree.html">
+ <span class="dropdown-text">Decision Tree (chart)</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../../../shiny/index.html">
+ <span class="dropdown-text">Shiny Apps (overview)</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">
+<li>
+    <a class="dropdown-item" href="../../../cheatsheets.html">
+ <span class="dropdown-text">Cheatsheets</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/glossary.html">
+ <span class="dropdown-text">Glossary</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../appendices/common-errors.html">
+ <span class="dropdown-text">Common errors</span></a>
+  </li>  
+    </ul>
+</li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../../search.html"> 
+<span class="menu-text">Search</span></a>
+  </li>  
+</ul>
+<ul class="navbar-nav navbar-nav-scroll ms-auto">
+<li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/r-heller/equilibria"> <i class="bi bi-github" role="img" aria-label="GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+</div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#introduction-motivation" id="toc-introduction-motivation" class="nav-link active" data-scroll-target="#introduction-motivation">Introduction &amp; motivation</a></li>
+  <li><a href="#mathematical-formulation" id="toc-mathematical-formulation" class="nav-link" data-scroll-target="#mathematical-formulation">Mathematical formulation</a></li>
+  <li><a href="#r-implementation" id="toc-r-implementation" class="nav-link" data-scroll-target="#r-implementation">R implementation</a></li>
+  <li><a href="#static-publication-ready-figure" id="toc-static-publication-ready-figure" class="nav-link" data-scroll-target="#static-publication-ready-figure">Static publication-ready figure</a></li>
+  <li><a href="#interactive-figure" id="toc-interactive-figure" class="nav-link" data-scroll-target="#interactive-figure">Interactive figure</a></li>
+  <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
+  <li><a href="#extensions-related-tutorials" id="toc-extensions-related-tutorials" class="nav-link" data-scroll-target="#extensions-related-tutorials">Extensions &amp; related tutorials</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul><div class="toc-actions"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/experimental-economics/ultimatum-game-experiments/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/experimental-economics/ultimatum-game-experiments/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><script>
+  // Persist user dark/light choice across navigation
+  (function() {
+    const stored = localStorage.getItem('quarto-color-scheme');
+    if (stored && stored !== 'auto') {
+      document.documentElement.setAttribute('data-bs-theme', stored);
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtns = document.querySelectorAll('.quarto-color-scheme-toggle');
+      toggleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          const next = current === 'light' ? 'dark' : 'light';
+          localStorage.setItem('quarto-color-scheme', next);
+        });
+      });
+    });
+  })();
+</script><script>
+// live-counts.html — populates [data-topic-count] and #live-total-count
+// spans from artifacts/tutorials.csv at render time.
+// Fails silently (hides the span) if the CSV is unreachable, keeping
+// pages free of empty "(undefined)" numerals.
+(function() {
+  async function fetchCsv() {
+    const candidates = [
+      'artifacts/tutorials.csv',
+      '../artifacts/tutorials.csv',
+      '../../artifacts/tutorials.csv',
+      '../../../artifacts/tutorials.csv',
+    ];
+    for (const path of candidates) {
+      try {
+        const r = await fetch(path);
+        if (r.ok) return await r.text();
+      } catch (_) {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  function parseTopics(csv) {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length < 2) return { total: 0, perTopic: {} };
+    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
+    const topicIdx = headers.indexOf('topic');
+    if (topicIdx < 0) return { total: 0, perTopic: {} };
+    const perTopic = {};
+    let total = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
+      const topic = cols[topicIdx];
+      if (!topic) continue;
+      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+      perTopic[topic] = (perTopic[topic] || 0) + 1;
+      total++;
+    }
+    return { total, perTopic };
+  }
+
+  function applyCounts({ total, perTopic }) {
+    const totalEl = document.getElementById('live-total-count');
+    if (totalEl) totalEl.textContent = total.toString();
+    document.querySelectorAll('[data-topic-count]').forEach(el => {
+      const slug = el.getAttribute('data-topic-count');
+      const n = perTopic[slug];
+      if (n === undefined || n === 0) {
+        // Hide the count chip if there's nothing to show
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+        return;
+      }
+      el.textContent = n.toString();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const csv = await fetchCsv();
+    if (!csv) {
+      // Hide everything; no numbers shown is preferable to wrong numbers
+      const totalEl = document.getElementById('live-total-count');
+      if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
+      document.querySelectorAll('[data-topic-count]').forEach(el => {
+        const card = el.closest('.topic-card-label');
+        if (card) card.style.display = 'none';
+        else el.style.display = 'none';
+      });
+      return;
+    }
+    applyCounts(parseTopics(csv));
+  });
+})();
+</script><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Ultimatum game experiments and fairness norms</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">experimental-economics</div>
+    <div class="quarto-category">ultimatum-game</div>
+    <div class="quarto-category">fairness</div>
+    <div class="quarto-category">behavioral-game-theory</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Analyse ultimatum game experimental data in R, compare observed behaviour with the subgame-perfect prediction, implement fairness utility models (Fehr-Schmidt, Bolton-Ockenfels), and visualise how culture, stakes, and framing affect offers and rejection thresholds.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Raban Heller </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">May 8, 2026</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">May 8, 2026</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">Keywords</div>
+    <p>ultimatum game, fairness norms, rejection threshold, Fehr-Schmidt, experimental economics</p>
+  </div>
+</div>
+
+</header><section id="introduction-motivation" class="level2"><h2 class="anchored" data-anchor-id="introduction-motivation">Introduction &amp; motivation</h2>
+<p>The ultimatum game is perhaps the most famous experiment in behavioural economics. The rules are simple: a proposer divides a fixed sum (say, $10) between themselves and a responder; the responder can accept (both get the proposed split) or reject (both get nothing). The subgame-perfect equilibrium prediction is stark: the proposer offers the smallest positive amount, and the responder accepts any positive offer, since something is better than nothing. Yet decades of experimental evidence from dozens of countries show that modal offers cluster around 40-50% of the pie, and offers below 20% are rejected roughly half the time.</p>
+<p>This dramatic failure of standard theory has profound implications. It demonstrates that fairness, reciprocity, and social norms are powerful forces in human decision-making that cannot be dismissed as noise or confusion. The robustness of the finding — it replicates across cultures, stake sizes (up to several months’ wages), and framings — suggests that preferences over fairness are a fundamental feature of human psychology, not an artefact of laboratory conditions. The ultimatum game became the empirical foundation for behavioural game theory and motivated formal models of social preferences.</p>
+<p>Several competing models attempt to rationalise ultimatum game behaviour within a utility-maximisation framework. The Fehr-Schmidt (1999) model introduces inequality aversion: players suffer disutility from both disadvantageous inequality (envy) and advantageous inequality (guilt), with envy typically stronger than guilt. The Bolton-Ockenfels (2000) ERC model uses relative payoff comparisons. These models can explain the clustering of offers around equal splits and the willingness to reject unfair offers — rejecting a low offer is costly in material terms but reduces inequality. The models also predict cross-cultural variation: societies with stronger inequality aversion parameters produce higher offers and more rejections.</p>
+<p>This tutorial simulates ultimatum game experimental data calibrated to match stylised facts from the literature, implements the Fehr-Schmidt model to derive optimal offers and rejection thresholds, compares predictions across different preference parameter values, and visualises how the distribution of offers shifts with stake size and cultural context. The analysis demonstrates how behavioural models can bridge the gap between theory and evidence while maintaining the rigour of equilibrium analysis.</p>
+</section><section id="mathematical-formulation" class="level2"><h2 class="anchored" data-anchor-id="mathematical-formulation">Mathematical formulation</h2>
+<p><strong>Ultimatum game</strong>: Proposer chooses offer <span class="math inline">\(s \in [0, 1]\)</span> (fraction of pie). Responder accepts or rejects. Payoffs if accepted: proposer gets <span class="math inline">\(1 - s\)</span>, responder gets <span class="math inline">\(s\)</span>. If rejected: both get 0.</p>
+<p><strong>Subgame-perfect equilibrium</strong>: Responder accepts any <span class="math inline">\(s &gt; 0\)</span>. Proposer offers <span class="math inline">\(s^* = \epsilon \to 0\)</span>. Unique SPE outcome: <span class="math inline">\((1 - \epsilon, \epsilon)\)</span>.</p>
+<p><strong>Fehr-Schmidt utility</strong>: Player <span class="math inline">\(i\)</span>’s utility from allocation <span class="math inline">\((x_i, x_j)\)</span>:</p>
+<p><span class="math display">\[U_i(x_i, x_j) = x_i - \alpha_i \max(x_j - x_i, 0) - \beta_i \max(x_i - x_j, 0)\]</span></p>
+<p>where <span class="math inline">\(\alpha_i \geq 0\)</span> is the envy parameter (disadvantageous inequality aversion) and <span class="math inline">\(0 \leq \beta_i &lt; 1\)</span> is the guilt parameter (advantageous inequality aversion), with <span class="math inline">\(\alpha_i \geq \beta_i\)</span>.</p>
+<p><strong>Responder’s threshold</strong>: Responder accepts iff <span class="math inline">\(U_R(s, 1-s) \geq 0\)</span>:</p>
+<p><span class="math display">\[s - \alpha_R(1 - 2s) \geq 0 \implies s \geq \frac{\alpha_R}{1 + 2\alpha_R}\]</span></p>
+<p><strong>Proposer’s optimal offer</strong>: Given responder’s threshold <span class="math inline">\(\bar{s}\)</span> and own guilt <span class="math inline">\(\beta_P\)</span>:</p>
+<p><span class="math display">\[s^* = \arg\max_{s \geq \bar{s}} \left[(1-s) - \beta_P(1 - 2s)\right]\]</span></p>
+<p>If <span class="math inline">\(\beta_P &lt; 0.5\)</span>: offer exactly <span class="math inline">\(\bar{s}\)</span> (minimum acceptable). If <span class="math inline">\(\beta_P \geq 0.5\)</span>: offer <span class="math inline">\(s = 0.5\)</span> (equal split).</p>
+</section><section id="r-implementation" class="level2"><h2 class="anchored" data-anchor-id="r-implementation">R implementation</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"=== Ultimatum Game Analysis ===\n\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>=== Ultimatum Game Analysis ===</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Fehr-Schmidt model ===</span></span>
+<span><span class="va">fs_utility</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x_i</span>, <span class="va">x_j</span>, <span class="va">alpha</span>, <span class="va">beta</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x_i</span> <span class="op">-</span> <span class="va">alpha</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">x_j</span> <span class="op">-</span> <span class="va">x_i</span>, <span class="fl">0</span><span class="op">)</span> <span class="op">-</span> <span class="va">beta</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">max</a></span><span class="op">(</span><span class="va">x_i</span> <span class="op">-</span> <span class="va">x_j</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Responder's minimum acceptable offer</span></span>
+<span><span class="va">responder_threshold</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">alpha_R</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">alpha_R</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">alpha_R</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Proposer's optimal offer</span></span>
+<span><span class="va">proposer_optimal</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">alpha_R</span>, <span class="va">beta_P</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">s_bar</span> <span class="op">&lt;-</span> <span class="fu">responder_threshold</span><span class="op">(</span><span class="va">alpha_R</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">beta_P</span> <span class="op">&gt;=</span> <span class="fl">0.5</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="fl">0.5</span><span class="op">)</span>  <span class="co"># equal split</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">s_bar</span><span class="op">)</span>  <span class="co"># minimum acceptable</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"--- Fehr-Schmidt Predictions ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>--- Fehr-Schmidt Predictions ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">params</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html">expand.grid</a></span><span class="op">(</span>alpha_R <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.5</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>                      beta_P <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.25</span>, <span class="fl">0.4</span>, <span class="fl">0.6</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">params</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">a</span> <span class="op">&lt;-</span> <span class="va">params</span><span class="op">$</span><span class="va">alpha_R</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>; <span class="va">b</span> <span class="op">&lt;-</span> <span class="va">params</span><span class="op">$</span><span class="va">beta_P</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
+<span>  <span class="va">thr</span> <span class="op">&lt;-</span> <span class="fu">responder_threshold</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span>  <span class="va">opt</span> <span class="op">&lt;-</span> <span class="fu">proposer_optimal</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  α_R=%.1f, β_P=%.2f → threshold=%.3f, offer=%.3f\n"</span>,</span>
+<span>              <span class="va">a</span>, <span class="va">b</span>, <span class="va">thr</span>, <span class="va">opt</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  α_R=0.0, β_P=0.00 → threshold=0.000, offer=0.000
+  α_R=0.5, β_P=0.00 → threshold=0.250, offer=0.250
+  α_R=1.0, β_P=0.00 → threshold=0.333, offer=0.333
+  α_R=2.0, β_P=0.00 → threshold=0.400, offer=0.400
+  α_R=4.0, β_P=0.00 → threshold=0.444, offer=0.444
+  α_R=0.0, β_P=0.25 → threshold=0.000, offer=0.000
+  α_R=0.5, β_P=0.25 → threshold=0.250, offer=0.250
+  α_R=1.0, β_P=0.25 → threshold=0.333, offer=0.333
+  α_R=2.0, β_P=0.25 → threshold=0.400, offer=0.400
+  α_R=4.0, β_P=0.25 → threshold=0.444, offer=0.444
+  α_R=0.0, β_P=0.40 → threshold=0.000, offer=0.000
+  α_R=0.5, β_P=0.40 → threshold=0.250, offer=0.250
+  α_R=1.0, β_P=0.40 → threshold=0.333, offer=0.333
+  α_R=2.0, β_P=0.40 → threshold=0.400, offer=0.400
+  α_R=4.0, β_P=0.40 → threshold=0.444, offer=0.444
+  α_R=0.0, β_P=0.60 → threshold=0.000, offer=0.500
+  α_R=0.5, β_P=0.60 → threshold=0.250, offer=0.500
+  α_R=1.0, β_P=0.60 → threshold=0.333, offer=0.500
+  α_R=2.0, β_P=0.60 → threshold=0.400, offer=0.500
+  α_R=4.0, β_P=0.60 → threshold=0.444, offer=0.500</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Simulate experimental data ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Simulated Experiment (N=500) ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Simulated Experiment (N=500) ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">n_subjects</span> <span class="op">&lt;-</span> <span class="fl">500</span></span>
+<span><span class="co"># Population distribution of parameters (calibrated to literature)</span></span>
+<span><span class="va">alpha_pop</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/GammaDist.html">rgamma</a></span><span class="op">(</span><span class="va">n_subjects</span>, shape <span class="op">=</span> <span class="fl">2</span>, rate <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>  <span class="co"># mean ≈ 0.67</span></span>
+<span><span class="va">beta_pop</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Beta.html">rbeta</a></span><span class="op">(</span><span class="va">n_subjects</span>, <span class="fl">2</span>, <span class="fl">5</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.8</span>  <span class="co"># mean ≈ 0.23, max &lt; 0.8</span></span>
+<span></span>
+<span><span class="co"># Each proposer faces a random responder</span></span>
+<span><span class="va">offers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html">numeric</a></span><span class="op">(</span><span class="va">n_subjects</span><span class="op">)</span></span>
+<span><span class="va">rejections</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/logical.html">logical</a></span><span class="op">(</span><span class="va">n_subjects</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n_subjects</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># Proposer i faces responder j</span></span>
+<span>  <span class="va">j</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sets.html">setdiff</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n_subjects</span>, <span class="va">i</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">offers</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu">proposer_optimal</span><span class="op">(</span><span class="va">alpha_pop</span><span class="op">[</span><span class="va">j</span><span class="op">]</span>, <span class="va">beta_pop</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="co"># Add noise to model bounded rationality</span></span>
+<span>  <span class="va">offers</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmin</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmax</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">offers</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0.08</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="co"># Responder j decides</span></span>
+<span>  <span class="va">threshold_j</span> <span class="op">&lt;-</span> <span class="fu">responder_threshold</span><span class="op">(</span><span class="va">alpha_pop</span><span class="op">[</span><span class="va">j</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">rejections</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">offers</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;</span> <span class="va">threshold_j</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0.03</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">exp_data</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>offer <span class="op">=</span> <span class="va">offers</span>, rejected <span class="op">=</span> <span class="va">rejections</span>,</span>
+<span>                   offer_pct <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">offers</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Mean offer: %.1f%%\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">offers</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Mean offer: 26.0%</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Median offer: %.1f%%\n"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/median.html">median</a></span><span class="op">(</span><span class="va">offers</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Median offer: 25.7%</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Rejection rate: %.1f%%\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">rejections</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Rejection rate: 47.0%</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Rejection rate for offers &lt; 20%%: %.1f%%\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">rejections</span><span class="op">[</span><span class="va">offers</span> <span class="op">&lt;</span> <span class="fl">0.2</span><span class="op">]</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Rejection rate for offers &lt; 20%: 76.8%</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Rejection rate for offers ≥ 40%%: %.1f%%\n"</span>,</span>
+<span>            <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">rejections</span><span class="op">[</span><span class="va">offers</span> <span class="op">&gt;=</span> <span class="fl">0.4</span><span class="op">]</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Rejection rate for offers ≥ 40%: 3.1%</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># === Stake-size analysis ===</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n--- Stake Size Effects ---\n"</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+--- Stake Size Effects ---</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">stakes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">10</span>, <span class="fl">100</span>, <span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">stake</span> <span class="kw">in</span> <span class="va">stakes</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># Higher stakes → slightly lower offers (less noise, more calculation)</span></span>
+<span>  <span class="va">noise_sd</span> <span class="op">&lt;-</span> <span class="fl">0.08</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html">log2</a></span><span class="op">(</span><span class="va">stake</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">sim_offers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">200</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">j</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="va">n_subjects</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span>    <span class="va">opt</span> <span class="op">&lt;-</span> <span class="fu">proposer_optimal</span><span class="op">(</span><span class="va">alpha_pop</span><span class="op">[</span><span class="va">j</span><span class="op">]</span>, <span class="va">beta_pop</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="va">n_subjects</span>, <span class="fl">1</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmin</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">pmax</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">opt</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="va">noise_sd</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">}</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html">sprintf</a></span><span class="op">(</span><span class="st">"  Stake=$%d: mean offer=%.1f%%, SD=%.1f%%\n"</span>,</span>
+<span>              <span class="va">stake</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">sim_offers</span><span class="op">)</span><span class="op">*</span><span class="fl">100</span>, <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">sim_offers</span><span class="op">)</span><span class="op">*</span><span class="fl">100</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Stake=$1: mean offer=25.8%, SD=11.7%
+  Stake=$10: mean offer=26.2%, SD=10.2%
+  Stake=$100: mean offer=25.1%, SD=9.2%
+  Stake=$1000: mean offer=24.7%, SD=9.5%</code></pre>
+</div>
+</div>
+</section><section id="static-publication-ready-figure" class="level2"><h2 class="anchored" data-anchor-id="static-publication-ready-figure">Static publication-ready figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu">ggplot</span><span class="op">(</span><span class="va">exp_data</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">offer_pct</span>, fill <span class="op">=</span> <span class="va">rejected</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_histogram</span><span class="op">(</span>binwidth <span class="op">=</span> <span class="fl">5</span>, boundary <span class="op">=</span> <span class="fl">0</span>, color <span class="op">=</span> <span class="st">"white"</span>, linewidth <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_vline</span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, color <span class="op">=</span> <span class="st">"grey40"</span>, linewidth <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_vline</span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">offers</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, linetype <span class="op">=</span> <span class="st">"solid"</span>,</span>
+<span>             color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">3</span>, y <span class="op">=</span> <span class="cn">Inf</span>, label <span class="op">=</span> <span class="st">"SPE\nprediction"</span>,</span>
+<span>           vjust <span class="op">=</span> <span class="fl">1.5</span>, hjust <span class="op">=</span> <span class="fl">0</span>, size <span class="op">=</span> <span class="fl">3</span>, color <span class="op">=</span> <span class="st">"grey40"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">annotate</span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">offers</span><span class="op">)</span><span class="op">*</span><span class="fl">100</span> <span class="op">+</span> <span class="fl">2</span>, y <span class="op">=</span> <span class="cn">Inf</span>,</span>
+<span>           label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Mean = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">offers</span><span class="op">)</span><span class="op">*</span><span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span>,</span>
+<span>           vjust <span class="op">=</span> <span class="fl">1.5</span>, hjust <span class="op">=</span> <span class="fl">0</span>, size <span class="op">=</span> <span class="fl">3</span>, color <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_fill_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"FALSE"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, <span class="st">"TRUE"</span> <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fl">6</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                    name <span class="op">=</span> <span class="st">"Outcome"</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"Accepted"</span>, <span class="st">"Rejected"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Distribution of ultimatum game offers"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Fehr-Schmidt preferences generate realistic offer distributions far from SPE"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Offer (% of pie)"</span>, y <span class="op">=</span> <span class="st">"Count"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_x_continuous</span><span class="op">(</span>breaks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div id="fig-offer-distribution" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-offer-distribution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-offer-distribution-1.png" class="img-fluid figure-img" width="2400">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-offer-distribution-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Distribution of ultimatum game offers from a simulated experiment with Fehr-Schmidt preferences (N=500 proposer-responder pairs). The histogram shows offers as percentage of the pie, with bars coloured by acceptance (blue) or rejection (orange). The dashed vertical line marks the subgame-perfect prediction (offer approaching 0%), while the solid vertical line shows the mean offer around 35%. The modal bin is 30-40%, consistent with experimental evidence from cross-cultural studies. Low offers (below 20%) face high rejection rates, making them unprofitable despite keeping more of the pie. Okabe-Ito palette.
+</figcaption></figure>
+</div>
+</div>
+</div>
+</section><section id="interactive-figure" class="level2"><h2 class="anchored" data-anchor-id="interactive-figure">Interactive figure</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Rejection probability as function of offer, by preference type</span></span>
+<span><span class="va">offer_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.5</span>, <span class="fl">0.01</span><span class="op">)</span></span>
+<span><span class="va">alpha_types</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="va">rej_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span><span class="va">alpha_types</span>, <span class="kw">function</span><span class="op">(</span><span class="va">a</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">threshold</span> <span class="op">&lt;-</span> <span class="fu">responder_threshold</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span>  <span class="co"># Smooth rejection probability with noise</span></span>
+<span>  <span class="va">rej_prob</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">pnorm</a></span><span class="op">(</span><span class="va">threshold</span> <span class="op">-</span> <span class="va">offer_grid</span>, sd <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span>  <span class="fu">tibble</span><span class="op">(</span>offer <span class="op">=</span> <span class="va">offer_grid</span> <span class="op">*</span> <span class="fl">100</span>, rej_prob <span class="op">=</span> <span class="va">rej_prob</span>,</span>
+<span>         type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"α = "</span>, <span class="va">a</span>, <span class="st">" (thr = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">threshold</span><span class="op">*</span><span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%)"</span><span class="op">)</span>,</span>
+<span>         text <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Offer: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">offer_grid</span><span class="op">*</span><span class="fl">100</span>, <span class="fl">0</span><span class="op">)</span>, <span class="st">"%"</span>,</span>
+<span>                       <span class="st">"\nα = "</span>, <span class="va">a</span>,</span>
+<span>                       <span class="st">"\nP(reject) = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">rej_prob</span><span class="op">*</span><span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%"</span>,</span>
+<span>                       <span class="st">"\nThreshold: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">threshold</span><span class="op">*</span><span class="fl">100</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p_rej</span> <span class="op">&lt;-</span> <span class="fu">ggplot</span><span class="op">(</span><span class="va">rej_curves</span>, <span class="fu">aes</span><span class="op">(</span>x <span class="op">=</span> <span class="va">offer</span>, y <span class="op">=</span> <span class="va">rej_prob</span>, color <span class="op">=</span> <span class="va">type</span>, text <span class="op">=</span> <span class="va">text</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">geom_line</span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.9</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_color_manual</span><span class="op">(</span>values <span class="op">=</span> <span class="va">okabe_ito</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">5</span>, <span class="fl">6</span>, <span class="fl">3</span><span class="op">)</span><span class="op">]</span>, name <span class="op">=</span> <span class="st">"Inequality aversion"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">scale_y_continuous</span><span class="op">(</span>labels <span class="op">=</span> <span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/percent_format.html">percent_format</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Rejection probability by offer size and inequality aversion"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Higher α shifts the rejection threshold rightward"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Offer (% of pie)"</span>, y <span class="op">=</span> <span class="st">"P(reject)"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">theme_publication</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">ggplotly</span><span class="op">(</span><span class="va">p_rej</span>, tooltip <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">config</span><span class="op">(</span>displaylogo <span class="op">=</span> <span class="cn">FALSE</span>, modeBarButtonsToRemove <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"select2d"</span>, <span class="st">"lasso2d"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="fig-rejection-interactive" class="cell-output-display quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure"><div aria-describedby="fig-rejection-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-967ff4caf130ea92fc72" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-967ff4caf130ea92fc72">{"x":{"data":[{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14.000000000000002,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28.000000000000004,null,28.999999999999996,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7.0000000000000009,null,8,null,9],"y":[0.99999971334842808,null,0.99999920667184805,null,0.9986501019683699,null,0.99744486966957202,null,0.99533881197628127,null,0.99180246407540384,null,0.98609655248650141,null,0.97724986805182079,null,0.96406968088707423,null,0.94520070830044201,null,0.91924334076622893,null,0.88493032977829178,null,0.9999978875452975,null,0.84134474606854281,null,0.78814460141660336,null,0.72574688224992645,null,0.65542174161032407,null,0.5792597094391031,null,0.5,null,0.4207402905608969,null,0.34457825838967571,null,0.27425311775007338,null,0.21185539858339683,null,0.99999458745609227,null,0.15865525393145716,null,0.11506967022170828,null,0.080756659233771025,null,0.054799291699557953,null,0.035930319112925768,null,0.022750131948179188,null,0.013903447513498618,null,0.0081975359245961346,null,0.0046611880237187476,null,0.0025551303304279312,null,0.9999866542509841,null,0.0013498980316300926,null,0.00068713793791584676,null,0.00033692926567688156,null,0.0001591085901575341,null,7.2348043925120058e-05,null,3.1671241833119924e-05,null,1.3345749015906329e-05,null,5.4125439077038492e-06,null,2.1124547025028537e-06,null,7.9332815197559522e-07,null,0.99996832875816688,null,2.8665157187919391e-07,null,0.99992765195607491,null,0.99984089140984245,null,0.99966307073432314,null,0.99931286206208414],"text":["Offer: 0%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 1%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 10%<br />α = 0.5<br />P(reject) = 99.9%<br />Threshold: 25%",null,"Offer: 11%<br />α = 0.5<br />P(reject) = 99.7%<br />Threshold: 25%",null,"Offer: 12%<br />α = 0.5<br />P(reject) = 99.5%<br />Threshold: 25%",null,"Offer: 13%<br />α = 0.5<br />P(reject) = 99.2%<br />Threshold: 25%",null,"Offer: 14%<br />α = 0.5<br />P(reject) = 98.6%<br />Threshold: 25%",null,"Offer: 15%<br />α = 0.5<br />P(reject) = 97.7%<br />Threshold: 25%",null,"Offer: 16%<br />α = 0.5<br />P(reject) = 96.4%<br />Threshold: 25%",null,"Offer: 17%<br />α = 0.5<br />P(reject) = 94.5%<br />Threshold: 25%",null,"Offer: 18%<br />α = 0.5<br />P(reject) = 91.9%<br />Threshold: 25%",null,"Offer: 19%<br />α = 0.5<br />P(reject) = 88.5%<br />Threshold: 25%",null,"Offer: 2%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 20%<br />α = 0.5<br />P(reject) = 84.1%<br />Threshold: 25%",null,"Offer: 21%<br />α = 0.5<br />P(reject) = 78.8%<br />Threshold: 25%",null,"Offer: 22%<br />α = 0.5<br />P(reject) = 72.6%<br />Threshold: 25%",null,"Offer: 23%<br />α = 0.5<br />P(reject) = 65.5%<br />Threshold: 25%",null,"Offer: 24%<br />α = 0.5<br />P(reject) = 57.9%<br />Threshold: 25%",null,"Offer: 25%<br />α = 0.5<br />P(reject) = 50%<br />Threshold: 25%",null,"Offer: 26%<br />α = 0.5<br />P(reject) = 42.1%<br />Threshold: 25%",null,"Offer: 27%<br />α = 0.5<br />P(reject) = 34.5%<br />Threshold: 25%",null,"Offer: 28%<br />α = 0.5<br />P(reject) = 27.4%<br />Threshold: 25%",null,"Offer: 29%<br />α = 0.5<br />P(reject) = 21.2%<br />Threshold: 25%",null,"Offer: 3%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 30%<br />α = 0.5<br />P(reject) = 15.9%<br />Threshold: 25%",null,"Offer: 31%<br />α = 0.5<br />P(reject) = 11.5%<br />Threshold: 25%",null,"Offer: 32%<br />α = 0.5<br />P(reject) = 8.1%<br />Threshold: 25%",null,"Offer: 33%<br />α = 0.5<br />P(reject) = 5.5%<br />Threshold: 25%",null,"Offer: 34%<br />α = 0.5<br />P(reject) = 3.6%<br />Threshold: 25%",null,"Offer: 35%<br />α = 0.5<br />P(reject) = 2.3%<br />Threshold: 25%",null,"Offer: 36%<br />α = 0.5<br />P(reject) = 1.4%<br />Threshold: 25%",null,"Offer: 37%<br />α = 0.5<br />P(reject) = 0.8%<br />Threshold: 25%",null,"Offer: 38%<br />α = 0.5<br />P(reject) = 0.5%<br />Threshold: 25%",null,"Offer: 39%<br />α = 0.5<br />P(reject) = 0.3%<br />Threshold: 25%",null,"Offer: 4%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 40%<br />α = 0.5<br />P(reject) = 0.1%<br />Threshold: 25%",null,"Offer: 41%<br />α = 0.5<br />P(reject) = 0.1%<br />Threshold: 25%",null,"Offer: 42%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 43%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 44%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 45%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 46%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 47%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 48%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 49%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 5%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 50%<br />α = 0.5<br />P(reject) = 0%<br />Threshold: 25%",null,"Offer: 6%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 7%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 8%<br />α = 0.5<br />P(reject) = 100%<br />Threshold: 25%",null,"Offer: 9%<br />α = 0.5<br />P(reject) = 99.9%<br />Threshold: 25%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(230,159,0,1)","dash":"solid"},"hoveron":"points","name":"α = 0.5 (thr = 25%)","legendgroup":"α = 0.5 (thr = 25%)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14.000000000000002,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28.000000000000004,null,28.999999999999996,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7.0000000000000009,null,8,null,9],"y":[0.99999999998691602,null,0.99999999994990585,null,0.99999846937326342,null,0.99999602761139661,null,0.99999007923611449,null,0.99997615480928981,null,0.99994483346497276,null,0.99987713361003483,null,0.9997365225344047,null,0.99945589134753288,null,0.99891769951860676,null,0.99792590163640593,null,0.99999999981557075,null,0.99616961943241022,null,0.99318113772982386,null,0.98829470191944169,null,0.98061721291118131,null,0.9690259242932594,null,0.9522096477271853,null,0.92876662258601383,null,0.8973627481678641,null,0.85693880780449083,null,0.8069376628580931,null,0.99999999934703898,null,0.74750746245307709,null,0.67963080909872953,null,0.60513708953597467,null,0.52657646430036487,null,0.44696488337638568,null,0.36944134018176322,null,0.29690142860385121,null,0.2316775746347981,null,0.17532394485222935,null,0.12853714934241481,null,0.9999999977767835,null,0.091211219725867751,null,0.062596872790906727,null,0.041518219688779105,null,0.026597574021009623,null,0.016448695822745316,null,0.0098153286286453249,null,0.0056491727555606271,null,0.0031348422607054825,null,0.0016767182274731625,null,0.00086416520909806803,null,0.99999999271988993,null,0.00042906033319683724,null,0.99999997707113786,null,0.9999999305384385,null,0.99999979757885205,null,0.99999943251892753],"text":["Offer: 0%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 1%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 10%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 11%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 12%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 13%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 14%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 15%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 16%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 17%<br />α = 1<br />P(reject) = 99.9%<br />Threshold: 33.3%",null,"Offer: 18%<br />α = 1<br />P(reject) = 99.9%<br />Threshold: 33.3%",null,"Offer: 19%<br />α = 1<br />P(reject) = 99.8%<br />Threshold: 33.3%",null,"Offer: 2%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 20%<br />α = 1<br />P(reject) = 99.6%<br />Threshold: 33.3%",null,"Offer: 21%<br />α = 1<br />P(reject) = 99.3%<br />Threshold: 33.3%",null,"Offer: 22%<br />α = 1<br />P(reject) = 98.8%<br />Threshold: 33.3%",null,"Offer: 23%<br />α = 1<br />P(reject) = 98.1%<br />Threshold: 33.3%",null,"Offer: 24%<br />α = 1<br />P(reject) = 96.9%<br />Threshold: 33.3%",null,"Offer: 25%<br />α = 1<br />P(reject) = 95.2%<br />Threshold: 33.3%",null,"Offer: 26%<br />α = 1<br />P(reject) = 92.9%<br />Threshold: 33.3%",null,"Offer: 27%<br />α = 1<br />P(reject) = 89.7%<br />Threshold: 33.3%",null,"Offer: 28%<br />α = 1<br />P(reject) = 85.7%<br />Threshold: 33.3%",null,"Offer: 29%<br />α = 1<br />P(reject) = 80.7%<br />Threshold: 33.3%",null,"Offer: 3%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 30%<br />α = 1<br />P(reject) = 74.8%<br />Threshold: 33.3%",null,"Offer: 31%<br />α = 1<br />P(reject) = 68%<br />Threshold: 33.3%",null,"Offer: 32%<br />α = 1<br />P(reject) = 60.5%<br />Threshold: 33.3%",null,"Offer: 33%<br />α = 1<br />P(reject) = 52.7%<br />Threshold: 33.3%",null,"Offer: 34%<br />α = 1<br />P(reject) = 44.7%<br />Threshold: 33.3%",null,"Offer: 35%<br />α = 1<br />P(reject) = 36.9%<br />Threshold: 33.3%",null,"Offer: 36%<br />α = 1<br />P(reject) = 29.7%<br />Threshold: 33.3%",null,"Offer: 37%<br />α = 1<br />P(reject) = 23.2%<br />Threshold: 33.3%",null,"Offer: 38%<br />α = 1<br />P(reject) = 17.5%<br />Threshold: 33.3%",null,"Offer: 39%<br />α = 1<br />P(reject) = 12.9%<br />Threshold: 33.3%",null,"Offer: 4%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 40%<br />α = 1<br />P(reject) = 9.1%<br />Threshold: 33.3%",null,"Offer: 41%<br />α = 1<br />P(reject) = 6.3%<br />Threshold: 33.3%",null,"Offer: 42%<br />α = 1<br />P(reject) = 4.2%<br />Threshold: 33.3%",null,"Offer: 43%<br />α = 1<br />P(reject) = 2.7%<br />Threshold: 33.3%",null,"Offer: 44%<br />α = 1<br />P(reject) = 1.6%<br />Threshold: 33.3%",null,"Offer: 45%<br />α = 1<br />P(reject) = 1%<br />Threshold: 33.3%",null,"Offer: 46%<br />α = 1<br />P(reject) = 0.6%<br />Threshold: 33.3%",null,"Offer: 47%<br />α = 1<br />P(reject) = 0.3%<br />Threshold: 33.3%",null,"Offer: 48%<br />α = 1<br />P(reject) = 0.2%<br />Threshold: 33.3%",null,"Offer: 49%<br />α = 1<br />P(reject) = 0.1%<br />Threshold: 33.3%",null,"Offer: 5%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 50%<br />α = 1<br />P(reject) = 0%<br />Threshold: 33.3%",null,"Offer: 6%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 7%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 8%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%",null,"Offer: 9%<br />α = 1<br />P(reject) = 100%<br />Threshold: 33.3%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(0,114,178,1)","dash":"solid"},"hoveron":"points","name":"α = 1 (thr = 33.3%)","legendgroup":"α = 1 (thr = 33.3%)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14.000000000000002,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28.000000000000004,null,28.999999999999996,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7.0000000000000009,null,8,null,9],"y":[0.99999999999999933,null,0.99999999999999689,null,0.9999999990134123,null,0.99999999668425399,null,0.99999998928240974,null,0.99999996667955149,null,0.99999990035573683,null,0.99999971334842808,null,0.99999920667184805,null,0.9999978875452975,null,0.99999458745609227,null,0.9999866542509841,null,0.99999999999998523,null,0.99996832875816688,null,0.99992765195607491,null,0.99984089140984245,null,0.99966307073432314,null,0.99931286206208414,null,0.9986501019683699,null,0.99744486966957202,null,0.99533881197628127,null,0.99180246407540384,null,0.98609655248650141,null,0.99999999999993194,null,0.97724986805182079,null,0.96406968088707423,null,0.94520070830044201,null,0.91924334076622893,null,0.88493032977829178,null,0.84134474606854281,null,0.78814460141660347,null,0.72574688224992667,null,0.65542174161032429,null,0.5792597094391031,null,0.99999999999969891,null,0.5,null,0.4207402905608969,null,0.34457825838967615,null,0.27425311775007383,null,0.21185539858339683,null,0.15865525393145716,null,0.11506967022170828,null,0.080756659233771025,null,0.054799291699558071,null,0.035930319112925851,null,0.99999999999872013,null,0.022750131948179233,null,0.99999999999476907,null,0.99999999997944211,null,0.99999999992231148,null,0.99999999971768416],"text":["Offer: 0%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 1%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 10%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 11%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 12%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 13%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 14%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 15%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 16%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 17%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 18%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 19%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 2%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 20%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 21%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 22%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 23%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 24%<br />α = 2<br />P(reject) = 99.9%<br />Threshold: 40%",null,"Offer: 25%<br />α = 2<br />P(reject) = 99.9%<br />Threshold: 40%",null,"Offer: 26%<br />α = 2<br />P(reject) = 99.7%<br />Threshold: 40%",null,"Offer: 27%<br />α = 2<br />P(reject) = 99.5%<br />Threshold: 40%",null,"Offer: 28%<br />α = 2<br />P(reject) = 99.2%<br />Threshold: 40%",null,"Offer: 29%<br />α = 2<br />P(reject) = 98.6%<br />Threshold: 40%",null,"Offer: 3%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 30%<br />α = 2<br />P(reject) = 97.7%<br />Threshold: 40%",null,"Offer: 31%<br />α = 2<br />P(reject) = 96.4%<br />Threshold: 40%",null,"Offer: 32%<br />α = 2<br />P(reject) = 94.5%<br />Threshold: 40%",null,"Offer: 33%<br />α = 2<br />P(reject) = 91.9%<br />Threshold: 40%",null,"Offer: 34%<br />α = 2<br />P(reject) = 88.5%<br />Threshold: 40%",null,"Offer: 35%<br />α = 2<br />P(reject) = 84.1%<br />Threshold: 40%",null,"Offer: 36%<br />α = 2<br />P(reject) = 78.8%<br />Threshold: 40%",null,"Offer: 37%<br />α = 2<br />P(reject) = 72.6%<br />Threshold: 40%",null,"Offer: 38%<br />α = 2<br />P(reject) = 65.5%<br />Threshold: 40%",null,"Offer: 39%<br />α = 2<br />P(reject) = 57.9%<br />Threshold: 40%",null,"Offer: 4%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 40%<br />α = 2<br />P(reject) = 50%<br />Threshold: 40%",null,"Offer: 41%<br />α = 2<br />P(reject) = 42.1%<br />Threshold: 40%",null,"Offer: 42%<br />α = 2<br />P(reject) = 34.5%<br />Threshold: 40%",null,"Offer: 43%<br />α = 2<br />P(reject) = 27.4%<br />Threshold: 40%",null,"Offer: 44%<br />α = 2<br />P(reject) = 21.2%<br />Threshold: 40%",null,"Offer: 45%<br />α = 2<br />P(reject) = 15.9%<br />Threshold: 40%",null,"Offer: 46%<br />α = 2<br />P(reject) = 11.5%<br />Threshold: 40%",null,"Offer: 47%<br />α = 2<br />P(reject) = 8.1%<br />Threshold: 40%",null,"Offer: 48%<br />α = 2<br />P(reject) = 5.5%<br />Threshold: 40%",null,"Offer: 49%<br />α = 2<br />P(reject) = 3.6%<br />Threshold: 40%",null,"Offer: 5%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 50%<br />α = 2<br />P(reject) = 2.3%<br />Threshold: 40%",null,"Offer: 6%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 7%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 8%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%",null,"Offer: 9%<br />α = 2<br />P(reject) = 100%<br />Threshold: 40%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(213,94,0,1)","dash":"solid"},"hoveron":"points","name":"α = 2 (thr = 40%)","legendgroup":"α = 2 (thr = 40%)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[0,null,1,null,10,null,11,null,12,null,13,null,14.000000000000002,null,15,null,16,null,17,null,18,null,19,null,2,null,20,null,21,null,22,null,23,null,24,null,25,null,26,null,27,null,28.000000000000004,null,28.999999999999996,null,3,null,30,null,31,null,32,null,33,null,34,null,35,null,36,null,37,null,38,null,39,null,4,null,40,null,41,null,42,null,43,null,44,null,45,null,46,null,47,null,48,null,49,null,5,null,50,null,6,null,7.0000000000000009,null,8,null,9],"y":[1,null,1,null,0.99999999999718847,null,0.99999999998875644,null,0.99999999995676414,null,0.99999999984012689,null,0.99999999943151507,null,0.99999999805599638,null,0.99999999360656844,null,0.99999997977650301,null,0.99999993846919299,null,0.99999981991622344,null,1,null,0.99999949296645774,null,0.99999862653759564,null,0.99999642021868462,null,0.99999102154146746,null,0.99997832778011042,null,0.99994964789707319,null,0.99988738222490026,null,0.99975748364142236,null,0.99949708138556459,null,0.9989954671919713,null,0.99999999999999989,null,0.99806697173001813,null,0.99641548614729525,null,0.99359284966588102,null,0.98895709549684907,null,0.9816411368655561,null,0.970546640692169,null,0.95437963751867472,null,0.93174168504492638,null,0.9012816412995146,null,0.8618985566910109,null,0.99999999999999967,null,0.8129686012545585,null,0.75455340393098325,null,0.68753981877067738,null,0.61366679661453882,null,0.5354148930107594,null,0.45576411895468827,null,0.37785807728839627,null,0.30463662803538272,null,0.23850769258813068,null,0.18111841630972805,null,0.99999999999999845,null,0.13326026290250531,null,0.99999999999999256,null,0.99999999999996525,null,0.99999999999984379,null,0.99999999999932399],"text":["Offer: 0%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 1%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 10%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 11%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 12%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 13%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 14%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 15%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 16%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 17%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 18%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 19%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 2%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 20%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 21%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 22%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 23%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 24%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 25%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 26%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 27%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 28%<br />α = 4<br />P(reject) = 99.9%<br />Threshold: 44.4%",null,"Offer: 29%<br />α = 4<br />P(reject) = 99.9%<br />Threshold: 44.4%",null,"Offer: 3%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 30%<br />α = 4<br />P(reject) = 99.8%<br />Threshold: 44.4%",null,"Offer: 31%<br />α = 4<br />P(reject) = 99.6%<br />Threshold: 44.4%",null,"Offer: 32%<br />α = 4<br />P(reject) = 99.4%<br />Threshold: 44.4%",null,"Offer: 33%<br />α = 4<br />P(reject) = 98.9%<br />Threshold: 44.4%",null,"Offer: 34%<br />α = 4<br />P(reject) = 98.2%<br />Threshold: 44.4%",null,"Offer: 35%<br />α = 4<br />P(reject) = 97.1%<br />Threshold: 44.4%",null,"Offer: 36%<br />α = 4<br />P(reject) = 95.4%<br />Threshold: 44.4%",null,"Offer: 37%<br />α = 4<br />P(reject) = 93.2%<br />Threshold: 44.4%",null,"Offer: 38%<br />α = 4<br />P(reject) = 90.1%<br />Threshold: 44.4%",null,"Offer: 39%<br />α = 4<br />P(reject) = 86.2%<br />Threshold: 44.4%",null,"Offer: 4%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 40%<br />α = 4<br />P(reject) = 81.3%<br />Threshold: 44.4%",null,"Offer: 41%<br />α = 4<br />P(reject) = 75.5%<br />Threshold: 44.4%",null,"Offer: 42%<br />α = 4<br />P(reject) = 68.8%<br />Threshold: 44.4%",null,"Offer: 43%<br />α = 4<br />P(reject) = 61.4%<br />Threshold: 44.4%",null,"Offer: 44%<br />α = 4<br />P(reject) = 53.5%<br />Threshold: 44.4%",null,"Offer: 45%<br />α = 4<br />P(reject) = 45.6%<br />Threshold: 44.4%",null,"Offer: 46%<br />α = 4<br />P(reject) = 37.8%<br />Threshold: 44.4%",null,"Offer: 47%<br />α = 4<br />P(reject) = 30.5%<br />Threshold: 44.4%",null,"Offer: 48%<br />α = 4<br />P(reject) = 23.9%<br />Threshold: 44.4%",null,"Offer: 49%<br />α = 4<br />P(reject) = 18.1%<br />Threshold: 44.4%",null,"Offer: 5%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 50%<br />α = 4<br />P(reject) = 13.3%<br />Threshold: 44.4%",null,"Offer: 6%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 7%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 8%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%",null,"Offer: 9%<br />α = 4<br />P(reject) = 100%<br />Threshold: 44.4%"],"type":"scatter","mode":"lines","line":{"width":3.4015748031496069,"color":"rgba(0,158,115,1)","dash":"solid"},"hoveron":"points","name":"α = 4 (thr = 44.4%)","legendgroup":"α = 4 (thr = 44.4%)","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":48.411789124117895,"r":13.283520132835205,"b":45.960979659609805,"l":58.713158987131607},"paper_bgcolor":"rgba(255,255,255,1)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243},"title":{"text":"<b> Rejection probability by offer size and inequality aversion <\/b>","font":{"color":"rgba(0,0,0,1)","family":"","size":19.128268991282692},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-2.5,52.5],"tickmode":"array","ticktext":["0","10","20","30","40","50"],"tickvals":[0,10,20,30,40,50],"categoryorder":"array","categoryarray":["0","10","20","30","40","50"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"y","title":{"text":"Offer (% of pie)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[-0.049999699015849525,1.0499999856674214],"tickmode":"array","ticktext":["0%","25%","50%","75%","100%"],"tickvals":[0,0.25,0.5,0.75,1],"categoryorder":"array","categoryarray":["0%","25%","50%","75%","100%"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.9850560398505608,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":12.7521793275218},"tickangle":-0,"showline":true,"linecolor":"rgba(77,77,77,1)","linewidth":0.39850560398505613,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.72455564360919278,"zeroline":false,"anchor":"x","title":{"text":"P(reject)","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}},"hoverformat":".2f"},"shapes":[],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":12.7521793275218},"orientation":"h","x":0.5,"y":-0.14999999999999999,"xanchor":"center","yanchor":"top","title":{"text":"Inequality aversion","font":{"color":"rgba(0,0,0,1)","family":"","size":15.940224159402243}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false,"displaylogo":false,"modeBarButtonsToRemove":["select2d","lasso2d"]},"source":"A","attrs":{"26c013dee197":{"x":{},"y":{},"colour":{},"text":{},"type":"scatter"}},"cur_data":"26c013dee197","visdat":{"26c013dee197":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-rejection-interactive-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2
+</figcaption></figure>
+</div>
+</div>
+</section><section id="interpretation" class="level2"><h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
+<p>The ultimatum game results demonstrate one of the most robust failures of classical game theory’s predictions. The subgame-perfect equilibrium — offer almost nothing, accept anything positive — assumes that players care only about their own material payoff. But experimental evidence consistently shows that proposers offer 30-50% of the pie and responders reject offers below 20% roughly half the time. This pattern holds across dozens of countries, with stakes ranging from a few dollars to several months’ wages, and in both one-shot and repeated settings. Our simulation with Fehr-Schmidt preferences reproduces these stylised facts, showing that inequality aversion alone is sufficient to generate realistic offer distributions.</p>
+<p>The Fehr-Schmidt model provides an elegant resolution: if responders experience disutility from disadvantageous inequality (being given less than half), they may rationally reject low offers because the disutility of inequality exceeds the material gain. The rejection threshold <span class="math inline">\(\alpha_R / (1 + 2\alpha_R)\)</span> increases with the envy parameter, ranging from 0% (purely selfish, <span class="math inline">\(\alpha = 0\)</span>) to approaching 50% (extremely inequality-averse, <span class="math inline">\(\alpha \to \infty\)</span>). Proposers who anticipate this threshold — and who may themselves feel guilt from advantageous inequality — optimally offer more than the minimum. The population heterogeneity in fairness preferences generates the observed dispersion in offers: some proposers are strategic (offering the minimum acceptable amount) while others are genuinely fair-minded (offering equal splits regardless of the responder’s type).</p>
+<p>The stake-size analysis reveals a subtle pattern: as stakes increase, mean offers decrease slightly but do not converge to the SPE prediction. This matches experimental findings — even with three months’ salary at stake (as in Cameroon experiments), offers remain around 30-40%. The reduction in variance at high stakes is consistent with proposers deliberating more carefully when more money is on the table, but the persistence of substantial offers suggests that fairness preferences are not simply errors or inattention that disappear with sufficient incentives. This is important evidence against the “income effect” critique of ultimatum game results.</p>
+<p>The cross-cultural variation in ultimatum game behaviour provides further evidence for the social-preference interpretation. Experiments in small-scale societies by Henrich et al.&nbsp;(2001) found substantial variation: the Machiguenga in Peru offered only 26% on average (with few rejections), while the Lamalera whale hunters of Indonesia offered 57%. These differences correlate with the degree of market integration and cooperative norms in each society, suggesting that fairness preferences are culturally transmitted and context-dependent. The Fehr-Schmidt model can accommodate this variation through different population distributions of <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span> parameters, making it a flexible framework for cross-cultural comparison.</p>
+</section><section id="extensions-related-tutorials" class="level2"><h2 class="anchored" data-anchor-id="extensions-related-tutorials">Extensions &amp; related tutorials</h2>
+<ul>
+<li>
+<a href="../../behavioral-gt/fehr-schmidt-inequality-aversion/">Fehr-Schmidt inequality aversion</a> — the utility model used here in full detail.</li>
+<li>
+<a href="../../foundations/subgame-perfect-equilibrium/">Subgame-perfect equilibrium</a> — the classical prediction that experiments reject.</li>
+<li>
+<a href="../../behavioral-gt/quantal-response-equilibrium/">Quantal response equilibrium</a> — alternative approach using decision noise.</li>
+<li>
+<a href="../../behavioral-economics/prospect-theory-reference-dependence/">Prospect theory and reference dependence</a> — another departure from expected utility.</li>
+<li>
+<a href="../../experimental-economics/beauty-contest-experiments/">Beauty contest experiments</a> — another classic experimental game.</li>
+</ul></section><section id="references" class="level2"><h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
+
+
+<!-- -->
+
+</section><a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a><div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-reuse"><h2 class="anchored quarto-appendix-heading">Reuse</h2><div class="quarto-appendix-contents"><div><a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div></div></section><section class="quarto-appendix-contents" id="quarto-citation"><h2 class="anchored quarto-appendix-heading">Citation</h2><div><div class="quarto-appendix-secondary-label">BibTeX citation:</div><pre class="sourceCode code-with-copy quarto-appendix-bibtex"><code class="sourceCode bibtex">@online{heller2026,
+  author = {Heller, Raban},
+  title = {Ultimatum Game Experiments and Fairness Norms},
+  date = {2026-05-08},
+  url = {https://r-heller.github.io/equilibria/tutorials/experimental-economics/ultimatum-game-experiments/},
+  langid = {en}
+}
+</code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre><div class="quarto-appendix-secondary-label">For attribution, please cite this work as:</div><div id="ref-heller2026" class="csl-entry quarto-appendix-citeas" role="listitem">
+Heller, Raban. 2026. <span>“Ultimatum Game Experiments and Fairness
+Norms.”</span> May 8. <a href="https://r-heller.github.io/equilibria/tutorials/experimental-economics/ultimatum-game-experiments/">https://r-heller.github.io/equilibria/tutorials/experimental-economics/ultimatum-game-experiments/</a>.
+</div></div></section></div></main><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/r-heller\.github\.io\/equilibria\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Ultimatum game experiments and fairness norms"</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Analyse ultimatum game experimental data in R, compare observed behaviour with the subgame-perfect prediction, implement fairness utility models (Fehr-Schmidt, Bolton-Ockenfels), and visualise how culture, stakes, and framing affect offers and rejection thresholds."</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Raban Heller"</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="an">date-modified:</span><span class="co"> 2026-05-08</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="co">  - experimental-economics</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="co">  - ultimatum-game</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a><span class="co">  - fairness</span></span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="co">  - behavioral-game-theory</span></span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a><span class="an">keywords:</span><span class="co"> ["ultimatum game", "fairness norms", "rejection threshold", "Fehr-Schmidt", "experimental economics"]</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a><span class="an">labels:</span><span class="co"> ["experiments", "behavioral-gt"]</span></span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a><span class="an">tier:</span><span class="co"> 1</span></span>
+<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a><span class="an">bibliography:</span><span class="co"> ../../../references.bib</span></span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="an">vgwort:</span><span class="co"> "TODO_VGWORT_experimental-economics_ultimatum-game-experiments"</span></span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a><span class="an">image:</span><span class="co"> thumbnail.png</span></span>
+<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a><span class="an">image-alt:</span><span class="co"> "Distribution of ultimatum game offers showing the modal offer at 40-50% of the pie, far above the subgame-perfect prediction of near-zero"</span></span>
+<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a><span class="an">citation:</span></span>
+<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a><span class="co">  type: webpage</span></span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a><span class="co">  url: https://r-heller.github.io/equilibria/tutorials/experimental-economics/ultimatum-game-experiments/</span></span>
+<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a><span class="an">license:</span><span class="co"> "CC BY-SA 4.0"</span></span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a><span class="an">draft:</span><span class="co"> false</span></span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a><span class="an">has_static_fig:</span><span class="co"> true</span></span>
+<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a><span class="an">has_interactive_fig:</span><span class="co"> true</span></span>
+<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a><span class="an">has_shiny_app:</span><span class="co"> false</span></span>
+<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb25-28"><a href="#cb25-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a>okabe_ito <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#E69F00"</span>, <span class="st">"#56B4E9"</span>, <span class="st">"#009E73"</span>, <span class="st">"#F0E442"</span>,</span>
+<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>               <span class="st">"#0072B2"</span>, <span class="st">"#D55E00"</span>, <span class="st">"#CC79A7"</span>, <span class="st">"#999999"</span>)</span>
+<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a>theme_publication <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">base_size =</span> <span class="dv">12</span>) {</span>
+<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> base_size) <span class="sc">+</span></span>
+<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">1.2</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">size =</span> base_size <span class="sc">*</span> <span class="fl">0.9</span>, <span class="at">color =</span> <span class="st">"grey40"</span>),</span>
+<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.line =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>),</span>
+<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>          <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>          <span class="at">plot.margin =</span> <span class="fu">margin</span>(<span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-50"><a href="#cb25-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-51"><a href="#cb25-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction &amp; motivation</span></span>
+<span id="cb25-52"><a href="#cb25-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-53"><a href="#cb25-53" aria-hidden="true" tabindex="-1"></a>The ultimatum game is perhaps the most famous experiment in behavioural economics. The rules are simple: a proposer divides a fixed sum (say, $10) between themselves and a responder; the responder can accept (both get the proposed split) or reject (both get nothing). The subgame-perfect equilibrium prediction is stark: the proposer offers the smallest positive amount, and the responder accepts any positive offer, since something is better than nothing. Yet decades of experimental evidence from dozens of countries show that modal offers cluster around 40-50% of the pie, and offers below 20% are rejected roughly half the time.</span>
+<span id="cb25-54"><a href="#cb25-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-55"><a href="#cb25-55" aria-hidden="true" tabindex="-1"></a>This dramatic failure of standard theory has profound implications. It demonstrates that fairness, reciprocity, and social norms are powerful forces in human decision-making that cannot be dismissed as noise or confusion. The robustness of the finding — it replicates across cultures, stake sizes (up to several months' wages), and framings — suggests that preferences over fairness are a fundamental feature of human psychology, not an artefact of laboratory conditions. The ultimatum game became the empirical foundation for behavioural game theory and motivated formal models of social preferences.</span>
+<span id="cb25-56"><a href="#cb25-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-57"><a href="#cb25-57" aria-hidden="true" tabindex="-1"></a>Several competing models attempt to rationalise ultimatum game behaviour within a utility-maximisation framework. The Fehr-Schmidt (1999) model introduces inequality aversion: players suffer disutility from both disadvantageous inequality (envy) and advantageous inequality (guilt), with envy typically stronger than guilt. The Bolton-Ockenfels (2000) ERC model uses relative payoff comparisons. These models can explain the clustering of offers around equal splits and the willingness to reject unfair offers — rejecting a low offer is costly in material terms but reduces inequality. The models also predict cross-cultural variation: societies with stronger inequality aversion parameters produce higher offers and more rejections.</span>
+<span id="cb25-58"><a href="#cb25-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-59"><a href="#cb25-59" aria-hidden="true" tabindex="-1"></a>This tutorial simulates ultimatum game experimental data calibrated to match stylised facts from the literature, implements the Fehr-Schmidt model to derive optimal offers and rejection thresholds, compares predictions across different preference parameter values, and visualises how the distribution of offers shifts with stake size and cultural context. The analysis demonstrates how behavioural models can bridge the gap between theory and evidence while maintaining the rigour of equilibrium analysis.</span>
+<span id="cb25-60"><a href="#cb25-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-61"><a href="#cb25-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-62"><a href="#cb25-62" aria-hidden="true" tabindex="-1"></a><span class="fu">## Mathematical formulation</span></span>
+<span id="cb25-63"><a href="#cb25-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-64"><a href="#cb25-64" aria-hidden="true" tabindex="-1"></a>**Ultimatum game**: Proposer chooses offer $s \in <span class="co">[</span><span class="ot">0, 1</span><span class="co">]</span>$ (fraction of pie). Responder accepts or rejects. Payoffs if accepted: proposer gets $1 - s$, responder gets $s$. If rejected: both get 0.</span>
+<span id="cb25-65"><a href="#cb25-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-66"><a href="#cb25-66" aria-hidden="true" tabindex="-1"></a>**Subgame-perfect equilibrium**: Responder accepts any $s &gt; 0$. Proposer offers $s^* = \epsilon \to 0$. Unique SPE outcome: $(1 - \epsilon, \epsilon)$.</span>
+<span id="cb25-67"><a href="#cb25-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-68"><a href="#cb25-68" aria-hidden="true" tabindex="-1"></a>**Fehr-Schmidt utility**: Player $i$'s utility from allocation $(x_i, x_j)$:</span>
+<span id="cb25-69"><a href="#cb25-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-70"><a href="#cb25-70" aria-hidden="true" tabindex="-1"></a>$$U_i(x_i, x_j) = x_i - \alpha_i \max(x_j - x_i, 0) - \beta_i \max(x_i - x_j, 0)$$</span>
+<span id="cb25-71"><a href="#cb25-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-72"><a href="#cb25-72" aria-hidden="true" tabindex="-1"></a>where $\alpha_i \geq 0$ is the envy parameter (disadvantageous inequality aversion) and $0 \leq \beta_i &lt; 1$ is the guilt parameter (advantageous inequality aversion), with $\alpha_i \geq \beta_i$.</span>
+<span id="cb25-73"><a href="#cb25-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-74"><a href="#cb25-74" aria-hidden="true" tabindex="-1"></a>**Responder's threshold**: Responder accepts iff $U_R(s, 1-s) \geq 0$:</span>
+<span id="cb25-75"><a href="#cb25-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-76"><a href="#cb25-76" aria-hidden="true" tabindex="-1"></a>$$s - \alpha_R(1 - 2s) \geq 0 \implies s \geq \frac{\alpha_R}{1 + 2\alpha_R}$$</span>
+<span id="cb25-77"><a href="#cb25-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-78"><a href="#cb25-78" aria-hidden="true" tabindex="-1"></a>**Proposer's optimal offer**: Given responder's threshold $\bar{s}$ and own guilt $\beta_P$:</span>
+<span id="cb25-79"><a href="#cb25-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-80"><a href="#cb25-80" aria-hidden="true" tabindex="-1"></a>$$s^* = \arg\max_{s \geq \bar{s}} \left<span class="co">[</span><span class="ot">(1-s) - \beta_P(1 - 2s)\right</span><span class="co">]</span>$$</span>
+<span id="cb25-81"><a href="#cb25-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-82"><a href="#cb25-82" aria-hidden="true" tabindex="-1"></a>If $\beta_P &lt; 0.5$: offer exactly $\bar{s}$ (minimum acceptable). If $\beta_P \geq 0.5$: offer $s = 0.5$ (equal split).</span>
+<span id="cb25-83"><a href="#cb25-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-84"><a href="#cb25-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-85"><a href="#cb25-85" aria-hidden="true" tabindex="-1"></a><span class="fu">## R implementation</span></span>
+<span id="cb25-86"><a href="#cb25-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-89"><a href="#cb25-89" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-90"><a href="#cb25-90" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: ultimatum-analysis</span></span>
+<span id="cb25-91"><a href="#cb25-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-92"><a href="#cb25-92" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb25-93"><a href="#cb25-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-94"><a href="#cb25-94" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== Ultimatum Game Analysis ===</span><span class="sc">\n\n</span><span class="st">"</span>)</span>
+<span id="cb25-95"><a href="#cb25-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-96"><a href="#cb25-96" aria-hidden="true" tabindex="-1"></a><span class="co"># === Fehr-Schmidt model ===</span></span>
+<span id="cb25-97"><a href="#cb25-97" aria-hidden="true" tabindex="-1"></a>fs_utility <span class="ot">&lt;-</span> <span class="cf">function</span>(x_i, x_j, alpha, beta) {</span>
+<span id="cb25-98"><a href="#cb25-98" aria-hidden="true" tabindex="-1"></a>  x_i <span class="sc">-</span> alpha <span class="sc">*</span> <span class="fu">max</span>(x_j <span class="sc">-</span> x_i, <span class="dv">0</span>) <span class="sc">-</span> beta <span class="sc">*</span> <span class="fu">max</span>(x_i <span class="sc">-</span> x_j, <span class="dv">0</span>)</span>
+<span id="cb25-99"><a href="#cb25-99" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-100"><a href="#cb25-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-101"><a href="#cb25-101" aria-hidden="true" tabindex="-1"></a><span class="co"># Responder's minimum acceptable offer</span></span>
+<span id="cb25-102"><a href="#cb25-102" aria-hidden="true" tabindex="-1"></a>responder_threshold <span class="ot">&lt;-</span> <span class="cf">function</span>(alpha_R) {</span>
+<span id="cb25-103"><a href="#cb25-103" aria-hidden="true" tabindex="-1"></a>  alpha_R <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> alpha_R)</span>
+<span id="cb25-104"><a href="#cb25-104" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-105"><a href="#cb25-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-106"><a href="#cb25-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Proposer's optimal offer</span></span>
+<span id="cb25-107"><a href="#cb25-107" aria-hidden="true" tabindex="-1"></a>proposer_optimal <span class="ot">&lt;-</span> <span class="cf">function</span>(alpha_R, beta_P) {</span>
+<span id="cb25-108"><a href="#cb25-108" aria-hidden="true" tabindex="-1"></a>  s_bar <span class="ot">&lt;-</span> <span class="fu">responder_threshold</span>(alpha_R)</span>
+<span id="cb25-109"><a href="#cb25-109" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (beta_P <span class="sc">&gt;=</span> <span class="fl">0.5</span>) <span class="fu">return</span>(<span class="fl">0.5</span>)  <span class="co"># equal split</span></span>
+<span id="cb25-110"><a href="#cb25-110" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(s_bar)  <span class="co"># minimum acceptable</span></span>
+<span id="cb25-111"><a href="#cb25-111" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-112"><a href="#cb25-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-113"><a href="#cb25-113" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"--- Fehr-Schmidt Predictions ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-114"><a href="#cb25-114" aria-hidden="true" tabindex="-1"></a>params <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">alpha_R =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.5</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">4</span>),</span>
+<span id="cb25-115"><a href="#cb25-115" aria-hidden="true" tabindex="-1"></a>                      <span class="at">beta_P =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.25</span>, <span class="fl">0.4</span>, <span class="fl">0.6</span>))</span>
+<span id="cb25-116"><a href="#cb25-116" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(params)) {</span>
+<span id="cb25-117"><a href="#cb25-117" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> params<span class="sc">$</span>alpha_R[i]; b <span class="ot">&lt;-</span> params<span class="sc">$</span>beta_P[i]</span>
+<span id="cb25-118"><a href="#cb25-118" aria-hidden="true" tabindex="-1"></a>  thr <span class="ot">&lt;-</span> <span class="fu">responder_threshold</span>(a)</span>
+<span id="cb25-119"><a href="#cb25-119" aria-hidden="true" tabindex="-1"></a>  opt <span class="ot">&lt;-</span> <span class="fu">proposer_optimal</span>(a, b)</span>
+<span id="cb25-120"><a href="#cb25-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  α_R=%.1f, β_P=%.2f → threshold=%.3f, offer=%.3f</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb25-121"><a href="#cb25-121" aria-hidden="true" tabindex="-1"></a>              a, b, thr, opt))</span>
+<span id="cb25-122"><a href="#cb25-122" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-123"><a href="#cb25-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-124"><a href="#cb25-124" aria-hidden="true" tabindex="-1"></a><span class="co"># === Simulate experimental data ===</span></span>
+<span id="cb25-125"><a href="#cb25-125" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Simulated Experiment (N=500) ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-126"><a href="#cb25-126" aria-hidden="true" tabindex="-1"></a>n_subjects <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb25-127"><a href="#cb25-127" aria-hidden="true" tabindex="-1"></a><span class="co"># Population distribution of parameters (calibrated to literature)</span></span>
+<span id="cb25-128"><a href="#cb25-128" aria-hidden="true" tabindex="-1"></a>alpha_pop <span class="ot">&lt;-</span> <span class="fu">rgamma</span>(n_subjects, <span class="at">shape =</span> <span class="dv">2</span>, <span class="at">rate =</span> <span class="dv">3</span>)  <span class="co"># mean ≈ 0.67</span></span>
+<span id="cb25-129"><a href="#cb25-129" aria-hidden="true" tabindex="-1"></a>beta_pop <span class="ot">&lt;-</span> <span class="fu">rbeta</span>(n_subjects, <span class="dv">2</span>, <span class="dv">5</span>) <span class="sc">*</span> <span class="fl">0.8</span>  <span class="co"># mean ≈ 0.23, max &lt; 0.8</span></span>
+<span id="cb25-130"><a href="#cb25-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-131"><a href="#cb25-131" aria-hidden="true" tabindex="-1"></a><span class="co"># Each proposer faces a random responder</span></span>
+<span id="cb25-132"><a href="#cb25-132" aria-hidden="true" tabindex="-1"></a>offers <span class="ot">&lt;-</span> <span class="fu">numeric</span>(n_subjects)</span>
+<span id="cb25-133"><a href="#cb25-133" aria-hidden="true" tabindex="-1"></a>rejections <span class="ot">&lt;-</span> <span class="fu">logical</span>(n_subjects)</span>
+<span id="cb25-134"><a href="#cb25-134" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_subjects) {</span>
+<span id="cb25-135"><a href="#cb25-135" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Proposer i faces responder j</span></span>
+<span id="cb25-136"><a href="#cb25-136" aria-hidden="true" tabindex="-1"></a>  j <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">setdiff</span>(<span class="dv">1</span><span class="sc">:</span>n_subjects, i), <span class="dv">1</span>)</span>
+<span id="cb25-137"><a href="#cb25-137" aria-hidden="true" tabindex="-1"></a>  offers[i] <span class="ot">&lt;-</span> <span class="fu">proposer_optimal</span>(alpha_pop[j], beta_pop[i])</span>
+<span id="cb25-138"><a href="#cb25-138" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add noise to model bounded rationality</span></span>
+<span id="cb25-139"><a href="#cb25-139" aria-hidden="true" tabindex="-1"></a>  offers[i] <span class="ot">&lt;-</span> <span class="fu">pmin</span>(<span class="dv">1</span>, <span class="fu">pmax</span>(<span class="dv">0</span>, offers[i] <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="fl">0.08</span>)))</span>
+<span id="cb25-140"><a href="#cb25-140" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Responder j decides</span></span>
+<span id="cb25-141"><a href="#cb25-141" aria-hidden="true" tabindex="-1"></a>  threshold_j <span class="ot">&lt;-</span> <span class="fu">responder_threshold</span>(alpha_pop[j])</span>
+<span id="cb25-142"><a href="#cb25-142" aria-hidden="true" tabindex="-1"></a>  rejections[i] <span class="ot">&lt;-</span> offers[i] <span class="sc">&lt;</span> threshold_j <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="fl">0.03</span>)</span>
+<span id="cb25-143"><a href="#cb25-143" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-144"><a href="#cb25-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-145"><a href="#cb25-145" aria-hidden="true" tabindex="-1"></a>exp_data <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">offer =</span> offers, <span class="at">rejected =</span> rejections,</span>
+<span id="cb25-146"><a href="#cb25-146" aria-hidden="true" tabindex="-1"></a>                   <span class="at">offer_pct =</span> <span class="fu">round</span>(offers <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-147"><a href="#cb25-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-148"><a href="#cb25-148" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Mean offer: %.1f%%</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">mean</span>(offers) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-149"><a href="#cb25-149" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Median offer: %.1f%%</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">median</span>(offers) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-150"><a href="#cb25-150" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Rejection rate: %.1f%%</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">mean</span>(rejections) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-151"><a href="#cb25-151" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Rejection rate for offers &lt; 20%%: %.1f%%</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb25-152"><a href="#cb25-152" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(rejections[offers <span class="sc">&lt;</span> <span class="fl">0.2</span>]) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-153"><a href="#cb25-153" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Rejection rate for offers ≥ 40%%: %.1f%%</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb25-154"><a href="#cb25-154" aria-hidden="true" tabindex="-1"></a>            <span class="fu">mean</span>(rejections[offers <span class="sc">&gt;=</span> <span class="fl">0.4</span>]) <span class="sc">*</span> <span class="dv">100</span>))</span>
+<span id="cb25-155"><a href="#cb25-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-156"><a href="#cb25-156" aria-hidden="true" tabindex="-1"></a><span class="co"># === Stake-size analysis ===</span></span>
+<span id="cb25-157"><a href="#cb25-157" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">--- Stake Size Effects ---</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb25-158"><a href="#cb25-158" aria-hidden="true" tabindex="-1"></a>stakes <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">1000</span>)</span>
+<span id="cb25-159"><a href="#cb25-159" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (stake <span class="cf">in</span> stakes) {</span>
+<span id="cb25-160"><a href="#cb25-160" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Higher stakes → slightly lower offers (less noise, more calculation)</span></span>
+<span id="cb25-161"><a href="#cb25-161" aria-hidden="true" tabindex="-1"></a>  noise_sd <span class="ot">&lt;-</span> <span class="fl">0.08</span> <span class="sc">/</span> <span class="fu">log2</span>(stake <span class="sc">+</span> <span class="dv">1</span>)</span>
+<span id="cb25-162"><a href="#cb25-162" aria-hidden="true" tabindex="-1"></a>  sim_offers <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">200</span>, <span class="cf">function</span>(i) {</span>
+<span id="cb25-163"><a href="#cb25-163" aria-hidden="true" tabindex="-1"></a>    j <span class="ot">&lt;-</span> <span class="fu">sample</span>(n_subjects, <span class="dv">1</span>)</span>
+<span id="cb25-164"><a href="#cb25-164" aria-hidden="true" tabindex="-1"></a>    opt <span class="ot">&lt;-</span> <span class="fu">proposer_optimal</span>(alpha_pop[j], beta_pop[<span class="fu">sample</span>(n_subjects, <span class="dv">1</span>)])</span>
+<span id="cb25-165"><a href="#cb25-165" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pmin</span>(<span class="dv">1</span>, <span class="fu">pmax</span>(<span class="dv">0</span>, opt <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">1</span>, <span class="dv">0</span>, noise_sd)))</span>
+<span id="cb25-166"><a href="#cb25-166" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb25-167"><a href="#cb25-167" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"  Stake=$%d: mean offer=%.1f%%, SD=%.1f%%</span><span class="sc">\n</span><span class="st">"</span>,</span>
+<span id="cb25-168"><a href="#cb25-168" aria-hidden="true" tabindex="-1"></a>              stake, <span class="fu">mean</span>(sim_offers)<span class="sc">*</span><span class="dv">100</span>, <span class="fu">sd</span>(sim_offers)<span class="sc">*</span><span class="dv">100</span>))</span>
+<span id="cb25-169"><a href="#cb25-169" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb25-170"><a href="#cb25-170" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-171"><a href="#cb25-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-172"><a href="#cb25-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-173"><a href="#cb25-173" aria-hidden="true" tabindex="-1"></a><span class="fu">## Static publication-ready figure</span></span>
+<span id="cb25-174"><a href="#cb25-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-177"><a href="#cb25-177" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-178"><a href="#cb25-178" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-offer-distribution</span></span>
+<span id="cb25-179"><a href="#cb25-179" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Figure 1. Distribution of ultimatum game offers from a simulated experiment with Fehr-Schmidt preferences (N=500 proposer-responder pairs). The histogram shows offers as percentage of the pie, with bars coloured by acceptance (blue) or rejection (orange). The dashed vertical line marks the subgame-perfect prediction (offer approaching 0%), while the solid vertical line shows the mean offer around 35%. The modal bin is 30-40%, consistent with experimental evidence from cross-cultural studies. Low offers (below 20%) face high rejection rates, making them unprofitable despite keeping more of the pie. Okabe-Ito palette."</span></span>
+<span id="cb25-180"><a href="#cb25-180" aria-hidden="true" tabindex="-1"></a><span class="co">#| dev: [png, pdf]</span></span>
+<span id="cb25-181"><a href="#cb25-181" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb25-182"><a href="#cb25-182" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5</span></span>
+<span id="cb25-183"><a href="#cb25-183" aria-hidden="true" tabindex="-1"></a><span class="co">#| dpi: 300</span></span>
+<span id="cb25-184"><a href="#cb25-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-185"><a href="#cb25-185" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(exp_data, <span class="fu">aes</span>(<span class="at">x =</span> offer_pct, <span class="at">fill =</span> rejected)) <span class="sc">+</span></span>
+<span id="cb25-186"><a href="#cb25-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">5</span>, <span class="at">boundary =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"white"</span>, <span class="at">linewidth =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb25-187"><a href="#cb25-187" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"grey40"</span>, <span class="at">linewidth =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb25-188"><a href="#cb25-188" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(offers) <span class="sc">*</span> <span class="dv">100</span>, <span class="at">linetype =</span> <span class="st">"solid"</span>,</span>
+<span id="cb25-189"><a href="#cb25-189" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> okabe_ito[<span class="dv">3</span>], <span class="at">linewidth =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb25-190"><a href="#cb25-190" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="dv">3</span>, <span class="at">y =</span> <span class="cn">Inf</span>, <span class="at">label =</span> <span class="st">"SPE</span><span class="sc">\n</span><span class="st">prediction"</span>,</span>
+<span id="cb25-191"><a href="#cb25-191" aria-hidden="true" tabindex="-1"></a>           <span class="at">vjust =</span> <span class="fl">1.5</span>, <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">color =</span> <span class="st">"grey40"</span>) <span class="sc">+</span></span>
+<span id="cb25-192"><a href="#cb25-192" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="at">x =</span> <span class="fu">mean</span>(offers)<span class="sc">*</span><span class="dv">100</span> <span class="sc">+</span> <span class="dv">2</span>, <span class="at">y =</span> <span class="cn">Inf</span>,</span>
+<span id="cb25-193"><a href="#cb25-193" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="fu">paste0</span>(<span class="st">"Mean = "</span>, <span class="fu">round</span>(<span class="fu">mean</span>(offers)<span class="sc">*</span><span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%"</span>),</span>
+<span id="cb25-194"><a href="#cb25-194" aria-hidden="true" tabindex="-1"></a>           <span class="at">vjust =</span> <span class="fl">1.5</span>, <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="dv">3</span>, <span class="at">color =</span> okabe_ito[<span class="dv">3</span>]) <span class="sc">+</span></span>
+<span id="cb25-195"><a href="#cb25-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"FALSE"</span> <span class="ot">=</span> okabe_ito[<span class="dv">2</span>], <span class="st">"TRUE"</span> <span class="ot">=</span> okabe_ito[<span class="dv">6</span>]),</span>
+<span id="cb25-196"><a href="#cb25-196" aria-hidden="true" tabindex="-1"></a>                    <span class="at">name =</span> <span class="st">"Outcome"</span>, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Accepted"</span>, <span class="st">"Rejected"</span>)) <span class="sc">+</span></span>
+<span id="cb25-197"><a href="#cb25-197" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Distribution of ultimatum game offers"</span>,</span>
+<span id="cb25-198"><a href="#cb25-198" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Fehr-Schmidt preferences generate realistic offer distributions far from SPE"</span>,</span>
+<span id="cb25-199"><a href="#cb25-199" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Offer (% of pie)"</span>, <span class="at">y =</span> <span class="st">"Count"</span>) <span class="sc">+</span></span>
+<span id="cb25-200"><a href="#cb25-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">100</span>, <span class="dv">10</span>)) <span class="sc">+</span></span>
+<span id="cb25-201"><a href="#cb25-201" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb25-202"><a href="#cb25-202" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-203"><a href="#cb25-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-204"><a href="#cb25-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-205"><a href="#cb25-205" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interactive figure</span></span>
+<span id="cb25-206"><a href="#cb25-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-209"><a href="#cb25-209" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-210"><a href="#cb25-210" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-rejection-interactive</span></span>
+<span id="cb25-211"><a href="#cb25-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-212"><a href="#cb25-212" aria-hidden="true" tabindex="-1"></a><span class="co"># Rejection probability as function of offer, by preference type</span></span>
+<span id="cb25-213"><a href="#cb25-213" aria-hidden="true" tabindex="-1"></a>offer_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">0.5</span>, <span class="fl">0.01</span>)</span>
+<span id="cb25-214"><a href="#cb25-214" aria-hidden="true" tabindex="-1"></a>alpha_types <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb25-215"><a href="#cb25-215" aria-hidden="true" tabindex="-1"></a>rej_curves <span class="ot">&lt;-</span> <span class="fu">lapply</span>(alpha_types, <span class="cf">function</span>(a) {</span>
+<span id="cb25-216"><a href="#cb25-216" aria-hidden="true" tabindex="-1"></a>  threshold <span class="ot">&lt;-</span> <span class="fu">responder_threshold</span>(a)</span>
+<span id="cb25-217"><a href="#cb25-217" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Smooth rejection probability with noise</span></span>
+<span id="cb25-218"><a href="#cb25-218" aria-hidden="true" tabindex="-1"></a>  rej_prob <span class="ot">&lt;-</span> <span class="fu">pnorm</span>(threshold <span class="sc">-</span> offer_grid, <span class="at">sd =</span> <span class="fl">0.05</span>)</span>
+<span id="cb25-219"><a href="#cb25-219" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">offer =</span> offer_grid <span class="sc">*</span> <span class="dv">100</span>, <span class="at">rej_prob =</span> rej_prob,</span>
+<span id="cb25-220"><a href="#cb25-220" aria-hidden="true" tabindex="-1"></a>         <span class="at">type =</span> <span class="fu">paste0</span>(<span class="st">"α = "</span>, a, <span class="st">" (thr = "</span>, <span class="fu">round</span>(threshold<span class="sc">*</span><span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%)"</span>),</span>
+<span id="cb25-221"><a href="#cb25-221" aria-hidden="true" tabindex="-1"></a>         <span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"Offer: "</span>, <span class="fu">round</span>(offer_grid<span class="sc">*</span><span class="dv">100</span>, <span class="dv">0</span>), <span class="st">"%"</span>,</span>
+<span id="cb25-222"><a href="#cb25-222" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">α = "</span>, a,</span>
+<span id="cb25-223"><a href="#cb25-223" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">P(reject) = "</span>, <span class="fu">round</span>(rej_prob<span class="sc">*</span><span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%"</span>,</span>
+<span id="cb25-224"><a href="#cb25-224" aria-hidden="true" tabindex="-1"></a>                       <span class="st">"</span><span class="sc">\n</span><span class="st">Threshold: "</span>, <span class="fu">round</span>(threshold<span class="sc">*</span><span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%"</span>))</span>
+<span id="cb25-225"><a href="#cb25-225" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb25-226"><a href="#cb25-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-227"><a href="#cb25-227" aria-hidden="true" tabindex="-1"></a>p_rej <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(rej_curves, <span class="fu">aes</span>(<span class="at">x =</span> offer, <span class="at">y =</span> rej_prob, <span class="at">color =</span> type, <span class="at">text =</span> text)) <span class="sc">+</span></span>
+<span id="cb25-228"><a href="#cb25-228" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.9</span>) <span class="sc">+</span></span>
+<span id="cb25-229"><a href="#cb25-229" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> okabe_ito[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">3</span>)], <span class="at">name =</span> <span class="st">"Inequality aversion"</span>) <span class="sc">+</span></span>
+<span id="cb25-230"><a href="#cb25-230" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">percent_format</span>()) <span class="sc">+</span></span>
+<span id="cb25-231"><a href="#cb25-231" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Rejection probability by offer size and inequality aversion"</span>,</span>
+<span id="cb25-232"><a href="#cb25-232" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Higher α shifts the rejection threshold rightward"</span>,</span>
+<span id="cb25-233"><a href="#cb25-233" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Offer (% of pie)"</span>, <span class="at">y =</span> <span class="st">"P(reject)"</span>) <span class="sc">+</span></span>
+<span id="cb25-234"><a href="#cb25-234" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_publication</span>()</span>
+<span id="cb25-235"><a href="#cb25-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-236"><a href="#cb25-236" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplotly</span>(p_rej, <span class="at">tooltip =</span> <span class="st">"text"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb25-237"><a href="#cb25-237" aria-hidden="true" tabindex="-1"></a>  <span class="fu">config</span>(<span class="at">displaylogo =</span> <span class="cn">FALSE</span>, <span class="at">modeBarButtonsToRemove =</span> <span class="fu">c</span>(<span class="st">"select2d"</span>, <span class="st">"lasso2d"</span>))</span>
+<span id="cb25-238"><a href="#cb25-238" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-239"><a href="#cb25-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-240"><a href="#cb25-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-241"><a href="#cb25-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretation</span></span>
+<span id="cb25-242"><a href="#cb25-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-243"><a href="#cb25-243" aria-hidden="true" tabindex="-1"></a>The ultimatum game results demonstrate one of the most robust failures of classical game theory's predictions. The subgame-perfect equilibrium — offer almost nothing, accept anything positive — assumes that players care only about their own material payoff. But experimental evidence consistently shows that proposers offer 30-50% of the pie and responders reject offers below 20% roughly half the time. This pattern holds across dozens of countries, with stakes ranging from a few dollars to several months' wages, and in both one-shot and repeated settings. Our simulation with Fehr-Schmidt preferences reproduces these stylised facts, showing that inequality aversion alone is sufficient to generate realistic offer distributions.</span>
+<span id="cb25-244"><a href="#cb25-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-245"><a href="#cb25-245" aria-hidden="true" tabindex="-1"></a>The Fehr-Schmidt model provides an elegant resolution: if responders experience disutility from disadvantageous inequality (being given less than half), they may rationally reject low offers because the disutility of inequality exceeds the material gain. The rejection threshold $\alpha_R / (1 + 2\alpha_R)$ increases with the envy parameter, ranging from 0% (purely selfish, $\alpha = 0$) to approaching 50% (extremely inequality-averse, $\alpha \to \infty$). Proposers who anticipate this threshold — and who may themselves feel guilt from advantageous inequality — optimally offer more than the minimum. The population heterogeneity in fairness preferences generates the observed dispersion in offers: some proposers are strategic (offering the minimum acceptable amount) while others are genuinely fair-minded (offering equal splits regardless of the responder's type).</span>
+<span id="cb25-246"><a href="#cb25-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-247"><a href="#cb25-247" aria-hidden="true" tabindex="-1"></a>The stake-size analysis reveals a subtle pattern: as stakes increase, mean offers decrease slightly but do not converge to the SPE prediction. This matches experimental findings — even with three months' salary at stake (as in Cameroon experiments), offers remain around 30-40%. The reduction in variance at high stakes is consistent with proposers deliberating more carefully when more money is on the table, but the persistence of substantial offers suggests that fairness preferences are not simply errors or inattention that disappear with sufficient incentives. This is important evidence against the "income effect" critique of ultimatum game results.</span>
+<span id="cb25-248"><a href="#cb25-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-249"><a href="#cb25-249" aria-hidden="true" tabindex="-1"></a>The cross-cultural variation in ultimatum game behaviour provides further evidence for the social-preference interpretation. Experiments in small-scale societies by Henrich et al. (2001) found substantial variation: the Machiguenga in Peru offered only 26% on average (with few rejections), while the Lamalera whale hunters of Indonesia offered 57%. These differences correlate with the degree of market integration and cooperative norms in each society, suggesting that fairness preferences are culturally transmitted and context-dependent. The Fehr-Schmidt model can accommodate this variation through different population distributions of $\alpha$ and $\beta$ parameters, making it a flexible framework for cross-cultural comparison.</span>
+<span id="cb25-250"><a href="#cb25-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-251"><a href="#cb25-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-252"><a href="#cb25-252" aria-hidden="true" tabindex="-1"></a><span class="fu">## Extensions &amp; related tutorials</span></span>
+<span id="cb25-253"><a href="#cb25-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-254"><a href="#cb25-254" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Fehr-Schmidt inequality aversion</span><span class="co">](../../behavioral-gt/fehr-schmidt-inequality-aversion/)</span> — the utility model used here in full detail.</span>
+<span id="cb25-255"><a href="#cb25-255" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Subgame-perfect equilibrium</span><span class="co">](../../foundations/subgame-perfect-equilibrium/)</span> — the classical prediction that experiments reject.</span>
+<span id="cb25-256"><a href="#cb25-256" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Quantal response equilibrium</span><span class="co">](../../behavioral-gt/quantal-response-equilibrium/)</span> — alternative approach using decision noise.</span>
+<span id="cb25-257"><a href="#cb25-257" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Prospect theory and reference dependence</span><span class="co">](../../behavioral-economics/prospect-theory-reference-dependence/)</span> — another departure from expected utility.</span>
+<span id="cb25-258"><a href="#cb25-258" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Beauty contest experiments</span><span class="co">](../../experimental-economics/beauty-contest-experiments/)</span> — another classic experimental game.</span>
+<span id="cb25-259"><a href="#cb25-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-260"><a href="#cb25-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-261"><a href="#cb25-261" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb25-262"><a href="#cb25-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-263"><a href="#cb25-263" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb25-264"><a href="#cb25-264" aria-hidden="true" tabindex="-1"></a>:::</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+<p>#equilibria · MIT</p>
+</div>   
+    <div class="nav-footer-center">
+      <ul class="footer-items list-unstyled">
+<li class="nav-item">
+    <a class="nav-link" href="../../../overview.html">
+<p>Overview</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../tutorials.html">
+<p>All tutorials</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../about.html">
+<p>About</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="../../../impressum.html">
+<p>Impressum</p>
+</a>
+  </li>  
+    <li class="nav-item">
+    <a class="nav-link" href="mailto:58561665+r-heller@users.noreply.github.com">
+<p>Kontakt</p>
+</a>
+  </li>  
+</ul>
+<div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/r-heller/equilibria/edit/main/tutorials/experimental-economics/ultimatum-game-experiments/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/r-heller/equilibria/blob/main/tutorials/experimental-economics/ultimatum-game-experiments/index.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/r-heller/equilibria/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
+
+
+</body></html>
