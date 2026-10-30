@@ -57,62 +57,19 @@ The 2×2 bimatrix game is the simplest non-trivial strategic interaction: two pl
 
 ## The Nash equilibrium solver
 
-The core algorithm checks all four pure-strategy profiles and then solves for the mixed equilibrium.
+The solver enumerates all nine pairs of nonempty supports. Best-response
+inequalities restrict the opponent's probability; a player who mixes must be
+indifferent. This also covers degenerate games, whose equilibria can form
+intervals or a whole rectangle, not just isolated points. `p_range` and
+`q_range` describe each complete family; `p` and `q` are representative values.
+The app and this tutorial use the same [solver source](https://github.com/r-heller/equilibria/blob/main/shiny-apps/01-two-by-two-nash-explorer/solver.R).
+Payoffs must be finite. Calculations use a relative numerical tolerance of
+`1e-10`, so near-indifference at that scale is treated as indifference.
 
 ```{r}
 #| label: solver
 
-solve_nash_2x2 <- function(A, B) {
-  equilibria <- list()
-
-  # Pure strategy NE: check all four profiles
-  for (i in 1:2) {
-    for (j in 1:2) {
-      # Is i a best response for Row given Col plays j?
-      br_row <- (A[i, j] >= A[3 - i, j])
-      # Is j a best response for Col given Row plays i?
-      br_col <- (B[i, j] >= B[i, 3 - j])
-
-      if (br_row && br_col) {
-        equilibria <- c(equilibria, list(list(
-          type = "Pure",
-          p = ifelse(i == 1, 1, 0),  # P(Row plays Top)
-          q = ifelse(j == 1, 1, 0),  # P(Col plays Left)
-          row_payoff = A[i, j],
-          col_payoff = B[i, j]
-        )))
-      }
-    }
-  }
-
-  # Mixed strategy NE
-  # Row indifference: q*A[1,1] + (1-q)*A[1,2] = q*A[2,1] + (1-q)*A[2,2]
-  denom_q <- (A[1,1] - A[2,1]) - (A[1,2] - A[2,2])
-  # Col indifference: p*B[1,1] + (1-p)*B[2,1] = p*B[1,2] + (1-p)*B[2,2]
-  denom_p <- (B[1,1] - B[2,1]) - (B[1,2] - B[2,2])
-
-  if (abs(denom_q) > 1e-10 && abs(denom_p) > 1e-10) {
-    q_star <- (A[2,2] - A[1,2]) / denom_q
-    p_star <- (B[2,2] - B[2,1]) / denom_p
-
-    if (p_star > 0 && p_star < 1 && q_star > 0 && q_star < 1) {
-      row_payoff <- p_star * (q_star * A[1,1] + (1 - q_star) * A[1,2]) +
-                    (1 - p_star) * (q_star * A[2,1] + (1 - q_star) * A[2,2])
-      col_payoff <- p_star * (q_star * B[1,1] + (1 - q_star) * B[1,2]) +
-                    (1 - p_star) * (q_star * B[2,1] + (1 - q_star) * B[2,2])
-
-      equilibria <- c(equilibria, list(list(
-        type = "Mixed",
-        p = round(p_star, 4),
-        q = round(q_star, 4),
-        row_payoff = round(row_payoff, 4),
-        col_payoff = round(col_payoff, 4)
-      )))
-    }
-  }
-
-  equilibria
-}
+source("../../../shiny-apps/01-two-by-two-nash-explorer/solver.R")
 
 # --- Test with classic games ---
 cat("=== Prisoner's Dilemma ===\n")
@@ -135,6 +92,7 @@ B_mp <- matrix(c(-1, 1, 1, -1), nrow = 2)
 mp_eq <- solve_nash_2x2(A_mp, B_mp)
 for (eq in mp_eq) cat(sprintf("  %s NE: p=%.2f, q=%.2f, payoffs=(%.2f, %.2f)\n",
                                 eq$type, eq$p, eq$q, eq$row_payoff, eq$col_payoff))
+
 ```
 
 
@@ -261,14 +219,14 @@ The app is fully self-contained — no external data dependencies — and can be
 
 ## Interpretation
 
-The 2×2 Nash Explorer makes visible the geometry of strategic interaction. The best-response plot reveals why different game structures produce different equilibrium configurations: in the Prisoner's Dilemma, both BRs point to (Defect, Defect) regardless of the opponent's mix — the unique NE is a dominant-strategy equilibrium. In Battle of the Sexes, the BRs create an S-shaped intersection pattern producing two pure NE at the corners and one mixed NE in the interior. In Matching Pennies, the BRs are step functions that cross only at the centre — the unique NE is completely mixed at (1/2, 1/2). The expected payoff surfaces show that at a mixed NE, neither player can unilaterally improve their expected payoff — the mixed NE sits at a saddle point of the individual payoff landscapes, not a maximum. This geometric insight — that mixed NE are not outcomes players actively seek but rather fixed points of the best-response dynamics — is fundamental to interpreting mixed equilibria correctly and connects to @nash_1950's original existence proof via Kakutani's fixed-point theorem.
+The 2×2 Nash Explorer makes visible the geometry of strategic interaction. The best-response plot reveals why different game structures produce different equilibrium configurations: in the Prisoner's Dilemma, both BRs point to (Defect, Defect) regardless of the opponent's mix — the unique NE is a dominant-strategy equilibrium. In Battle of the Sexes, the BRs create an S-shaped intersection pattern producing two pure NE at the corners and one mixed NE in the interior. In Matching Pennies, the BRs are step functions that cross only at the centre — the unique NE is completely mixed at (1/2, 1/2). The expected payoff surfaces show that at a mixed NE, neither player can unilaterally improve their expected payoff — each player is indifferent between the strategies in their own support. A joint payoff surface need not have a stationary point or a saddle there. This geometric insight — that mixed NE are not outcomes players actively seek but rather fixed points of the best-response dynamics — is fundamental to interpreting mixed equilibria correctly and connects to @nash_1950's original existence proof via Kakutani's fixed-point theorem.
 
 
 ## Extensions & related tutorials
 
 - [Mixed-strategy Nash equilibrium in 2×2 games](../../../tutorials/foundations/nash-equilibrium-mixed/) — the mathematical foundations behind this app.
 - [Replicator dynamics for RPS](../../../tutorials/evolutionary-gt/replicator-dynamics-rps/) — extending to 3-strategy dynamics.
-- [Shiny app: Replicator dynamics explorer](../replicator-dynamics-rps-simplex-tutorial/) — interactive simplex visualization.
+- Shiny app: Replicator dynamics explorer (tutorial not yet available) — interactive simplex visualization.
 - [Publication-ready ggplot2 theme](../../../tutorials/visualization-and-communication/publication-ready-ggplot-theme/) — the theme used in this app.
 - [The iterated Prisoner's Dilemma](../../../tutorials/classical-games/iterated-prisoners-dilemma-axelrod/) — extending to repeated interactions.
 

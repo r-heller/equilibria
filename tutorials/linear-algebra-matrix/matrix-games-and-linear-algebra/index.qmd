@@ -75,34 +75,36 @@ $$
 y^* = \frac{a_{22} - a_{21}}{a_{11} - a_{12} - a_{21} + a_{22}}
 $$
 
-provided the denominator is non-zero (i.e., no pure-strategy equilibrium dominates).
+provided the denominator is non-zero. A fully mixed equilibrium also requires both players' computed probabilities to lie strictly between zero and one. Pure equilibria may coexist with an interior equilibrium; a zero denominator requires a separate degeneracy analysis.
 
 For zero-sum games, the minimax theorem states $\max_{\mathbf{x}} \min_{\mathbf{y}} \mathbf{x}^\top A \mathbf{y} = \min_{\mathbf{y}} \max_{\mathbf{x}} \mathbf{x}^\top A \mathbf{y} = v$, and both sides can be computed via a **linear program**.
 
 
 ## R implementation
 
-We implement equilibrium computation for $2 \times 2$ bimatrix games using the indifference principle, and for zero-sum games using linear programming via the `lpSolve` package.
+We implement the fully mixed candidate for $2 \times 2$ bimatrix games using the indifference principle. This deliberately limited helper does not enumerate pure or degenerate equilibrium sets; see the Nash explorer and the linked LP tutorial for those separate tasks.
 
 ```{r}
 #| label: matrix-game-implementation
 
 # Solve 2x2 bimatrix game via indifference principle
 solve_2x2_bimatrix <- function(A, B) {
+  stopifnot(is.matrix(A), is.matrix(B), identical(dim(A), c(2L, 2L)),
+            identical(dim(B), c(2L, 2L)), all(is.finite(A)), all(is.finite(B)))
   # Player 2's mixed strategy (makes Player 1 indifferent)
   denom_y <- A[1,1] - A[1,2] - A[2,1] + A[2,2]
   # Player 1's mixed strategy (makes Player 2 indifferent)
   denom_x <- B[1,1] - B[1,2] - B[2,1] + B[2,2]
 
   if (abs(denom_y) < 1e-10 || abs(denom_x) < 1e-10) {
-    return(list(msg = "Degenerate game — pure strategy equilibrium only"))
+    return(list(msg = "Degenerate indifference equations — this helper does not classify the equilibrium set"))
   }
 
   y_star <- (A[2,2] - A[2,1]) / denom_y
   x_star <- (B[2,2] - B[1,2]) / denom_x
 
   # Check validity (must be in [0, 1])
-  if (y_star < 0 || y_star > 1 || x_star < 0 || x_star > 1) {
+  if (y_star <= 0 || y_star >= 1 || x_star <= 0 || x_star >= 1) {
     return(list(msg = "No interior mixed NE — check pure strategy equilibria"))
   }
 
@@ -144,7 +146,7 @@ cat(sprintf("Values: v1 = %.3f, v2 = %.3f\n", ne_bos$v1, ne_bos$v2))
 cat("\n=== Eigenvalue analysis of Matching Pennies ===\n")
 eig <- eigen(A_mp)
 cat("Eigenvalues:", eig$values, "\n")
-cat("The spectral structure reveals the anti-symmetric nature of zero-sum games.\n")
+cat("This payoff matrix is symmetric; zero-sum means B = -A, not A = -transpose(A).\n")
 ```
 
 
@@ -184,7 +186,7 @@ br_data <- function(A, B, game_name) {
 games <- bind_rows(
   br_data(A_mp, B_mp, "Matching Pennies"),
   br_data(A_bos, B_bos, "Battle of the Sexes"),
-  br_data(matrix(c(1,5,0,3), 2, TRUE), matrix(c(1,0,5,3), 2, TRUE), "Prisoner's Dilemma")
+  br_data(matrix(c(1,5,0,3), nrow = 2, byrow = TRUE), matrix(c(1,0,5,3), nrow = 2, byrow = TRUE), "Prisoner's Dilemma")
 )
 
 p_br <- ggplot(games, aes(x = prob_x, y = prob_y, color = player)) +
@@ -278,7 +280,7 @@ The linear-algebraic approach to game theory reveals that equilibrium computatio
 - [The Lemke-Howson algorithm](../../optimization-numerical-methods/lemke-howson-algorithm/) — pivoting algorithm for bimatrix games.
 - [Matching Pennies — pure conflict and minimax](../../classical-games/matching-pennies/) — the canonical zero-sum game.
 - [Battle of the Sexes — coordination under conflict](../../classical-games/battle-of-the-sexes/) — multiple equilibria in bimatrix games.
-- [Support enumeration for NE computation](../../optimization-numerical-methods/support-enumeration/) — exhaustive search over equilibrium supports.
+- [Support enumeration for NE computation](../../optimization-numerical-methods/support-enumeration-algorithm/index.qmd) — exhaustive search over equilibrium supports.
 - [Linear programming duality and zero-sum games](../../linear-algebra-matrix/lp-duality-zero-sum/) — the minimax theorem via LP.
 
 

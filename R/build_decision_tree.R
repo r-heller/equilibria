@@ -52,7 +52,7 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_minimax",
         result = "Zero-sum game — use the Minimax Theorem",
-        tutorials = list("tutorials/foundations/zero-sum-games-minimax-theorem/")
+        tutorials = list("tutorials/foundations/zero-sum-minimax-theorem/")
       ),
       list(
         id = "sim_nonzero",
@@ -66,7 +66,6 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
         id = "result_nash",
         result = "Normal-form game — find Nash equilibrium (pure or mixed)",
         tutorials = list(
-          "tutorials/foundations/nash-equilibrium-pure/",
           "tutorials/foundations/nash-equilibrium-mixed/"
         )
       ),
@@ -81,11 +80,11 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_finite_repeated",
         result = "Finite repeated game — use backward induction from the last stage",
-        tutorials = list("tutorials/foundations/repeated-games-finite-vs-infinite/")
+        tutorials = list("tutorials/foundations/backward-induction-centipede/")
       ),
       list(
         id = "result_folk_theorem",
-        result = "Infinite repeated game — apply the Folk Theorem",
+        result = "Infinite repeated game — investigate repeated-game incentive conditions",
         tutorials = list("tutorials/foundations/folk-theorem-perfect-monitoring/")
       ),
       list(
@@ -99,12 +98,12 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_bayesian",
         result = "Bayesian game — find Bayesian Nash equilibrium",
-        tutorials = list("tutorials/foundations/bayesian-nash-equilibrium/")
+        tutorials = list("tutorials/bayesian-methods/bayesian-games-incomplete-information/")
       ),
       list(
         id = "result_robust",
         result = "Consider robust mechanism design or global games",
-        tutorials = list("tutorials/foundations/higher-order-beliefs-global-games/")
+        tutorials = list("tutorials/bayesian-methods/global-games-coordination/")
       ),
       # --- Sequential ---
       list(
@@ -118,7 +117,7 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_backward_induction",
         result = "Extensive-form game with perfect information — use backward induction / SPE",
-        tutorials = list("tutorials/foundations/backward-induction/")
+        tutorials = list("tutorials/foundations/backward-induction-centipede/")
       ),
       list(
         id = "seq_imperfect",
@@ -131,12 +130,12 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_pbe",
         result = "Signaling game — find Perfect Bayesian Equilibrium or Sequential Equilibrium",
-        tutorials = list("tutorials/foundations/perfect-bayesian-equilibrium/")
+        tutorials = list("tutorials/foundations/signaling-games-pbe/")
       ),
       list(
         id = "result_spe",
         result = "Extensive-form game — find Subgame Perfect Equilibrium",
-        tutorials = list("tutorials/foundations/subgame-perfect-nash-equilibrium/")
+        tutorials = list("tutorials/foundations/extensive-form-subgame-perfection/")
       ),
       # --- Mechanism design ---
       list(
@@ -164,7 +163,7 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       list(
         id = "result_no_money",
         result = "Mechanism design without money",
-        tutorials = list("tutorials/foundations/mechanism-design-without-money/")
+        tutorials = list("tutorials/ethics-and-game-theory/fair-division-cake-cutting/")
       ),
       list(
         id = "result_matching",
@@ -192,8 +191,8 @@ build_decision_tree <- function(output_file = "artifacts/decision-tree.json") {
       ),
       list(
         id = "result_ntu",
-        result = "NTU cooperative game — use Nash bargaining solution",
-        tutorials = list("tutorials/cooperative-gt/")
+        result = "Bargaining problem — consider the Nash bargaining solution",
+        tutorials = list("tutorials/foundations/nash-bargaining-solution/")
       )
     )
   )

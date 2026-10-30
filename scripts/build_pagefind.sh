@@ -17,7 +17,7 @@ fi
 
 # Pagefind needs to walk the rendered HTML and emit pagefind/* assets
 # back into the site dir so they ship with the deploy.
-npx --yes pagefind@1 --site "$SITE_DIR" --output-subdir pagefind
+npx --yes pagefind@1.5.2 --site "$SITE_DIR" --output-subdir pagefind
 
 ls -la "$SITE_DIR/pagefind" >/dev/null
 echo "Pagefind index built at $SITE_DIR/pagefind/"

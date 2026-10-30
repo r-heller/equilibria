@@ -1,6 +1,6 @@
 ---
 title: "Secure Multi-Party Computation and Game-Theoretic Incentives"
-description: "Implement Shamir's secret sharing and a secure multi-party computation protocol for sealed-bid auctions in R, analysing how MPC enables commitment to truthful strategies and incentive compatibility."
+description: "Demonstrate finite-field secret sharing and compare ideal auction outcomes in R; the auction calculation is centralized and does not implement a secure MPC protocol."
 author: "Raban Heller"
 date: 2026-05-08
 date-modified: 2026-05-08
@@ -56,7 +56,7 @@ At the heart of most practical MPC protocols lies **secret sharing**, the crypto
 
 The game-theoretic implications of MPC are profound. In a standard sealed-bid auction without MPC, the auctioneer sees all bids and could exploit this information -- front-running, bid manipulation, or information leakage to favoured bidders. With MPC, the auction can be conducted such that no single party (including the auctioneer) ever sees individual bids; only the identity of the winner and the price are revealed. This transforms the game: bidders who would otherwise shade their bids to protect against information leakage can now bid more truthfully. In the language of mechanism design, MPC can make truthful reporting a dominant strategy in settings where information concerns would otherwise prevent it.
 
-This tutorial implements Shamir's secret sharing scheme from scratch in R, then builds an MPC-based sealed-bid auction protocol. We simulate a population of bidders with private valuations and compare auction outcomes (revenue, efficiency, bidder surplus) across three regimes: a standard first-price sealed-bid auction where bids are visible to the auctioneer, a second-price (Vickrey) auction, and an MPC-secured second-price auction. The analysis demonstrates how the cryptographic protocol alters the strategic incentives and can improve both efficiency and revenue.
+This tutorial demonstrates Shamir's finite-field arithmetic in R, then compares ideal auction outcomes using a centralized simulation. It does not implement an MPC auction protocol. We simulate a population of bidders with private valuations and compare auction outcomes (revenue, efficiency, bidder surplus) across three regimes: a standard first-price sealed-bid auction where bids are visible to the auctioneer, a second-price (Vickrey) auction, and a duplicated ideal target for a potential MPC implementation. The duplicated Vickrey outcome is an ideal-function benchmark; it provides no evidence about privacy, secure computation or real-world incentives.
 
 ## Mathematical formulation
 
@@ -91,7 +91,7 @@ where $v_{(2)}$ is the second-highest valuation. MPC preserves this incentive co
 
 ## R implementation
 
-We implement Shamir's secret sharing over a finite field and demonstrate a simplified MPC auction protocol. For tractability, we work with a moderate prime and simulate the strategic comparison between auction formats.
+We demonstrate Shamir's finite-field arithmetic and centralized auction outcomes. For tractability, we work with a moderate prime and simulate the strategic comparison between auction formats.
 
 ```{r}
 #| label: mpc-implementation
@@ -99,9 +99,15 @@ We implement Shamir's secret sharing over a finite field and demonstrate a simpl
 set.seed(314)
 
 # ---- Modular arithmetic helpers ----
+field_check <- function(prime) {
+  if (!is.numeric(prime) || length(prime)!=1L || !is.finite(prime) ||
+      prime!=floor(prime) || prime<2 || prime>46337 ||
+      (prime>3 && any(prime %% seq.int(2,floor(sqrt(prime))) == 0)))
+    stop("Use a prime integer from 2 through 46337.")
+}
 mod_inv <- function(a, p) {
   # Extended Euclidean algorithm for modular inverse
-  if (a == 0) return(0)
+  if (a %% p == 0) stop("Zero has no multiplicative inverse")
   a <- a %% p
   g <- p; x <- 0; y <- 1
   a_curr <- a
@@ -119,8 +125,13 @@ mod_inv <- function(a, p) {
 
 # ---- Shamir's Secret Sharing ----
 shamir_share <- function(secret, n, t, p) {
-  # Share a secret using a degree-t polynomial over F_p
-  coeffs <- c(secret %% p, sample(1:(p-1), t, replace = TRUE))
+  # t is the polynomial degree here; the reconstruction threshold is t + 1.
+  field_check(p)
+  args <- c(secret,n,t)
+  if (length(args)!=3L || any(!is.finite(args)) || any(args!=floor(args)) ||
+      secret<0 || secret>=p || t<0 || n<=t || n>=p)
+    stop("Require 0 <= secret < p and 0 <= t < n < p")
+  coeffs <- c(secret, sample.int(p, t, replace = TRUE) - 1)
   shares <- numeric(n)
   for (i in 1:n) {
     val <- 0
@@ -136,6 +147,12 @@ shamir_share <- function(secret, n, t, p) {
 }
 
 shamir_reconstruct <- function(indices, share_values, p) {
+  field_check(p)
+  vals <- c(indices,share_values)
+  if (!length(indices) || length(indices)!=length(share_values) ||
+      any(!is.finite(vals)) || any(vals!=floor(vals)) || anyDuplicated(indices) ||
+      any(indices<1 | indices>=p) || any(share_values<0 | share_values>=p))
+    stop("Require distinct nonzero coordinates and valid field values")
   # Lagrange interpolation at x=0
   n <- length(indices)
   secret <- 0
@@ -177,7 +194,7 @@ shares_sum <- (shares_a + shares_b) %% p
 recovered_sum <- shamir_reconstruct(c(1,2,3), shares_sum[c(1,2,3)], p)
 cat("Additive homomorphism: ", secret_a, "+", secret_b, "=", recovered_sum, "\n")
 
-# ---- MPC Sealed-Bid Auction Simulation ----
+# ---- Centralized Sealed-Bid Auction Simulation ----
 n_bidders <- 6
 n_sims <- 1000
 
@@ -194,8 +211,8 @@ for (s in 1:n_sims) {
   true_winner <- which.max(valuations)
   second_highest <- sort(valuations, decreasing = TRUE)[2]
 
-  # 1. First-price auction (bid shading: b_i = (n-1)/n * v_i for risk-neutral)
-  bids_fp <- valuations * (n_bidders - 1) / n_bidders
+  # 1. Risk-neutral equilibrium for independent U[10,100] values
+  bids_fp <- 10 + (valuations - 10) * (n_bidders - 1) / n_bidders
   winner_fp <- which.max(bids_fp)
   revenue_fp <- max(bids_fp)
   efficiency_fp <- as.integer(winner_fp == true_winner)
@@ -209,11 +226,9 @@ for (s in 1:n_sims) {
   efficiency_v <- 1  # always efficient
   surplus_v <- valuations[winner_v] - revenue_v
 
-  # 3. MPC Vickrey (truthful, no information leakage)
-  # Outcome identical to Vickrey, but with privacy guarantee
-  # Simulate: each bidder secret-shares their bid
-  # Protocol computes winner and price securely
-  bids_mpc <- valuations  # truthful (dominant strategy preserved by MPC)
+  # 3. Ideal-function benchmark only: all bids are visible in this R process.
+  # No secret-sharing comparison circuit or private auction is implemented.
+  bids_mpc <- valuations  # truthful benchmark; no MPC protocol is executed
   winner_mpc <- which.max(bids_mpc)
   revenue_mpc <- sort(bids_mpc, decreasing = TRUE)[2]
   efficiency_mpc <- 1
@@ -221,7 +236,7 @@ for (s in 1:n_sims) {
 
   sim_results <- rbind(sim_results, data.frame(
     sim = rep(s, 3),
-    format = c("First-Price", "Vickrey (Open)", "Vickrey (MPC)"),
+    format = c("First-Price", "Vickrey (Open)", "Vickrey (ideal MPC target)"),
     revenue = c(revenue_fp, revenue_v, revenue_mpc),
     efficiency = c(efficiency_fp, efficiency_v, efficiency_mpc),
     winner_surplus = c(surplus_fp, surplus_v, surplus_mpc)
@@ -251,7 +266,7 @@ The figure compares the revenue distributions across the three auction formats. 
 
 ```{r}
 #| label: fig-mpc-auction-static
-#| fig-cap: "Figure 1. Revenue distributions across auction formats. First-price auctions (with equilibrium bid shading) and Vickrey auctions (open and MPC-secured) yield similar expected revenue by the revenue equivalence theorem, but differ in variance and privacy properties. The MPC-secured Vickrey auction preserves incentive compatibility while protecting bid privacy. 1000 simulations with 6 bidders, valuations drawn from U[10, 100]."
+#| fig-cap: "Figure 1. Revenue distributions across auction formats. First-price auctions (with equilibrium bid shading) and Vickrey auctions (centralized and ideal-function target) yield similar expected revenue by the revenue equivalence theorem, with the first-price and Vickrey distributions differing in variance. The ideal MPC target is a copy of the centralized Vickrey result; privacy is not implemented or measured. 1000 simulations with 6 bidders, valuations drawn from U[10, 100]."
 #| dev: [png, pdf]
 #| fig-width: 9
 #| fig-height: 5
@@ -262,7 +277,7 @@ p_static <- ggplot(sim_results, aes(x = revenue, fill = format)) +
   scale_fill_manual(
     values = c("First-Price" = okabe_ito[1],
                "Vickrey (Open)" = okabe_ito[2],
-               "Vickrey (MPC)" = okabe_ito[3]),
+               "Vickrey (ideal MPC target)" = okabe_ito[3]),
     name = "Auction Format"
   ) +
   geom_vline(data = summary_stats, aes(xintercept = avg_revenue, color = format),
@@ -270,11 +285,11 @@ p_static <- ggplot(sim_results, aes(x = revenue, fill = format)) +
   scale_color_manual(
     values = c("First-Price" = okabe_ito[1],
                "Vickrey (Open)" = okabe_ito[2],
-               "Vickrey (MPC)" = okabe_ito[3])
+               "Vickrey (ideal MPC target)" = okabe_ito[3])
   ) +
   labs(
     title = "Revenue Distribution by Auction Format",
-    subtitle = "Dashed lines indicate mean revenue; MPC preserves Vickrey incentives with privacy",
+    subtitle = "Dashed lines indicate mean revenue; ideal target duplicates the centralized outcome",
     x = "Revenue", y = "Density"
   ) +
   theme_publication()
@@ -309,7 +324,7 @@ p_inter <- ggplot(bin_data, aes(x = revenue_bin, y = density, fill = format, tex
   scale_fill_manual(
     values = c("First-Price" = okabe_ito[1],
                "Vickrey (Open)" = okabe_ito[2],
-               "Vickrey (MPC)" = okabe_ito[3]),
+               "Vickrey (ideal MPC target)" = okabe_ito[3]),
     name = "Format"
   ) +
   labs(
@@ -324,19 +339,25 @@ ggplotly(p_inter, tooltip = "text") |>
 
 ## Interpretation
 
-The results of our simulation illuminate the fundamental relationship between cryptographic protocols and strategic incentives in game-theoretic environments. At the most basic level, we have demonstrated that Shamir's secret sharing scheme works correctly: a secret can be split among multiple parties such that any threshold number of shares suffices for reconstruction, while fewer shares reveal nothing. The additive homomorphism property -- the fact that the sum of shares equals a share of the sum -- is the key primitive that enables secure computation over shared data without requiring parties to reveal their private inputs.
+The reconstruction and addition examples demonstrate finite-field identities.
+Shamir's privacy theorem requires independent uniform coefficients from the entire
+field, including zero; see [the original paper](https://dspace.mit.edu/entities/publication/91c51bfc-5678-409c-80c5-44ce8fcdbadf).
+This deterministic teaching setup uses R's ordinary random generator and small
+fields, and must not be used to protect real secrets.
 
-The auction simulation results confirm the revenue equivalence theorem: with risk-neutral bidders drawing valuations independently from the same distribution, the first-price auction (with equilibrium bid shading of $b_i = \frac{n-1}{n} v_i$) and the second-price (Vickrey) auction yield approximately the same expected revenue. This classical result, due to Vickrey (1961) and generalised by Myerson (1981) and Riley and Samuelson (1981), holds in our simulation with the expected revenue converging as the number of simulations grows. However, the revenue distributions differ: the first-price auction has lower variance because bid shading compresses the price distribution, while the second-price auction's revenue depends on the second-highest valuation, which has higher variability.
+For independent risk-neutral valuations on U[10,100], the first-price equilibrium
+bid is $10 + (n-1)(v-10)/n$. Including the lower support endpoint matters: multiplying
+$v$ alone by $(n-1)/n$ understates bids. The simulated revenues illustrate the
+model's expected-revenue relationship; a finite simulation does not prove it.
 
-The more subtle and important insight concerns the role of MPC in preserving incentive compatibility. In a standard Vickrey auction run by a trusted auctioneer, truthful bidding is a weakly dominant strategy regardless of what other bidders do. This elegant incentive property is one of the most celebrated results in mechanism design. However, it relies critically on the assumption that the auctioneer faithfully implements the mechanism -- that the auctioneer does not exploit knowledge of the bids. In practice, auctioneers face temptations: they could favour certain bidders, insert shill bids, or sell bid information to third parties. The mere possibility of such behaviour can cause rational bidders to shade their bids or avoid participation altogether, undermining the theoretical guarantees.
-
-MPC resolves this problem by eliminating the need for a trusted auctioneer entirely. When bids are secret-shared among the bidders themselves (or among a set of computation servers), no single party ever observes an individual bid. The protocol computes only the winner and the price, revealing nothing else. This means that the privacy concerns that might cause bid shading in a real-world Vickrey auction are eliminated, and the theoretical incentive compatibility is restored in practice. In our simulation, the MPC Vickrey auction produces identical outcomes to the standard Vickrey auction -- this is by design, since MPC computes the same function -- but the crucial difference lies in the information revealed to participants.
-
-The connection to mechanism design theory is formalised through the concept of implementation in communication equilibrium. Abraham, Dolev, Gonen, and Halpern (2006) showed that any mechanism that can be implemented by a trusted mediator can also be implemented by an MPC protocol, provided a majority of players are honest. This result means that MPC effectively renders the revelation principle constructive: rather than merely proving that a direct mechanism exists in theory, MPC provides a concrete protocol for implementing it without trust assumptions. For auction design, this means that the desirable properties of the Vickrey-Clarke-Groves mechanism -- efficiency, incentive compatibility, and individual rationality -- can be achieved without relying on any trusted party.
-
-From a practical standpoint, MPC-based auctions have been deployed in real settings. The Danish sugar beet auction (Bogetoft, Christensen, and Damgard, 2009) was the first large-scale commercial application of MPC to a real auction, demonstrating that the technology is not merely theoretical. More recently, MPC protocols have been proposed for spectrum auctions, procurement auctions, and financial markets where bid privacy is essential for fair competition. The computational overhead of MPC has decreased dramatically with advances in protocol design, making these applications increasingly practical.
-
-Our implementation, while simplified for pedagogical purposes, captures the essential logic. A full MPC implementation would require handling malicious adversaries (who deviate from the protocol), communication complexity (the number of messages exchanged between parties), and computational efficiency (the time to evaluate the circuit computing the auction outcome). These engineering challenges are substantial but do not alter the fundamental game-theoretic insight: cryptographic protocols can transform the strategic landscape by enabling commitment to mechanisms that would otherwise require trust.
+The two Vickrey series are identical by construction. Both use centralized
+`which.max` and sorting over plaintext bids. The second series represents the
+function that a secure protocol would need to compute, not an implemented MPC
+protocol or a privacy experiment. Secret sharing alone does not implement secure
+comparisons, guarantee honest execution or establish incentive compatibility in
+an adversarial communication setting. A real deployment needs a specified threat
+model, suitable randomness and field sizes, a reviewed protocol and independent
+security evaluation. Those tasks are outside this tutorial.
 
 ## Extensions & related tutorials
 

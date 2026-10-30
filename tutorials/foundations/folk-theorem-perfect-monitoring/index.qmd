@@ -180,7 +180,7 @@ We visualize the feasible payoff set, the individually rational region (the folk
 
 ```{r}
 #| label: fig-folk-theorem-region
-#| fig-cap: "Figure 1. The folk theorem for the repeated Prisoner's Dilemma. The light blue region is the feasible payoff set (convex hull of stage-game payoffs). The darker shaded region above both minimax values (dashed lines) is the individually rational feasible set — the set of payoffs achievable as subgame-perfect equilibria when players are sufficiently patient. The Nash equilibrium (D,D) = (1,1) sits at the minimax point; mutual cooperation (3,3) is interior to the folk theorem region."
+#| fig-cap: "Figure 1. The folk theorem for the repeated Prisoner's Dilemma. The light blue region is the feasible payoff set (convex hull of stage-game payoffs). The darker shaded region above both minimax values (dashed lines) is the individually rational feasible set — the set of payoffs achievable as subgame-perfect equilibria when players are sufficiently patient. The Nash equilibrium (D,D) = (1,1) sits at the minimax point; mutual cooperation (3,3) is a vertex on the feasible frontier. Strictly individually rational points have the folk-theorem guarantee."
 #| dev: [png, pdf]
 #| fig-width: 8
 #| fig-height: 6
@@ -258,32 +258,17 @@ The interactive figure lets you explore the relationship between the discount fa
 ```{r}
 #| label: fig-folk-theorem-interactive
 
-# Show how the critical discount factor varies for different target payoffs
-# along the Pareto frontier and the v1=v2 line
-target_payoffs <- seq(1.01, 3, by = 0.01)
-
-# For symmetric payoffs (v, v) sustained by grim trigger:
-# Deviation gain: T - v, Punishment loss per period: v - P
-# Critical delta: (T - v) / (T - P) ... wait, let's be precise.
-# To sustain (v,v) via mixing C,C with prob p and D,D with prob 1-p:
-# v = p*R + (1-p)*P => p = (v - P)/(R - P)
-# Deviation payoff when supposed to play C: T (play D instead)
-# Deviation payoff when supposed to play D: P (already best response)
-# So deviation gain = T - v (in a CC period, get T instead of R)
-# Expected one-shot deviation gain = p*(T - R)
-# Punishment = revert to (P,P) forever
-# No-deviation constraint: v/(1-delta) >= p*T + (1-p)*P + delta*P/(1-delta)
-# => v >= (1-delta)*(p*T + (1-p)*P) + delta*P
-# => v >= (1-delta)*v + (1-delta)*p*(T-R)... let me redo
-# Actually for a target payoff v on the symmetric line, sustained by
-# alternating/mixing, the simplest approach: use grim trigger where
-# "cooperate" means play the mixed action achieving v, deviation triggers (D,D).
-# If the stage payoff is v and best deviation gives T (when supposed to cooperate):
-# delta >= (T - v) / (T - P) for symmetric PD with these payoffs
+# Public signal recommends (C,C) with probability p, otherwise (D,D).
+# The stationary expected payoff is v=p*R+(1-p)*P. After a C recommendation:
+# R + delta*v/(1-delta) >= T + delta*P/(1-delta).
+# Therefore delta >= (T-R)/(T-R+v-P). A D recommendation is already a best reply.
+# This is a sufficient condition for this construction, not every equilibrium.
+target_payoffs <- seq(P_pay + 0.01, R_pay, by = 0.01)
+public_grim_threshold <- function(v, T, R, P) (T-R)/(T-R+v-P)
 
 delta_for_v <- data.frame(
   v = target_payoffs,
-  delta_crit = (T_pay - target_payoffs) / (T_pay - P_pay)
+  delta_crit = public_grim_threshold(target_payoffs, T_pay, R_pay, P_pay)
 )
 delta_for_v <- delta_for_v |>
   mutate(text = sprintf("Target payoff: (%.2f, %.2f)\nCritical \u03b4: %.3f",
@@ -292,14 +277,14 @@ delta_for_v <- delta_for_v |>
 p_delta <- ggplot(delta_for_v, aes(x = v, y = delta_crit, text = text)) +
   geom_line(color = okabe_ito[5], linewidth = 1) +
   geom_point(data = data.frame(v = R_pay, delta_crit = (T_pay - R_pay)/(T_pay - P_pay)),
-             aes(x = v, y = delta_crit),
+             aes(x = v, y = delta_crit), inherit.aes = FALSE,
              color = okabe_ito[6], size = 3) +
   geom_hline(yintercept = 0.5, linetype = "dotted", color = "grey60") +
   annotate("text", x = 2.8, y = 0.55,
            label = "\u03b4 = 1/2 (cooperation threshold)", size = 3, color = "grey40") +
   labs(
     title = "Critical discount factor vs. target symmetric payoff",
-    subtitle = "Lower target payoffs require less patience to sustain",
+    subtitle = "Publicly correlated CC/DD play: lower payoffs require more patience",
     x = "Target payoff (v, v) on symmetric line",
     y = "Minimum discount factor \u03b4"
   ) +
@@ -313,9 +298,24 @@ ggplotly(p_delta, tooltip = "text") |>
 
 ## Interpretation
 
-The visualization reveals several key insights about the folk theorem. First, the feasible payoff set $F$ is a quadrilateral with vertices at the four pure-strategy payoff profiles. The individually rational feasible set $F^*$ — the folk theorem region — is the subset of $F$ where both players receive at least their minimax value of 1. This region contains a rich set of payoff profiles, from barely above mutual defection (close to $(1,1)$) to highly asymmetric outcomes like $(1, 5)$ where one player cooperates unconditionally while the other exploits them. The mutual cooperation outcome $(3,3)$ is interior to this region, confirming that cooperation is sustainable but not the only equilibrium outcome — the folk theorem tells us that repeated interaction enables cooperation but does not uniquely select it.
+The feasible payoff set is the quadrilateral with vertices $(3,3)$, $(0,5)$,
+$(5,0)$, and $(1,1)$. The shaded region clips this set to both payoffs at least
+one; the theorem guarantees its strictly individually rational points for
+sufficiently patient players. Mutual cooperation $(3,3)$ is a frontier vertex,
+not an interior point. An asymmetric feasible and strictly individually rational
+example is $(2,11/3)$, obtained by mixing $(3,3)$ with $(0,5)$ in proportions
+$2/3$ and $1/3$. Feasibility alone does not determine an equilibrium strategy.
 
-The critical discount factor $\delta^* = 1/2$ for sustaining mutual cooperation via grim trigger has an intuitive interpretation: the one-period temptation gain from defecting ($T - R = 5 - 3 = 2$) must be outweighed by the discounted future punishment ($\delta(R - P)/(1 - \delta)$). At $\delta = 1/2$, these are exactly equal. As the interactive figure shows, sustaining payoffs closer to the minimax value requires less patience (lower $\delta$) because the temptation to deviate is smaller. This creates a monotone relationship between patience and the set of sustainable payoffs — a hallmark of the folk theorem.
+Mutual cooperation under grim trigger needs $\delta \geq 1/2$. The second
+figure examines a specific public randomization: recommend $(C,C)$ with
+probability $p=(v-P)/(R-P)$ and $(D,D)$ otherwise, and switch permanently to
+$(D,D)$ after a deviation. Conditional on a cooperation recommendation, the
+incentive constraint is
+$R+\delta v/(1-\delta) \geq T+\delta P/(1-\delta)$, giving
+$\delta \geq (T-R)/(T-R+v-P)$. For this construction, a lower expected payoff
+makes the punishment less costly and requires **more** patience. At $v=2$ the
+threshold is $2/3$; at $v=3$ it is $1/2$. The curve is a sufficient condition
+for this strategy, not a characterization of the entire equilibrium payoff set.
 
 A critical caveat is that perfect monitoring is essential for grim trigger and related strategies. If players cannot observe each other's actions perfectly — the case of imperfect monitoring — the folk theorem requires more sophisticated construction techniques, including the use of statistical tests and public randomization devices. The extensions to imperfect monitoring (Green and Porter 1984; Abreu, Pearce, and Stacchetti 1990) are among the deepest results in the theory of repeated games. The perfect-monitoring case studied here, while foundational, represents the most optimistic scenario for cooperation.
 

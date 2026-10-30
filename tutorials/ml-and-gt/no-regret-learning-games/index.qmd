@@ -68,7 +68,7 @@ $$
 w_i^1(k) = 1, \quad w_i^{t+1}(k) = w_i^t(k) \cdot (1 + \eta \cdot u_i(k, a_{-i}^t))
 $$
 
-where $\eta > 0$ is the learning rate. The mixed strategy is $\sigma_i^t(k) = w_i^t(k) / \sum_{k'} w_i^t(k')$.
+where the learning rate must keep $1+\eta u$ positive. For bounded payoffs in $[-1,1]$, the implementation uses $0<\eta\leq 1/2$ and normalizes weights after every update. The mixed strategy is $\sigma_i^t(k) = w_i^t(k) / \sum_{k'} w_i^t(k')$.
 
 **External regret** of player $i$ after $T$ rounds with respect to action $k$:
 
@@ -99,16 +99,29 @@ set.seed(42)
 
 # --- MWU (Multiplicative Weights Update) ---
 mwu_update <- function(weights, payoffs, eta) {
-  weights * (1 + eta * payoffs)
+  stopifnot(length(weights)==length(payoffs),length(weights)>0L,
+            all(is.finite(c(weights,payoffs,eta))),all(weights>=0),sum(weights)>0,
+            length(eta)==1L,eta>0)
+  factors <- 1+eta*payoffs
+  if (any(factors<=0)) stop("Learning rate must keep all MWU factors positive")
+  updated <- (weights/sum(weights))*factors
+  updated/sum(updated)
 }
 
 # --- Exp3 (adversarial bandit) ---
 exp3_update <- function(weights, played_action, payoff, n_actions, gamma) {
+  stopifnot(length(weights)==n_actions,n_actions>=2,all(is.finite(weights)),
+            all(weights>=0),sum(weights)>0,length(played_action)==1L,
+            played_action==floor(played_action),played_action>=1,played_action<=n_actions,
+            length(payoff)==1L,is.finite(payoff),payoff>=0,payoff<=1,
+            length(gamma)==1L,is.finite(gamma),gamma>0,gamma<=1)
   probs <- (1 - gamma) * weights / sum(weights) + gamma / n_actions
   # Importance-weighted estimate
   estimated_payoffs <- rep(0, n_actions)
   estimated_payoffs[played_action] <- payoff / probs[played_action]
-  weights * exp(gamma / n_actions * estimated_payoffs)
+  log_weights <- log(weights/sum(weights)) + gamma/n_actions*estimated_payoffs
+  updated <- exp(log_weights-max(log_weights))
+  updated/sum(updated)
 }
 
 # --- FTRL with entropic regulariser (equivalent to MWU) ---
@@ -325,18 +338,24 @@ The interactive figure compares the regret trajectories across the three algorit
 T_compare <- 1000
 
 run_algorithm <- function(algo_name, T, payoff_matrix, eta_base = NULL) {
+  stopifnot(algo_name %in% c("MWU","Exp3","FTRL"),is.matrix(payoff_matrix),
+            nrow(payoff_matrix)==ncol(payoff_matrix),nrow(payoff_matrix)>=2,
+            all(is.finite(payoff_matrix)),length(T)==1L,is.finite(T),T==floor(T),T>=1)
   n_actions <- nrow(payoff_matrix)
+  lo <- min(payoff_matrix);hi <- max(payoff_matrix)
+  reward <- function(x,low,high) if(high==low) 0.5 else (x-low)/(high-low)
+  payoff_scale <- max(1,max(abs(payoff_matrix)))
   w1 <- rep(1, n_actions)
   w2 <- rep(1, n_actions)
   cum_payoffs_1 <- rep(0, n_actions)
   total_payoff_1 <- 0
-  gamma <- 0.1  # For Exp3
+  gamma <- min(1,sqrt(n_actions*log(n_actions)/((exp(1)-1)*T)))
   cum_utility_1 <- rep(0, n_actions)  # For FTRL
 
   regret_over_time <- numeric(T)
 
   for (t in 1:T) {
-    eta <- if (!is.null(eta_base)) eta_base else sqrt(log(n_actions) / t)
+    eta <- if (!is.null(eta_base)) eta_base else min(0.5,sqrt(log(n_actions) / T))/payoff_scale
 
     if (algo_name == "MWU") {
       s1 <- w1 / sum(w1)
@@ -365,8 +384,8 @@ run_algorithm <- function(algo_name, T, payoff_matrix, eta_base = NULL) {
       w1 <- mwu_update(w1, payoffs_1_all, eta)
       w2 <- mwu_update(w2, payoffs_2_all, eta)
     } else if (algo_name == "Exp3") {
-      w1 <- exp3_update(w1, a1, pay1, n_actions, gamma)
-      w2 <- exp3_update(w2, a2, -pay1, n_actions, gamma)
+      w1 <- exp3_update(w1, a1, reward(pay1,lo,hi), n_actions, gamma)
+      w2 <- exp3_update(w2, a2, reward(-pay1,-hi,-lo), n_actions, gamma)
     } else {
       w2 <- mwu_update(w2, payoffs_2_all, eta)
     }
@@ -398,7 +417,7 @@ p_int <- ggplot(compare_data, aes(x = t, y = per_round_regret,
   scale_colour_manual(values = okabe_ito[c(5, 1, 3)], name = "Algorithm") +
   labs(
     title = "Per-round regret comparison: MWU vs. Exp3 vs. FTRL",
-    subtitle = "Rock-Paper-Scissors, all algorithms converge to zero per-round regret",
+    subtitle = "Rock-Paper-Scissors, finite-horizon comparison; Exp3 uses rewards rescaled to [0,1]",
     x = "Round (t)", y = "Per-round external regret"
   ) +
   theme_publication()
@@ -409,19 +428,31 @@ ggplotly(p_int, tooltip = "text") %>%
 
 ## Interpretation
 
-The simulation results illustrate the fundamental connection between no-regret learning and game-theoretic equilibrium in two complementary settings. In Rock-Paper-Scissors, the unique Nash equilibrium is the uniform distribution $(1/3, 1/3, 1/3)$ over all three actions. When both players use MWU, the empirical frequencies of each action converge to $1/3$ as the number of rounds increases. This convergence is not immediate --- in the early rounds, the frequencies fluctuate substantially as the algorithm explores and the weights adjust --- but the oscillations dampen over time as the learning rate effectively decreases (since we use $\eta = \sqrt{\ln K / T}$, which accounts for the full horizon). After 2000 rounds, the empirical frequencies are within a few percentage points of the equilibrium, and the per-round regret has dropped to near zero.
+The trajectories are finite, seeded demonstrations. Low empirical regret is
+consistent with learning guarantees under their stated bounded-payoff and
+feedback assumptions; one run does not prove asymptotic convergence or establish
+which algorithm is universally fastest.
 
-The convergence to a coarse correlated equilibrium (CCE) is the key theoretical guarantee. In Rock-Paper-Scissors, the set of CCE coincides with the Nash equilibrium (the uniform distribution), so convergence to CCE is equivalent to convergence to Nash. However, in general games, the set of CCE is larger than the set of Nash equilibria --- it allows for correlations between players' strategies that Nash equilibrium does not. The coordination game illustrates this: the game has two pure Nash equilibria, (A,A) and (B,B), and a mixed Nash equilibrium. The set of CCE includes all convex combinations of the equilibria plus additional correlated distributions. When both players use MWU in the coordination game, the empirical play converges to a CCE that typically involves a mixture of (A,A) and (B,B) outcomes, with the exact proportions depending on the random seed and learning dynamics. This is a weaker outcome than Nash equilibrium convergence but is the strongest guarantee that can be made for independent no-regret learners in general games.
+No external regret for every player controls the empirical joint distribution's
+distance from coarse correlated equilibrium. In zero-sum games its average
+marginals approach minimax strategies, but the joint distribution can retain
+correlation. For example, uniformly playing only the three diagonal RPS action
+pairs is a CCE with uniform marginals; it is not the independent Nash product.
+External regret targets coarse correlated equilibrium, not the stronger
+correlated-equilibrium condition that requires conditional deviations.
 
-The regret comparison across algorithms reveals important practical differences. MWU, operating in the full-information setting (where the player observes the payoffs of all actions, not just the one played), achieves the tightest regret bound and the fastest convergence. Exp3, designed for the bandit setting (where only the played action's payoff is observed), achieves sublinear regret but at a slower rate, because it must explore to estimate the payoffs of unplayed actions. The importance-weighted payoff estimates used by Exp3 introduce additional variance, which manifests as noisier regret trajectories. FTRL with entropic regularisation is mathematically equivalent to MWU in the full-information setting, and the two algorithms produce very similar regret trajectories, differing only due to implementation details and random sampling.
+The comparison uses a horizon-dependent bounded rate for linear MWU. Exp3 sees
+only the played reward, scaled to [0,1], and uses a horizon-dependent exploration
+rate; regret is reported in the original payoff units. FTRL's entropic softmax
+corresponds to exponential weights, not exactly to the linear MWU update printed
+here. Bandit and full-information feedback differ, so their sampled curves are
+not a controlled ranking of the algorithms.
 
-Several insights from no-regret learning have broader implications for game theory and mechanism design. First, the convergence to CCE rather than Nash equilibrium means that no-regret learning provides a foundation for correlated equilibrium as a prediction of game play, supporting the argument that correlated equilibrium is a more natural solution concept than Nash equilibrium for settings where players learn from experience rather than computing equilibria directly. Second, the rate of convergence ($O(\sqrt{T \ln K})$ for MWU) means that the approximation to equilibrium improves with the square root of the number of rounds, so a moderately long interaction is sufficient for approximate equilibrium to emerge. Third, the fact that each player's algorithm needs only access to their own payoffs (not other players' payoffs or strategies) means that no-regret learning is decentralised and privacy-preserving --- players can converge to equilibrium without revealing their strategies or payoff functions to each other.
-
-There are important limitations to the no-regret convergence result. The convergence is in terms of time-averaged play, not period-by-period play. In each individual round, the players' strategies may be far from equilibrium and may exhibit cycling or chaotic behaviour, particularly in games like Rock-Paper-Scissors where the best-response dynamics are inherently cyclic. This distinction between time-average convergence and point-wise convergence has been a major focus of recent research, with some papers showing that in certain games (such as zero-sum games with certain last-iterate convergent algorithms like Optimistic MWU), point-wise convergence can also be achieved.
-
-Furthermore, the assumption that players observe full payoff information (all counterfactual payoffs, not just the realised one) is often unrealistic. In many real-world settings, players observe only the payoff of their chosen action, corresponding to the bandit feedback model. While Exp3 handles this setting, the regret bounds are weaker, and convergence is slower. In partial monitoring settings, where even the payoff of the chosen action may be noisy or delayed, the learning problem becomes more challenging still.
-
-Despite these caveats, no-regret learning provides one of the most compelling and practical bridges between learning theory and game theory. It demonstrates that equilibrium is not merely a theoretical construct requiring omniscient rational agents, but an emergent property of simple, adaptive learning algorithms that real agents might plausibly use.
+Individual strategies may keep cycling even when average regret is small. The
+coordination example illustrates one realized path; the seed and learning rule
+can affect the outcome. Decentralized feedback does not itself provide a formal
+privacy guarantee. Extending these examples needs explicit payoff bounds,
+feedback assumptions and a separate statistical evaluation across seeds.
 
 ## Extensions & related tutorials
 

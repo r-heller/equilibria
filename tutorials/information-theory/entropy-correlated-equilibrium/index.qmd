@@ -54,9 +54,9 @@ The maximum entropy correlated equilibrium (MaxEnt CE) has several compelling pr
 
 From a computational perspective, the MaxEnt CE has a unique advantage: it always exists and is unique (since entropy is strictly concave), whereas the welfare-maximising CE may not be unique (the optimal value is unique, but multiple distributions may achieve it). This uniqueness makes the MaxEnt CE a well-defined prediction for any game, eliminating the multiplicity problem that plagues other equilibrium concepts.
 
-The connection between entropy and game theory opens up a rich set of information-theoretic questions. How much information does the mediator's signal carry about each player's recommended action? This is measured by the mutual information between the signal and the marginal recommendation. In a Nash equilibrium, this mutual information is zero (since players randomise independently and the signal is vacuous). In a correlated equilibrium, positive mutual information indicates genuine coordination -- the players' actions are statistically dependent, mediated by the shared signal. The MaxEnt CE minimises this dependence: it is the equilibrium where the mediator provides just enough coordination to satisfy the incentive constraints, and no more.
+The connection between entropy and game theory opens up a rich set of information-theoretic questions. How dependent are the two recommended actions? Here we measure their mutual information, not the information between a separate mediator signal and one recommendation. In a Nash equilibrium, this mutual information is zero (since players randomise independently and the signal is vacuous). In a correlated equilibrium, positive mutual information indicates genuine coordination -- the players' actions are statistically dependent, mediated by the shared signal. Maximum joint entropy does not in general minimize this dependence: mutual information also depends on both marginal entropies. Any product-distribution Nash equilibrium is already a CE with zero mutual information.
 
-This tutorial implements the MaxEnt CE as a constrained optimisation problem using only base R, applies it to the classic game of Chicken (Hawk-Dove) and a coordination game, and compares the result with the welfare-maximising CE obtained via a linear programme. We then compute the mutual information between the signal and each player's action, illustrating how different equilibrium selection criteria lead to different information structures.
+This tutorial implements the MaxEnt CE as a constrained optimisation problem using only base R, applies it to the classic game of Chicken (Hawk-Dove) and a coordination game, and compares the result with the welfare-maximising CE obtained via a linear programme. We then compute the mutual information between the two recommended actions, illustrating how different equilibrium selection criteria lead to different information structures.
 
 ## Mathematical formulation
 
@@ -108,7 +108,7 @@ where $p_1(i) = \sum_j p(i,j)$ and $p_2(j) = \sum_i p(i,j)$ are the marginal dis
 
 ## R implementation
 
-We implement the MaxEnt CE and welfare-maximising CE for the game of Chicken and a Battle of the Sexes variant, solving the optimisation using `constrOptim()` for the entropy objective and a manual simplex-like search for the linear welfare objective.
+We implement the MaxEnt CE and welfare-maximising CE for the game of Chicken and a Battle of the Sexes variant, enumerating the vertices of the two-by-two CE polytope. `constrOptim()` maximizes entropy over convex mixtures of those vertices; the linear welfare objective is maximized directly over vertices. This handles boundary-only CE sets without inventing strictly positive probabilities. All vectors use row-major action-profile order.
 
 ```{r}
 #| label: maxent-ce-implementation
@@ -121,8 +121,8 @@ set.seed(99)
 #           S       T
 #   S    (3,3)   (1,5)
 #   T    (5,1)   (0,0)
-chicken_u1 <- matrix(c(3, 5, 1, 0), nrow = 2, byrow = TRUE)
-chicken_u2 <- matrix(c(3, 1, 5, 0), nrow = 2, byrow = TRUE)
+chicken_u1 <- matrix(c(3, 1, 5, 0), nrow = 2, byrow = TRUE)
+chicken_u2 <- matrix(c(3, 5, 1, 0), nrow = 2, byrow = TRUE)
 
 # Battle of the Sexes
 #           O       F
@@ -171,112 +171,56 @@ build_ce_constraints <- function(u1, u2) {
   list(A = A, b = b)
 }
 
+# ---- Enumerate the vertices of the 2x2 CE polytope ----
+# Probabilities use row-major order throughout: (1,1), (1,2), (2,1), (2,2).
+ce_vertices <- function(u1, u2, tol = 1e-9) {
+  stopifnot(is.matrix(u1), is.matrix(u2), identical(dim(u1),c(2L,2L)),
+            identical(dim(u2),dim(u1)), all(is.finite(u1)), all(is.finite(u2)))
+  A <- rbind(build_ce_constraints(u1,u2)$A, diag(4))
+  candidates <- lapply(combn(nrow(A),3,simplify=FALSE),function(active) {
+    M <- rbind(rep(1,4),A[active,,drop=FALSE])
+    if (qr(M)$rank < 4) return(NULL)
+    p <- as.numeric(solve(M,c(1,0,0,0)))
+    if (any(A %*% p < -tol)) return(NULL)
+    p[abs(p)<tol] <- 0
+    p/sum(p)
+  })
+  vertices <- do.call(rbind,Filter(Negate(is.null),candidates))
+  if (is.null(vertices)) stop('No CE vertex found; inspect numerical conditioning.')
+  vertices[!duplicated(round(vertices,10)),,drop=FALSE]
+}
+ce_summary <- function(p,u1,u2) {
+  positive <- p[p>0]
+  list(p=matrix(p,nrow=2,byrow=TRUE), entropy=-sum(positive*log(positive)),
+       welfare=sum(p*as.vector(t(u1+u2))))
+}
+
 # ---- Solve MaxEnt CE ----
 solve_maxent_ce <- function(u1, u2, label = "Game") {
-  m <- nrow(u1); n <- ncol(u1); k <- m * n
-
-  ce_con <- build_ce_constraints(u1, u2)
-
-  # Add non-negativity constraints (p_i >= epsilon)
-  eps <- 1e-8
-  A_nonneg <- diag(k)
-  b_nonneg <- rep(eps, k)
-
-  # Combine constraints
-  A_all <- rbind(ce_con$A, A_nonneg)
-  b_all <- c(ce_con$b, b_nonneg)
-
-  # Negative entropy (we minimise, so negate)
-  neg_entropy <- function(p) {
-    p <- p / sum(p)  # normalise
-    p_safe <- pmax(p, 1e-15)
-    sum(p_safe * log(p_safe))
-  }
-
-  neg_entropy_grad <- function(p) {
-    p <- p / sum(p)
-    p_safe <- pmax(p, 1e-15)
-    1 + log(p_safe)
-  }
-
-  # Starting point: uniform (feasible for most games)
-  p0 <- rep(1/k, k)
-
-  result <- tryCatch({
-    constrOptim(
-      theta = p0,
-      f = neg_entropy,
-      grad = neg_entropy_grad,
-      ui = A_all,
-      ci = b_all,
-      method = "BFGS",
-      control = list(maxit = 5000)
-    )
-  }, error = function(e) {
-    # Fallback: try with slightly perturbed starting point
-    p0_perturbed <- p0 + runif(k, -0.01, 0.01)
-    p0_perturbed <- pmax(p0_perturbed, eps)
-    p0_perturbed <- p0_perturbed / sum(p0_perturbed)
-    constrOptim(
-      theta = p0_perturbed,
-      f = neg_entropy,
-      grad = neg_entropy_grad,
-      ui = A_all,
-      ci = b_all,
-      method = "BFGS",
-      control = list(maxit = 5000)
-    )
-  })
-
-  p_star <- result$par / sum(result$par)
-  entropy <- -result$value
-
-  list(p = matrix(p_star, nrow = m, byrow = FALSE), entropy = entropy,
-       welfare = sum(p_star * (as.numeric(u1) + as.numeric(u2))))
+  V <- ce_vertices(u1,u2); n <- nrow(V)
+  if (n==1) return(ce_summary(as.numeric(V),u1,u2))
+  # Convex mixtures of CE vertices are feasible by construction, including
+  # games whose CE set has no interior in the full probability simplex.
+  probability <- function(w) as.numeric(c(w,1-sum(w)) %*% V)
+  directions <- sweep(V[-n,,drop=FALSE],2,V[n,],'-')
+  f <- function(w) {p<-probability(w); positive<-p[p>0];sum(positive*log(positive))}
+  grad <- function(w) as.numeric(directions %*% (1+log(pmax(probability(w),1e-15))))
+  fit <- constrOptim(rep(1/n,n-1),f,grad,
+    ui=rbind(diag(n-1),rep(-1,n-1)),ci=c(rep(0,n-1),-1),
+    mu=1e-8,control=list(maxit=5000,reltol=1e-12),outer.iterations=100)
+  if (fit$convergence!=0) stop('Maximum-entropy optimization did not converge.')
+  p <- probability(fit$par)
+  stopifnot(min(p)>=-1e-9, abs(sum(p)-1)<1e-8,
+            min(build_ce_constraints(u1,u2)$A %*% p)>=-1e-8)
+  ce_summary(p,u1,u2)
 }
 
 # ---- Solve Welfare-Maximising CE ----
 solve_welfare_ce <- function(u1, u2) {
-  m <- nrow(u1); n <- ncol(u1); k <- m * n
-  ce_con <- build_ce_constraints(u1, u2)
-
-  # Welfare coefficients
-  welfare_coef <- as.numeric(u1) + as.numeric(u2)
-
-  # Solve via grid search over the CE polytope
-  # For 2x2 games, we can parametrise and search
-  eps <- 1e-6
-  best_welfare <- -Inf
-  best_p <- rep(1/k, k)
-
-  # Use optimisation with linear objective
-  # Maximise welfare = minimise -welfare
-  neg_welfare <- function(p) {
-    p <- p / sum(p)
-    -sum(p * welfare_coef)
-  }
-
-  A_all <- rbind(ce_con$A, diag(k))
-  b_all <- c(ce_con$b, rep(eps, k))
-
-  p0 <- rep(1/k, k)
-
-  result <- constrOptim(
-    theta = p0,
-    f = neg_welfare,
-    grad = NULL,
-    ui = A_all,
-    ci = b_all,
-    control = list(maxit = 5000)
-  )
-
-  p_star <- result$par / sum(result$par)
-  welfare <- -result$value
-
-  p_safe <- pmax(p_star, 1e-15)
-  entropy <- -sum(p_safe * log(p_safe))
-
-  list(p = matrix(p_star, nrow = m, byrow = FALSE), welfare = welfare, entropy = entropy)
+  V <- ce_vertices(u1,u2)
+  # A linear objective attains its maximum at a polytope vertex.
+  welfare <- as.numeric(V %*% as.vector(t(u1+u2)))
+  ce_summary(V[which.max(welfare),],u1,u2)
 }
 
 # ---- Mutual Information ----
@@ -344,7 +288,7 @@ The figure compares the MaxEnt and welfare-maximising correlated equilibria acro
 
 ```{r}
 #| label: fig-maxent-ce-static
-#| fig-cap: "Figure 1. Correlated equilibrium distributions under maximum entropy and welfare maximisation for the Game of Chicken and Battle of the Sexes. In Chicken, the MaxEnt CE spreads probability more evenly across outcomes (avoiding the crash outcome T,T), while the welfare-maximising CE concentrates on the Pareto-efficient outcomes. In Battle of the Sexes, the MaxEnt CE distributes probability more symmetrically between the two pure equilibria. The entropy-welfare trade-off is visible: higher entropy comes at the cost of lower expected welfare."
+#| fig-cap: "Maximum-entropy and welfare-maximising correlated equilibria for Chicken and Battle of the Sexes. Entropy maximisation can assign probability to inefficient outcomes. The welfare solver returns one maximizing vertex; ties are not resolved by a secondary fairness or entropy criterion."
 #| dev: [png, pdf]
 #| fig-width: 10
 #| fig-height: 5
@@ -422,19 +366,13 @@ ggplotly(p_inter, tooltip = "text") |>
 
 ## Interpretation
 
-The results reveal a fundamental trade-off between two natural desiderata in equilibrium selection: informational parsimony and economic efficiency. The maximum entropy correlated equilibrium distributes probability as uniformly as possible over action profiles while satisfying the incentive compatibility constraints, resulting in an equilibrium that minimises the information content of the mediator's signal. In contrast, the welfare-maximising correlated equilibrium concentrates probability on the most socially efficient outcomes, potentially creating a very informative (low entropy) signal structure.
+Maximum entropy and maximum welfare are different selection criteria on the same CE polytope. Both distributions satisfy obedience constraints. Entropy has a unique maximizer in probability space; a linear welfare objective may have multiple maximizers. The code returns the first maximizing vertex, so its tie choice must not be interpreted as a fairness principle.
 
-In the Game of Chicken, this trade-off is particularly stark. The welfare-maximising CE concentrates probability on the two asymmetric pure Nash equilibria -- (Swerve, Straight) and (Straight, Swerve) -- which are the Pareto-efficient outcomes (each yielding total welfare of 6). It avoids the mutual swerve outcome (Swerve, Swerve) with its moderate payoffs (total 6) and especially the crash outcome (Straight, Straight) with its disastrous payoffs (total 0). The MaxEnt CE, by contrast, assigns more probability to the mutual swerve outcome and distributes probability more evenly, yielding higher entropy but potentially lower welfare. The key insight is that the MaxEnt CE asks: "What is the least coordinated equilibrium that still prevents unilateral deviations?" The answer involves just enough asymmetry to make each player indifferent about deviating, but no more.
+In Chicken, mutual swerve and the two asymmetric outcomes each have total payoff 6, while a crash has total payoff 0. Feasible welfare-maximizing equilibria can place weight on efficient profiles in more than one way. The maximum-entropy solution can retain positive crash probability because spreading probability raises entropy. The displayed distributions and computed welfare quantify that trade-off for these payoffs.
 
-The mutual information analysis adds a crucial dimension to the comparison. In a Nash equilibrium, players randomise independently, so the mutual information between their actions is exactly zero. In a correlated equilibrium, the shared signal induces statistical dependence between actions, and the mutual information quantifies the strength of this dependence. The MaxEnt CE minimises this dependence (among all CE), while the welfare-maximising CE may induce strong dependence if efficient outcomes require tight coordination. For the Game of Chicken, the MaxEnt CE has lower mutual information than the welfare-maximising CE, confirming that it achieves equilibrium with less coordination.
+Mutual information measures dependence between the two action recommendations. It equals zero for every product-distribution Nash equilibrium, which is also a correlated equilibrium. Maximizing joint entropy does not generally minimize mutual information: the latter is the sum of marginal entropies minus joint entropy, and the marginals vary across the feasible set. In particular, a selected pure welfare-maximizing equilibrium has zero mutual information despite low joint entropy. Use the printed quantities rather than assuming an ordering between these criteria.
 
-The Battle of the Sexes illustrates a different aspect of the trade-off. Here, the two pure Nash equilibria -- (Opera, Opera) and (Football, Football) -- are both efficient but favour different players. The welfare-maximising CE places more weight on the equilibrium with higher total payoff (if the payoffs are asymmetric), while the MaxEnt CE distributes probability more symmetrically between the two coordination outcomes. This symmetry property of the MaxEnt CE has been noted by several authors as a form of "fairness" -- the MaxEnt CE does not arbitrarily favour one player's preferred equilibrium over another's when the game's structure does not justify such favouritism.
-
-From a theoretical perspective, the MaxEnt CE connects to several deep results. Nau and McCardle (1990) showed that the correlated equilibrium concept arises naturally from a Bayesian perspective as the set of probability distributions that are jointly coherent (no player can construct a Dutch book). The MaxEnt CE can be seen as the "reference prior" within this Bayesian framework -- the equilibrium that represents maximal uncertainty about the correlation structure. Hart and Schmeidler (1989) proved that the correlated equilibrium polytope is characterised by a simple set of linear inequalities, making the MaxEnt CE the solution to a convex programme with a unique global optimum. This computational tractability is a significant advantage over Nash equilibrium, which requires solving non-convex problems.
-
-The practical implications extend to mechanism design and information design. If a mediator or platform is designing a correlation device (as in Bergemann and Morris's (2016) information design framework), the MaxEnt CE provides a natural benchmark: it represents the minimal amount of information the mediator needs to provide to achieve an equilibrium outcome. Any additional information structure (lower entropy) must be justified by the additional welfare or other objectives it achieves. This framing connects the MaxEnt CE to the broader literature on "Bayesian persuasion" and optimal information disclosure.
-
-Finally, the connection to statistical mechanics deserves emphasis. Jaynes's maximum entropy principle states that, given a set of constraints (observed moments, conservation laws), the probability distribution that maximises entropy is the one that makes the fewest additional assumptions. In game theory, the constraints are the incentive compatibility conditions, and the MaxEnt CE is the equilibrium that assumes the least coordination beyond what these constraints require. This parallel has been explored by several authors, including Wolpert (2006), who developed "information-theoretic bounded rationality" models where players maximise a trade-off between expected payoff and the information cost of their strategies. The MaxEnt CE can be seen as the limiting case of such models where the information cost dominates the payoff objective.
+Maximum entropy is a well-defined selection rule under the stated incentive constraints, not a proof about how real players coordinate or about a mediator's minimum communication cost. Communication protocols, fairness preferences and information-design objectives require additional assumptions. This small base-R implementation enumerates vertices only for two-by-two games; larger games need a suitably qualified convex optimizer.
 
 ## Extensions & related tutorials
 

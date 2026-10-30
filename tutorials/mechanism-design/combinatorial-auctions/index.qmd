@@ -118,7 +118,7 @@ n_bundles <- length(all_bundles)
 # Valuation functions with complementarities
 # Telecom1: values contiguous blocks {A,B} and {A,B,C}
 # Telecom2: values {C,D} and {B,C,D}
-# Telecom3: moderate values, wants any 2 adjacent licences
+# Telecom3: moderate values, bonus for any 2 licences
 single_values <- matrix(c(
   # A    B    C    D
    30,  25,  10,   5,  # Telecom1
@@ -157,7 +157,7 @@ show_bundles <- c("A", "B", "C", "D", "A+B", "C+D", "A+B+C", "B+C+D", "A+B+C+D")
 for (bl in show_bundles) {
   if (bl %in% bundle_labels) {
     idx <- which(bundle_labels == bl)
-    cat(sprintf("  %-8s: T1=%3d  T2=%3d  T3=%3d\n", bl,
+    cat(sprintf("  %-8s: T1=%5.2f  T2=%5.2f  T3=%5.2f\n", bl,
                 val_matrix[1, idx], val_matrix[2, idx], val_matrix[3, idx]))
   }
 }
@@ -198,19 +198,20 @@ constraint_rhs <- c(rep(1, n_items), rep(1, n_bidders))
 result <- lpSolve::lp("max", obj, constraint_matrix, constraint_dir, constraint_rhs,
                         all.bin = TRUE)
 
-cat(sprintf("\n=== Optimal Allocation (Social Welfare = %d) ===\n", result$objval))
+stopifnot(result$status == 0L)
+cat(sprintf("\n=== Optimal Allocation (Social Welfare = %.2f) ===\n", result$objval))
 
 # Decode solution
 allocation <- list()
 for (i in 1:n_bidders) {
   cols <- ((i - 1) * n_bundles + 1):(i * n_bundles)
-  won <- which(result$solution[cols] == 1)
+  won <- which(result$solution[cols] > 0.5)
   if (length(won) > 0) {
     allocation[[bidders[i]]] <- list(
       bundle = bundle_labels[won],
       value = val_matrix[i, won]
     )
-    cat(sprintf("  %s wins bundle {%s}, value = %d\n",
+    cat(sprintf("  %s wins bundle {%s}, value = %.2f\n",
                 bidders[i], bundle_labels[won], val_matrix[i, won]))
   } else {
     allocation[[bidders[i]]] <- list(bundle = "none", value = 0)
@@ -229,7 +230,7 @@ for (i in 1:n_bidders) {
   # Welfare of others in current allocation
   others_welfare_current <- sum(sapply(setdiff(1:n_bidders, i), function(j) {
     cols <- ((j - 1) * n_bundles + 1):(j * n_bundles)
-    won <- which(result$solution[cols] == 1)
+    won <- which(result$solution[cols] > 0.5)
     if (length(won) > 0) val_matrix[j, won] else 0
   }))
 
@@ -240,22 +241,23 @@ for (i in 1:n_bidders) {
 
   result_minus_i <- lpSolve::lp("max", obj_minus_i, constraint_matrix,
                                   constraint_dir, constraint_rhs, all.bin = TRUE)
+  stopifnot(result_minus_i$status == 0L)
   others_welfare_without <- result_minus_i$objval
 
   vcg_payments[i] <- others_welfare_without - others_welfare_current
 
-  cat(sprintf("  %s: VCG payment = %d (externality imposed on others)\n",
+  cat(sprintf("  %s: VCG payment = %.2f (externality imposed on others)\n",
               bidders[i], vcg_payments[i]))
 }
 
-cat(sprintf("\n  Total VCG revenue: %d\n", sum(vcg_payments)))
-cat(sprintf("  Total welfare: %d\n", total_welfare))
+cat(sprintf("\n  Total VCG revenue: %.2f\n", sum(vcg_payments)))
+cat(sprintf("  Total welfare: %.2f\n", total_welfare))
 
 # --- First-price payments (pay your bid) ---
 cat("\n=== First-Price vs VCG ===\n")
 for (i in 1:n_bidders) {
   fp_payment <- allocation[[bidders[i]]]$value
-  cat(sprintf("  %s: First-price = %d, VCG = %d, Savings = %d\n",
+  cat(sprintf("  %s: First-price = %.2f, VCG = %.2f, Savings = %.2f\n",
               bidders[i], fp_payment, vcg_payments[i],
               fp_payment - vcg_payments[i]))
 }
@@ -273,6 +275,7 @@ n_exposure_sims <- 1000
 exposure_results <- tibble(
   sim = 1:n_exposure_sims,
   t1_items_won = integer(n_exposure_sims),
+  t1_complete_ab = logical(n_exposure_sims),
   t1_value = numeric(n_exposure_sims),
   t1_payment = numeric(n_exposure_sims),
   t1_profit = numeric(n_exposure_sims)
@@ -281,7 +284,7 @@ exposure_results <- tibble(
 for (s in 1:n_exposure_sims) {
   # Add noise to bids (strategic uncertainty)
   noise <- matrix(rnorm(n_bidders * n_items, 0, 5), n_bidders, n_items)
-  bids <- pmax(0, single_values + noise)
+  bids <- pmax(single_values + noise, 0)
 
   t1_won <- character()
   t1_pay <- 0
@@ -300,13 +303,14 @@ for (s in 1:n_exposure_sims) {
 
   t1_bundle_val <- if (length(t1_won) > 0) compute_bundle_value(1, t1_won) else 0
   exposure_results$t1_items_won[s] <- length(t1_won)
+  exposure_results$t1_complete_ab[s] <- all(c("A","B") %in% t1_won)
   exposure_results$t1_value[s] <- t1_bundle_val
   exposure_results$t1_payment[s] <- t1_pay
   exposure_results$t1_profit[s] <- t1_bundle_val - t1_pay
 }
 
 cat(sprintf("  Telecom1 wins complete {A,B} bundle: %.1f%% of the time\n",
-            100 * mean(exposure_results$t1_items_won >= 2)))
+            100 * mean(exposure_results$t1_complete_ab)))
 cat(sprintf("  Telecom1 wins only 1 item (exposed!): %.1f%% of the time\n",
             100 * mean(exposure_results$t1_items_won == 1)))
 cat(sprintf("  Telecom1 average profit: %.1f\n", mean(exposure_results$t1_profit)))

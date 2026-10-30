@@ -11,7 +11,7 @@ toc: false
 
 # All Tutorials
 
-A complete alphabetical listing of every tutorial on the site. Use the search box or column headers to filter and sort.
+A complete alphabetical listing of every tutorial on the site. Use the search box to filter titles, topics, tags and dates.
 
 ::: {#tutorials-table}
 Loading…
@@ -22,27 +22,42 @@ Loading…
 document.addEventListener('DOMContentLoaded', async function() {
   const container = document.getElementById('tutorials-table');
   try {
-    const resp = await fetch('artifacts/tutorials.csv');
-    const text = await resp.text();
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) {
-      container.innerHTML = '<p>No tutorials published yet. Check back soon!</p>';
-      return;
-    }
-    const headers = lines[0].split(',');
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      return headers.reduce((obj, h, i) => { obj[h] = cols[i] || ''; return obj; }, {});
-    });
+    const resp = await fetch('artifacts/graph.json');
+    if (!resp.ok) throw new Error('Tutorial index unavailable');
+    const graph = await resp.json();
+    const rows = graph.nodes || [];
     rows.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-
-    let html = '<input id="az-search" placeholder="Search tutorials…" style="width:100%;padding:0.5rem;margin-bottom:1rem;border:1px solid var(--bs-border-color);border-radius:0.25rem;" />';
-    html += '<table class="table table-striped"><thead><tr><th>Title</th><th>Topic</th><th>Tags</th><th>Date</th></tr></thead><tbody>';
-    rows.forEach(r => {
-      html += '<tr class="tutorial-row"><td><a href="' + (r.url || '#') + '">' + (r.title || '') + '</a></td><td>' + (r.topic || '') + '</td><td>' + (r.tags || '') + '</td><td>' + (r.date || '') + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    container.replaceChildren();
+    const label = document.createElement('label');
+    label.htmlFor = 'az-search'; label.textContent = 'Search tutorials';
+    const input = document.createElement('input');
+    input.id = 'az-search'; input.type = 'search'; input.className = 'form-control mb-3';
+    const table = document.createElement('table');
+    table.className = 'table table-striped';
+    table.style.minWidth = '48rem';
+    const scroll = document.createElement('div');
+    scroll.className = 'table-responsive'; scroll.tabIndex = 0;
+    scroll.setAttribute('role','region');
+    scroll.setAttribute('aria-label','Tutorial results; scroll horizontally for all columns');
+    const head = table.createTHead().insertRow();
+    for (const title of ['Title','Topic','Tags','Date']) {
+      const th = document.createElement('th'); th.scope = 'col'; th.textContent = title;
+      head.appendChild(th);
+    }
+    const body = table.createTBody();
+    for (const item of rows) {
+      const row = body.insertRow(); row.className = 'tutorial-row';
+      const link = document.createElement('a');
+      const url = new URL(item.url, window.location.href);
+      if (url.origin !== window.location.origin) throw new Error('Unexpected tutorial origin');
+      link.href = url.href; link.textContent = item.title;
+      const titleCell = row.insertCell(); titleCell.style.minWidth = '18rem';
+      titleCell.appendChild(link);
+      for (const value of [item.topic, (item.tags || []).join('; '), item.date])
+        row.insertCell().textContent = value || '';
+    }
+    scroll.appendChild(table);
+    container.append(label,input,scroll);
 
     document.getElementById('az-search').addEventListener('input', function(e) {
       const q = e.target.value.toLowerCase();
@@ -51,7 +66,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       });
     });
   } catch(err) {
-    container.innerHTML = '<p>No tutorials published yet. Check back soon!</p>';
+    container.textContent = 'The tutorial index could not be loaded. Reload the page or browse by topic.';
   }
 });
 </script>

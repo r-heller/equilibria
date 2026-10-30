@@ -9,8 +9,8 @@ const FULL = 1.0;
 export function createGraph({ container, graph, controller, root, topicById }) {
   /* eslint-disable no-undef */
   if (typeof vis === "undefined") {
-    container.textContent = "Network library failed to load.";
-    return { update() {} };
+    container.textContent = "Network view unavailable. The tutorial list and filters remain available.";
+    return { update() {}, fit() {} };
   }
 
   const idToIndex = new Map();

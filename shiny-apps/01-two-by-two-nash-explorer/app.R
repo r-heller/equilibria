@@ -10,77 +10,7 @@ library(plotly)
 okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
                "#0072B2", "#D55E00", "#CC79A7", "#999999")
 
-# --- Nash equilibrium solver for 2x2 bimatrix games ---
-solve_nash_2x2 <- function(A, B) {
-  equilibria <- list()
-
-  # Check all four pure strategy profiles
-  pure_profiles <- list(c(1,1), c(1,2), c(2,1), c(2,2))
-  for (profile in pure_profiles) {
-    i <- profile[1]; j <- profile[2]
-    # Row player: is i a best response to j?
-    br_row <- A[1, j] >= A[2, j] && A[i, j] >= A[3 - i, j]
-    # Col player: is j a best response to i?
-    br_col <- B[i, 1] >= B[i, 2] && B[i, j] >= B[i, 3 - j]
-
-    # More careful: check if i maximises A[., j] and j maximises B[i, .]
-    br_row <- (A[i, j] >= A[3 - i, j])
-    br_col <- (B[i, j] >= B[i, 3 - j])
-
-    if (br_row && br_col) {
-      equilibria <- c(equilibria, list(list(
-        type = "Pure",
-        p = ifelse(i == 1, 1, 0),
-        q = ifelse(j == 1, 1, 0),
-        row_payoff = A[i, j],
-        col_payoff = B[i, j],
-        label = paste0("(", c("T","B")[i], ", ", c("L","R")[j], ")")
-      )))
-    }
-  }
-
-  # Mixed strategy equilibrium
-  # Row player mixes: col player must be indifferent
-  # q * B[1,1] + (1-q) * B[1,2] = q * B[2,1] + (1-q) * B[2,2]
-  # Col player mixes: row player must be indifferent
-  # p * A[1,1] + (1-p) * A[2,1] = p * A[1,2] + (1-p) * A[2,2]
-
-  denom_q <- (B[1,1] - B[1,2]) - (B[2,1] - B[2,2])
-  denom_p <- (A[1,1] - A[2,1]) - (A[1,2] - A[2,2])
-
-  if (abs(denom_q) > 1e-10 && abs(denom_p) > 1e-10) {
-    q_star <- (B[2,2] - B[1,2]) / denom_q  # P(col plays L) to make row indifferent — wait
-    # Actually: for ROW to be indifferent, COL must mix with prob q on L:
-    # q*A[1,1] + (1-q)*A[1,2] = q*A[2,1] + (1-q)*A[2,2]
-    # q*(A[1,1] - A[2,1]) + (1-q)*(A[1,2] - A[2,2]) = 0
-    # q*(A[1,1] - A[2,1] - A[1,2] + A[2,2]) = A[2,2] - A[1,2]
-    q_star <- (A[2,2] - A[1,2]) / denom_p
-
-    # For COL to be indifferent, ROW must mix with prob p on T:
-    # p*B[1,1] + (1-p)*B[2,1] = p*B[1,2] + (1-p)*B[2,2]
-    # p*(B[1,1] - B[2,1] - B[1,2] + B[2,2]) = B[2,2] - B[2,1]
-    p_star <- (B[2,2] - B[2,1]) / denom_q
-
-    if (p_star > 0 && p_star < 1 && q_star > 0 && q_star < 1) {
-      row_payoff <- p_star * (q_star * A[1,1] + (1 - q_star) * A[1,2]) +
-                    (1 - p_star) * (q_star * A[2,1] + (1 - q_star) * A[2,2])
-      col_payoff <- p_star * (q_star * B[1,1] + (1 - q_star) * B[1,2]) +
-                    (1 - p_star) * (q_star * B[2,1] + (1 - q_star) * B[2,2])
-
-      equilibria <- c(equilibria, list(list(
-        type = "Mixed",
-        p = round(p_star, 4),
-        q = round(q_star, 4),
-        row_payoff = round(row_payoff, 4),
-        col_payoff = round(col_payoff, 4),
-        label = sprintf("(%.3f, %.3f)", p_star, q_star)
-      )))
-    }
-  }
-
-  equilibria
-}
-
+source("solver.R", local = TRUE)
 
 # --- UI ---
 ui <- fluidPage(
@@ -181,6 +111,10 @@ server <- function(input, output, session) {
 
   # Reactive matrices
   matrices <- reactive({
+    values <- c(input$a11, input$a21, input$a12, input$a22,
+                input$b11, input$b21, input$b12, input$b22)
+    validate(need(length(values) == 8L && all(is.finite(values)),
+                  "Enter eight finite payoffs."))
     A <- matrix(c(input$a11, input$a21, input$a12, input$a22), nrow = 2)
     B <- matrix(c(input$b11, input$b21, input$b12, input$b22), nrow = 2)
     list(A = A, B = B)
@@ -202,7 +136,8 @@ server <- function(input, output, session) {
       div(class = "eq-card",
         tags$b(paste0(eq$type, " NE: ", eq$label)),
         br(),
-        sprintf("p(Top) = %.3f, q(Left) = %.3f", eq$p, eq$q),
+        sprintf("%s p(Top) = %.3f, q(Left) = %.3f",
+                if (eq$type == "Family") "Representative:" else "", eq$p, eq$q),
         br(),
         sprintf("Payoffs: Row = %.3f, Col = %.3f", eq$row_payoff, eq$col_payoff)
       )
@@ -259,6 +194,14 @@ server <- function(input, output, session) {
       theme_minimal(base_size = 12) +
       theme(panel.grid.minor = element_blank())
 
+    # Families are complete rectangles/segments; a diamond is a representative.
+    for (e in eqs) if (e$type == "Family") {
+      r <- e$p_range; s <- e$q_range
+      p_plot <- p_plot + annotate("rect", xmin=s[1], xmax=s[2], ymin=r[1], ymax=r[2],
+        fill=okabe_ito[3], alpha=0.15, colour=okabe_ito[3]) +
+        annotate("segment", x=s[1], xend=s[2], y=r[1], yend=r[2],
+                 colour=okabe_ito[3], linewidth=1)
+    }
     # Add equilibrium points
     if (length(eqs) > 0) {
       eq_df <- do.call(rbind, lapply(eqs, function(e) {

@@ -52,13 +52,9 @@ theme_publication <- function(base_size = 12) {
 
 When two firms compete in a market over time, the sequential pattern of their actions contains information about the nature of their strategic interaction. In Cournot competition, firms choose quantities simultaneously: each firm's current output depends on its own history and possibly on expectations about the rival, but there is no direct mechanical dependence of firm B's current quantity on firm A's past quantity beyond what firm B's own history already captures. In Stackelberg competition, by contrast, the follower explicitly conditions on the leader's observed action: firm B's current output is a direct function of firm A's previous output.
 
-Granger causality provides a formal statistical test for this distinction. Variable $X$ is said to Granger-cause variable $Y$ if past values of $X$ contain information useful for predicting $Y$ beyond what is contained in past values of $Y$ alone. In the oligopoly context, if firm A's past quantities Granger-cause firm B's current quantity, this is evidence of sequential (Stackelberg-like) play: firm B is reacting to firm A's observed choices. If neither firm Granger-causes the other, this is consistent with simultaneous (Cournot-like) play where each firm acts based on its own information set.
+Granger causality asks whether past values of one series improve prediction of another, conditional on the chosen information set. It does not by itself distinguish Cournot from Stackelberg competition, establish structural causation, or diagnose collusion. Common shocks, information delays and omitted variables can produce similar predictive patterns. This distinction follows the prediction-based framework in [Granger's original paper](https://www.jstor.org/stable/1912791).
 
-The test is implemented through a vector autoregression (VAR). We regress each firm's current quantity on lagged values of both firms' quantities, then test whether the coefficients on the rival's lags are jointly zero. The F-statistic for this exclusion restriction is the Granger causality test statistic. Significant rejection in one direction but not the other suggests asymmetric leadership --- precisely the Stackelberg structure.
-
-This tutorial simulates 200 periods of oligopoly data under both Cournot and Stackelberg regimes, implements the Granger causality test from scratch using ordinary least squares (no external VAR packages), and visualises impulse-response functions that show how a shock to one firm's output propagates through the system. The impulse-response analysis provides an intuitive dynamic complement to the formal Granger test: in Stackelberg play, a shock to the leader generates a delayed but systematic response in the follower, while in Cournot play, shocks to either firm dissipate independently.
-
-Understanding the causal structure of strategic interactions matters beyond academia. In antitrust economics, evidence that one firm systematically leads while others follow may indicate market power or tacit collusion. In regulation, knowing whether firms interact simultaneously or sequentially informs the design of capacity markets, spectrum auctions, and procurement mechanisms. The Granger causality framework translates these applied questions into testable statistical hypotheses.
+The two simulated autoregressions below illustrate absent versus one-directional lag dependence. Their “Cournot” and “Stackelberg” labels are mnemonic scenario names: the code does not solve either economic game. We fit a VAR, test lag exclusion restrictions and plot reduced-form impulse responses. Structural interpretation would require additional identifying assumptions and a model of the market.
 
 
 ## Mathematical formulation
@@ -78,10 +74,10 @@ $$
 This is tested via an F-test comparing the restricted model (Firm 2's quantity regressed only on its own lags) to the unrestricted model (including Firm 1's lags):
 
 $$
-F = \frac{(\text{RSS}_r - \text{RSS}_u) / p}{\text{RSS}_u / (T - 2p - 1)}
+F = \frac{(\text{RSS}_r - \text{RSS}_u) / p}{\text{RSS}_u / (T - 3p - 1)}
 $$
 
-Under $H_0$, $F \sim F(p, T - 2p - 1)$.
+After dropping $p$ initial observations, the effective sample is $T-p$ and the unrestricted equation estimates $2p+1$ coefficients. The usual reference distribution is $F(p,T-3p-1)$; its finite-sample calibration in a dynamic model is approximate and depends on the innovation and model assumptions.
 
 **Impulse-response function**: The response of $q_{2,t+h}$ to a unit shock $\varepsilon_{1t} = 1$ at horizon $h$ is given by the $(2,1)$ element of $\Phi_h$, where:
 
@@ -92,7 +88,7 @@ $$
 
 ## R implementation
 
-We simulate two scenarios: (1) Cournot play with no cross-firm dependence in the data-generating process, and (2) Stackelberg play where Firm 2 is a follower reacting to Firm 1's past output.
+We simulate independent autoregressions and an autoregression with one-directional cross-lag dependence. Neither simulation establishes an economic equilibrium.
 
 ```{r}
 #| label: simulate-oligopoly-data
@@ -144,7 +140,10 @@ cat(sprintf("Stackelberg: Firm 1 mean = %.1f, Firm 2 mean = %.1f\n",
 # --- Granger causality test implementation ---
 
 granger_test <- function(y, x, p = 2) {
-  # Test: does x Granger-cause y?
+  # Test whether x's lags improve the linear prediction of y.
+  stopifnot(is.numeric(y), is.numeric(x), length(y) == length(x),
+            all(is.finite(y)), all(is.finite(x)), length(p) == 1L,
+            is.finite(p), p >= 1, p == floor(p), length(y) > 3*p+1)
   T_len <- length(y)
   n_eff <- T_len - p  # effective sample size
 
@@ -170,6 +169,8 @@ granger_test <- function(y, x, p = 2) {
   RSS_r <- sum(fit_r$residuals^2)
   RSS_u <- sum(fit_u$residuals^2)
 
+  if (fit_r$rank != ncol(X_r) || fit_u$rank != ncol(X_u) || RSS_u <= 0)
+    stop("Lag regressions must have full rank and positive residual variance.")
   # F-test
   df1 <- p  # number of restrictions
   df2 <- n_eff - 2 * p - 1
@@ -275,7 +276,7 @@ The static figure presents a two-panel comparison: the Stackelberg time series w
 
 ```{r}
 #| label: fig-granger-causality-static
-#| fig-cap: "Figure 1. Granger causality analysis of simulated oligopoly data under Stackelberg competition. Left panel: time series of Firm 1 (leader, orange) and Firm 2 (follower, blue) quantity choices over 200 periods. Right panel: impulse-response functions showing the dynamic effect of a unit shock to Firm 1's output on itself (orange) and on Firm 2 (blue). The follower's delayed negative response is the hallmark of Stackelberg sequential play."
+#| fig-cap: "Figure 1. Granger causality analysis of simulated oligopoly data under Stackelberg competition. Left panel: time series of Firm 1 (leader, orange) and Firm 2 (follower, blue) quantity choices over 200 periods. Right panel: impulse-response functions showing the dynamic effect of a unit shock to Firm 1's output on itself (orange) and on Firm 2 (blue). The cross-response reflects the imposed lag dependence, not identification of Stackelberg competition."
 #| dev: [png, pdf]
 #| fig-width: 10
 #| fig-height: 5
@@ -292,8 +293,8 @@ p1 <- ggplot(ts_data, aes(x = period, y = quantity, color = firm)) +
   geom_line(alpha = 0.8, linewidth = 0.5) +
   scale_color_manual(values = c(okabe_ito[1], okabe_ito[2]), name = "") +
   annotate("text", x = 100, y = max(ts_data$quantity) * 0.98,
-           label = sprintf("Granger: F1->F2 F=%.1f (p<0.001)",
-                          gc_s_1to2$F_stat),
+           label = sprintf("Lag exclusion: F1->F2 F=%.1f (p=%.3g)",
+                          gc_s_1to2$F_stat, gc_s_1to2$p_value),
            size = 3, color = "grey30") +
   labs(title = "Stackelberg quantity dynamics",
        x = "Period", y = "Quantity") +
@@ -313,14 +314,13 @@ p2 <- ggplot(irf_data, aes(x = horizon, y = response, color = type)) +
 
 # Combine panels side by side using a simple approach
 # We'll create a combined data plot with faceting
-combined_data <- rbind(
-  ts_data |> mutate(panel = "A. Quantity dynamics",
+combined_data <- bind_rows(
+  ts_data |> transmute(panel = "A. Quantity dynamics",
                      x_val = period, y_val = quantity,
                      group = firm),
-  irf_data |> mutate(panel = "B. Impulse-response function",
+  irf_data |> transmute(panel = "B. Impulse-response function",
                       x_val = horizon, y_val = response,
-                      group = type,
-                      firm = type)
+                      group = type)
 ) |>
   select(x_val, y_val, group, panel)
 
@@ -337,9 +337,9 @@ p_combined <- ggplot(combined_data,
     name = "") +
   facet_wrap(~ panel, scales = "free", nrow = 1) +
   labs(
-    title = "Detecting Stackelberg leadership via Granger causality",
-    subtitle = sprintf("F-test: Firm 1 Granger-causes Firm 2 (F = %.1f, p < 0.001) | 200 periods simulated",
-                       gc_s_1to2$F_stat),
+    title = "Testing predictive lag dependence in simulated data",
+    subtitle = sprintf("Lag-exclusion F = %.1f, p = %.3g | 200 periods simulated",
+                       gc_s_1to2$F_stat, gc_s_1to2$p_value),
     x = "", y = "",
     caption = "Simulated oligopoly data | #equilibria"
   ) +
@@ -381,15 +381,11 @@ ggplotly(p_ts_int, tooltip = "text") |>
 
 ## Interpretation
 
-The Granger causality results sharply distinguish the two competitive regimes. Under Cournot simulation, neither firm significantly Granger-causes the other (both p-values well above 0.05), confirming that the simultaneous data-generating process leaves no detectable cross-firm temporal dependence. This is the expected result: in true simultaneous play, knowing firm A's past actions provides no additional predictive power for firm B's current action, because B was not conditioning on A when making its decision.
+The printed tests compare prediction with and without cross-series lags in two seeded synthetic examples. Their results depend on the imposed coefficients, sample, lag order and random draws. A non-significant result does not establish the absence of dependence, and a one-directional rejection does not identify economic leadership.
 
-Under the Stackelberg simulation, Firm 1 strongly Granger-causes Firm 2, while Firm 2 does not significantly Granger-cause Firm 1. This asymmetric pattern is the statistical fingerprint of sequential leadership. The follower's decision rule explicitly incorporates the leader's past output (with a negative coefficient, reflecting best-response substitutability in Cournot-style demand), producing a statistically significant improvement in prediction when the leader's lags are included.
+The impulse responses propagate a unit reduced-form innovation through the fitted VAR. Their interpretation as an intervention or structural economic shock requires identification beyond the regressions shown here. The simulation's negative cross-response was built into its coefficient matrix.
 
-The impulse-response function provides a complementary dynamic view. A unit shock to the leader's output generates an immediate response in the leader's own trajectory (persistence due to autoregressive dynamics) and a delayed negative response in the follower. The follower reduces output because the leader's increased quantity shifts the follower down its best-response function. This negative cross-response decays over time as both firms return to their long-run equilibrium quantities, but the initial asymmetry --- an immediate effect on the leader, a delayed and opposite effect on the follower --- is diagnostic of Stackelberg structure.
-
-Several caveats apply. First, Granger causality is a statistical concept, not a structural one. Finding that Firm 1 Granger-causes Firm 2 is consistent with Stackelberg leadership, but it could also arise from other mechanisms: Firm 1 might respond faster to common demand shocks, or Firm 2 might have longer information lags. Disentangling these explanations requires structural modelling. Second, the test has limited power in short samples. With $T = 50$ rather than $T = 200$, the Granger test may fail to detect genuine sequential play. Third, the lag order $p$ must be chosen carefully: too few lags miss the causal structure, while too many reduce power. Information criteria (AIC, BIC) provide data-driven guidance.
-
-For antitrust applications, the directional pattern of Granger causality --- one firm leading, the other following --- can serve as preliminary evidence of market power or dominant-firm behaviour, complementing traditional measures like concentration ratios and price-cost margins.
+For empirical use, check stationarity, lag selection, residual dependence, the conditioning information set and the stability of conclusions across defensible specifications. Short samples and misspecified dynamics can distort inference. This demonstration is not evidence about actual market power, simultaneous play or collusion.
 
 
 ## Extensions & related tutorials

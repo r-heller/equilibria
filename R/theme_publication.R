@@ -64,6 +64,8 @@ scale_colour_okabe_ito <- function(...) {
 #' @param height Height in inches (default 5)
 #' @param dpi Resolution for PNG (default 300)
 save_pub_fig <- function(plot, filename, width = 7, height = 5, dpi = 300) {
+  # Chapters may target a nested figure directory on a clean checkout.
+  dir.create(dirname(filename), recursive = TRUE, showWarnings = FALSE)
   ggplot2::ggsave(
     paste0(filename, ".pdf"), plot,
     width = width, height = height, device = "pdf"

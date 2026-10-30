@@ -3,85 +3,21 @@ on:
   pull_request:
     paths:
       - 'references.bib'
-
+      - 'scripts/check-dois.R'
+      - 'tests/test_doi_status.R'
+      - '.github/workflows/citation-check.yml'
 jobs:
   citations:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: |
-            any::httr2
-
-      - name: Verify all DOIs resolve
-        run: |
-          Rscript -e '
-          # Parse .bib file manually for DOI fields
-          lines <- readLines("references.bib", warn = FALSE)
-          doi_lines <- grep("^\\s*doi\\s*=", lines, ignore.case = TRUE, value = TRUE)
-
-          if (length(doi_lines) == 0) {
-            message("No DOI entries found in references.bib — nothing to check.")
-            quit(status = 0)
-          }
-
-          # Extract DOIs
-          dois <- gsub(".*=\\s*\\{?([^},]+)\\}?.*", "\\1", doi_lines)
-          dois <- trimws(dois)
-          dois <- dois[nchar(dois) > 0]
-
-          # Realistic browser user agent so publisher bot-walls do not reject us.
-          ua <- "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-
-          # Known-good citations whose DOI is not resolvable (never registered by
-          # the publisher). The references are valid, so do not fail CI on these.
-          # Correct the DOI upstream to drop an entry from this list.
-          known_unresolvable <- c(
-            "10.1016/C2009-0-20864-X"  # Krishna, Auction Theory (2nd ed.), Academic Press
-          )
-
-          message("Checking ", length(dois), " DOI(s)...")
-          failures <- character(0)
-
-          for (doi in dois) {
-            # Resolve against the DOI handle API: returns 200 for registered DOIs
-            # and 404 for unregistered ones. Unlike the publisher landing pages it
-            # is not behind a bot-wall, so valid DOIs no longer come back as 403/418.
-            url <- paste0("https://doi.org/api/handles/", doi)
-            resp <- tryCatch(
-              httr2::request(url) |>
-                httr2::req_user_agent(ua) |>
-                httr2::req_timeout(15) |>
-                httr2::req_error(is_error = function(resp) FALSE) |>
-                httr2::req_perform(),
-              error = function(e) NULL
-            )
-            status <- if (!is.null(resp)) httr2::resp_status(resp) else 999
-            # A DOI is unresolved only when the resolver definitively reports it
-            # missing (404/410) or the request failed. Anything else, including a
-            # bot-wall 403/405/418, counts as resolved.
-            unresolved <- is.null(resp) || status %in% c(404, 410)
-            if (unresolved && doi %in% known_unresolvable) {
-              message("  SKIP: ", doi, " (HTTP ", status, ") — known unresolvable, citation is valid")
-            } else if (unresolved) {
-              failures <- c(failures, paste0("  DOI: ", doi, " (HTTP ", status, ")"))
-              message("  FAIL: ", doi, " (HTTP ", status, ")")
-            } else {
-              message("  OK:   ", doi)
-            }
-          }
-
-          if (length(failures) > 0) {
-            message("\nFAILED — unresolvable DOIs:")
-            message(paste(failures, collapse = "\n"))
-            stop("Citation check failed for ", length(failures), " DOI(s).")
-          } else {
-            message("\nAll ", length(dois), " DOI(s) verified.")
-          }
-          '
+          packages: any::httr2
+      - name: Check resolver failure handling
+        run: Rscript tests/test_doi_status.R
+      - name: Verify DOI registrations
+        run: Rscript scripts/check-dois.R

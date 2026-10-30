@@ -105,34 +105,21 @@ We implement the analytical fixation probability formula and a Monte Carlo simul
 
 # Analytical fixation probability for 2-strategy Moran process
 fixation_prob_analytical <- function(A, N, w = 0.01, initial_k = 1) {
-  # A: 2x2 payoff matrix, N: population size, w: selection intensity
-  a <- A[1,1]; b <- A[1,2]; c <- A[2,1]; d <- A[2,2]
-
-  # Compute gamma_k = T^-(k) / T^+(k) for k = 1, ..., N-1
-  gammas <- numeric(N - 1)
-  for (k in 1:(N-1)) {
-    f_A <- (a * (k - 1) + b * (N - k)) / (N - 1)
-    f_B <- (c * k + d * (N - k - 1)) / (N - 1)
-    phi_A <- 1 - w + w * f_A
-    phi_B <- 1 - w + w * f_B
-    gammas[k] <- phi_B / phi_A
-  }
-
-  # Fixation probability from state initial_k
-  # rho_k = (1 + sum_{j=1}^{k-1} prod_{m=1}^{j} gamma_m) /
-  #         (1 + sum_{j=1}^{N-1} prod_{m=1}^{j} gamma_m)
-
-  cum_prod <- cumprod(gammas)
-  denom <- 1 + sum(cum_prod)
-
-  if (initial_k == 1) {
-    rho <- 1 / denom
-  } else {
-    numer <- 1 + sum(cum_prod[1:(initial_k - 1)])
-    rho <- numer / denom
-  }
-
-  return(rho)
+  stopifnot(is.matrix(A), identical(dim(A),c(2L,2L)),all(is.finite(A)),
+            length(N)==1L,is.finite(N),N==floor(N),N>=2,
+            length(w)==1L,is.finite(w),w>=0,w<=1,
+            length(initial_k)==1L,is.finite(initial_k),initial_k==floor(initial_k),
+            initial_k>=0,initial_k<=N)
+  if (initial_k==0) return(0)
+  if (initial_k==N) return(1)
+  k <- seq_len(N-1)
+  phi_A <- 1-w+w*(A[1,1]*(k-1)+A[1,2]*(N-k))/(N-1)
+  phi_B <- 1-w+w*(A[2,1]*k+A[2,2]*(N-k-1))/(N-1)
+  if (any(phi_A<=0 | phi_B<=0)) stop("Fitness must be strictly positive")
+  # Log-sum-exp avoids overflow in products of transition-probability ratios.
+  log_terms <- c(0,cumsum(log(phi_B)-log(phi_A)))
+  log_sum <- function(x) {m <- max(x);m+log(sum(exp(x-m)))}
+  exp(log_sum(log_terms[seq_len(initial_k)])-log_sum(log_terms))
 }
 
 # Monte Carlo simulation of Moran process

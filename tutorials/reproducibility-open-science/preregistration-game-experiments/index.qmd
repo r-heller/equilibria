@@ -81,7 +81,7 @@ $$
 
 where $\Phi$ is the standard normal CDF.
 
-**Specification curve.** Let $\mathcal{S} = \{s_1, s_2, \ldots, s_K\}$ be the set of all reasonable specifications. For each $s_k$, we obtain an estimate $\hat{\delta}_k$ and its $p$-value $p_k$. The specification curve plots $(\hat{\delta}_k, p_k)$ for all $k$, sorted by $\hat{\delta}_k$. We define the robustness index as the fraction of specifications yielding a significant result:
+**Specification curve.** Let $\mathcal{S} = \{s_1, s_2, \ldots, s_K\}$ be the set of the displayed specifications, including deliberately invalid naive analyses. For each $s_k$, we obtain an estimate $\hat{\delta}_k$ and its $p$-value $p_k$. The specification curve plots $(\hat{\delta}_k, p_k)$ for all $k$, sorted by $\hat{\delta}_k$. We define the fraction nominally significant as the fraction of specifications yielding a significant result:
 
 $$
 \mathcal{R} = \frac{1}{K} \sum_{k=1}^{K} \mathbf{1}(p_k < \alpha)
@@ -89,7 +89,7 @@ $$
 
 ## R implementation
 
-We simulate a public goods experiment and show how researcher degrees of freedom can affect conclusions. The simulation generates data under a known treatment effect, then analyses it under multiple specifications.
+We simulate a public goods experiment and show how researcher degrees of freedom can affect conclusions. The simulation generates latent contributions with a specified group-level ICC, clips contributions to the endowment bounds, then analyses multiple specifications. The ICC after clipping can differ. The individual-level analyses deliberately ignore clustering and are invalid confirmatory alternatives; their inclusion illustrates pseudoreplication, not a defensible analysis choice. The fraction significant is descriptive and is not a calibrated robustness test.
 
 ```{r}
 #| label: power-analysis
@@ -97,26 +97,30 @@ set.seed(42)
 
 # --- Power analysis via simulation ---
 simulate_pgg <- function(n_groups, n_players = 4, n_rounds = 10,
-                          endowment = 20, mpcr = 0.4,
-                          treat_effect = 3, icc = 0.3) {
-  data_list <- list()
-  for (condition in c("control", "treatment")) {
-    for (g in 1:n_groups) {
-      group_effect <- rnorm(1, 0, sqrt(icc * 100))
-      for (r in 1:n_rounds) {
-        for (p in 1:n_players) {
-          base_contrib <- rnorm(1, mean = 8, sd = 4) + group_effect
-          if (condition == "treatment") base_contrib <- base_contrib + treat_effect
-          contrib <- max(0, min(endowment, base_contrib))
-          data_list[[length(data_list) + 1]] <- data.frame(
-            condition = condition, group = paste0(condition, "_", g),
-            round = r, player = p, contribution = contrib
-          )
-        }
-      }
-    }
-  }
-  do.call(rbind, data_list)
+                         endowment = 20, treat_effect = 3, icc = 0.3,
+                         paired = FALSE) {
+  counts <- c(n_groups,n_players,n_rounds)
+  stopifnot(length(counts)==3L,all(is.finite(counts)),all(counts==floor(counts)),
+            n_groups>=2,n_players>=1,n_rounds>=1,length(icc)==1L,is.finite(icc),
+            icc>=0,icc<1,length(endowment)==1L,is.finite(endowment),endowment>0,
+            length(treat_effect)==1L,is.finite(treat_effect),
+            is.logical(paired),length(paired)==1L,!is.na(paired))
+  observations <- n_players*n_rounds
+  # ICC refers to the latent Gaussian contribution before clipping to [0,endowment].
+  residual_sd <- 4
+  group_sd <- residual_sd*sqrt(icc/(1-icc))
+  effects <- rnorm(if(paired) n_groups else 2*n_groups,0,group_sd)
+  if(paired) effects <- rep(effects,2)
+  condition <- rep(c("control","treatment"),each=n_groups*observations)
+  group_number <- rep(rep(seq_len(n_groups),each=observations),2)
+  latent <- 8 + rep(effects,each=observations) +
+    rnorm(2*n_groups*observations,0,residual_sd) +
+    treat_effect*(condition=="treatment")
+  data.frame(condition=condition,
+             group=if(paired) paste0("pair_",group_number) else paste0(condition,"_",group_number),
+             round=rep(rep(seq_len(n_rounds),each=n_players),2*n_groups),
+             player=rep(seq_len(n_players),2*n_groups*n_rounds),
+             contribution=pmin(endowment,pmax(0,latent)))
 }
 
 # Run power analysis across sample sizes
@@ -157,7 +161,7 @@ exclusion_rules <- list(
 )
 
 aggregation_levels <- list(
-  individual = function(d) d |> group_by(condition, group, player) |>
+  individual_naive = function(d) d |> group_by(condition, group, player) |>
     summarise(y = mean(contribution), .groups = "drop"),
   group = function(d) d |> group_by(condition, group) |>
     summarise(y = mean(contribution), .groups = "drop"),
@@ -197,7 +201,7 @@ cat(sprintf("\nSpecification curve analysis:\n"))
 cat(sprintf("  Total specifications: %d\n", nrow(spec_results)))
 cat(sprintf("  Effect range: [%.2f, %.2f]\n",
             min(spec_results$effect), max(spec_results$effect)))
-cat(sprintf("  Robustness index: %.1f%% significant at alpha=0.05\n",
+cat(sprintf("  Fraction nominally significant: %.1f%% significant at alpha=0.05\n",
             robustness * 100))
 ```
 
@@ -205,13 +209,13 @@ cat(sprintf("  Robustness index: %.1f%% significant at alpha=0.05\n",
 #| label: design-comparison
 set.seed(456)
 
-# Compare within-subject vs between-subject designs
+# Compare paired-group and independent-group designs; shared effects define pairing
 n_sims_design <- 500
 design_power <- data.frame()
 
 for (icc_val in c(0.1, 0.3, 0.5)) {
   for (n_grp in c(10, 20)) {
-    # Between-subject
+    # Independent groups
     sig_between <- 0
     for (s in 1:n_sims_design) {
       dat_b <- simulate_pgg(n_groups = n_grp, treat_effect = 2.0, icc = icc_val)
@@ -220,21 +224,20 @@ for (icc_val in c(0.1, 0.3, 0.5)) {
       p <- t.test(y ~ condition, data = gm)$p.value
       if (p < 0.05) sig_between <- sig_between + 1
     }
-    # Within-subject (paired)
+    # Paired groups (paired)
     sig_within <- 0
     for (s in 1:n_sims_design) {
-      dat_w_ctrl <- simulate_pgg(n_groups = n_grp, treat_effect = 0, icc = icc_val)
-      dat_w_treat <- simulate_pgg(n_groups = n_grp, treat_effect = 2.0, icc = icc_val)
-      gm_ctrl <- dat_w_ctrl |> group_by(group) |>
-        summarise(y_ctrl = mean(contribution), .groups = "drop")
-      gm_treat <- dat_w_treat |> group_by(group) |>
-        summarise(y_treat = mean(contribution), .groups = "drop")
-      p <- t.test(gm_treat$y_treat, gm_ctrl$y_ctrl, paired = TRUE)$p.value
+      dat_w <- simulate_pgg(n_groups=n_grp,treat_effect=2.0,icc=icc_val,paired=TRUE)
+      gm <- dat_w |> group_by(condition,group) |>
+        summarise(y=mean(contribution),.groups="drop") |>
+        tidyr::pivot_wider(names_from=condition,values_from=y)
+      stopifnot(nrow(gm)==n_grp,!anyNA(gm))
+      p <- t.test(gm$treatment,gm$control,paired=TRUE)$p.value
       if (p < 0.05) sig_within <- sig_within + 1
     }
     design_power <- rbind(design_power, data.frame(
       icc = icc_val, n_groups = n_grp,
-      design = c("Between-subject", "Within-subject"),
+      design = c("Independent groups", "Paired groups"),
       power = c(sig_between / n_sims_design, sig_within / n_sims_design)
     ))
   }
@@ -250,7 +253,7 @@ for (i in 1:nrow(design_power)) {
 
 ## Static publication-ready figure
 
-The specification curve below shows how the estimated treatment effect changes across all 24 combinations of analytical decisions. Each point represents one specification; the colour indicates statistical significance at the 5% level. The lower panel shows which analytical choices are active for each specification. This visualisation makes transparent what would otherwise be hidden: the dependence of conclusions on seemingly innocuous analytical decisions.
+The specification curve below shows how the estimated treatment effect changes across all 24 combinations of analytical decisions. Each point represents one specification; the colour indicates statistical significance at the 5% level. The lower panel shows which analytical choices are active for each specification. This visualisation makes transparent what would otherwise be hidden: the dependence of conclusions on seemingly analytical decisions, including naive analyses that ignore within-group dependence.
 
 ```{r}
 #| label: fig-preregistration-static
@@ -272,7 +275,7 @@ geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   scale_colour_manual(values = c("Yes" = okabe_ito[1], "No" = okabe_ito[2]),
                       name = "Significant (p < 0.05)") +
   labs(title = "Specification Curve: Public Goods Treatment Effect",
-       subtitle = paste0("Robustness index: ", round(robustness * 100, 1),
+       subtitle = paste0("Fraction nominally significant: ", round(robustness * 100, 1),
                          "% of specifications significant"),
        x = "Specification (ranked by effect size)",
        y = "Estimated treatment effect (tokens)") +
@@ -295,15 +298,35 @@ ggplotly(p_spec, tooltip = "text") |>
 
 ## Interpretation
 
-The specification curve analysis reveals a sobering reality about empirical research in game theory: even with a genuine treatment effect built into the data-generating process, the estimated effect size and its statistical significance depend substantially on analytical choices that most readers never see. In our simulation, the treatment truly increased contributions by 2.0 tokens on average. Yet depending on whether the analyst drops the first round of data, aggregates at the individual or group level, uses means or medians, and applies a parametric or nonparametric test, the estimated effect ranges from near zero to well above the true value. Some specifications yield a highly significant result; others do not. If a researcher with a preferred hypothesis explored these specifications (perhaps unconsciously) and reported only the most favourable one, the published result would overstate the evidence. This is precisely the mechanism behind publication bias and $p$-hacking.
+These results describe a synthetic contribution model, not the published game
+experiment literature. The treatment shifts the latent contribution by the
+specified amount; clipping contributions to [0,20] means the observed mean
+effect need not equal that latent shift. Likewise, the ICC parameter describes
+the Gaussian model before clipping. The displayed powers are Monte Carlo
+estimates from 500 simulations per setting, with simulation standard error up
+to about 0.022; they are not exact design guarantees.
 
-The power analysis underscores a second critical point: many game theory experiments are underpowered. With only 5 groups per condition, even a moderately large treatment effect (2.5 tokens out of a 20-token endowment) is detected less than half the time. This means that the published literature is likely biased towards overestimates of effect sizes --- a phenomenon known as the winner's curse. Underpowered studies that happen to find significant results are published, while the (more numerous) underpowered studies that find null results remain in file drawers. Preregistration cannot fix underpowered designs, but it can force researchers to confront the power question before data collection, ideally leading them to run adequately powered studies.
+The specification curve intentionally mixes admissible group-level analyses with
+naive individual-level tests that ignore within-group dependence. The latter
+are examples of pseudoreplication and should not be treated as equally valid
+confirmatory specifications. Excluding boundary observations also changes the
+population being summarized. Consequently, the fraction of nominally significant
+specifications is descriptive, not a calibrated robustness measure or evidence
+that every displayed analysis is defensible. Interpret differences using the
+estimand, sampling unit and assumptions of each analysis.
 
-The design comparison reveals that within-subject designs can substantially increase power, particularly when the intra-class correlation is high. When groups differ a lot in their baseline cooperation levels (high ICC), a between-subject design wastes statistical precision by comparing groups that differ for reasons unrelated to the treatment. A within-subject design controls for this heterogeneity by using each group as its own control. However, within-subject designs are not always feasible in game theory experiments: if subjects learn or adapt, the order in which conditions are presented matters. The pre-analysis plan should specify how order effects will be handled --- through counterbalancing, randomisation of order, and inclusion of period fixed effects in the statistical model.
+The paired-group simulation reuses each group's latent effect across control
+and treatment and joins summaries by group identifier. Its gain in precision
+comes from that shared effect. It does not model learning, carryover, order or
+period effects; a real repeated-condition experiment must account for those
+features before adopting this design. Independent groups use separate effects.
 
-The practical implications for researchers are clear. First, pre-analysis plans should specify not just the primary statistical test but also the exclusion criteria, the level of aggregation, and any data transformations. Second, researchers should conduct a specification curve analysis as part of their robustness checks, even if the primary analysis is preregistered. This demonstrates that the conclusion does not hinge on a single arbitrary choice. Third, power analyses should be simulation-based rather than formula-based, because game theory data rarely satisfy the assumptions of standard power formulas (normality, independence, homoscedasticity). Simulation allows the analyst to incorporate realistic features of the data, such as boundary effects (contributions are bounded between 0 and the endowment), clustering (players within a group are not independent), and non-normality (contribution distributions are often bimodal, with mass at 0 and the endowment).
-
-Finally, preregistration is not the end of the story. A pre-analysis plan is a commitment to a particular confirmatory analysis, but it should not preclude exploratory analysis. Some of the most interesting findings in game theory experiments have come from unexpected patterns in the data --- conditional cooperation, decay of contributions over rounds, heterogeneity in strategy types. The key is to clearly distinguish between confirmatory and exploratory findings in the final report, so that readers can calibrate their confidence accordingly. Preregistration, combined with open data and open code, creates a research ecosystem in which both rigour and discovery can thrive.
+A pre-analysis plan should specify the primary estimand, allocation and analysis
+units, exclusions and confirmatory model. A power calculation should match that
+planned analysis and data-generating assumptions; simulation and analytic formulas
+can each be useful when their assumptions are appropriate. Exploratory alternatives
+should be labeled and interpreted separately. This teaching example supports
+that distinction without making claims about the adequacy of an actual study.
 
 ## Extensions & related tutorials
 

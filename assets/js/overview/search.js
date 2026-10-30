@@ -24,7 +24,7 @@ export function createSearch({ root, graph, controller, onResults }) {
     if (pagefind || pagefindFailed) return pagefind;
     try {
       // Pagefind ships its runtime as an ES module at /pagefind/pagefind.js.
-      const url = root + "pagefind/pagefind.js";
+      const url = new URL(root + "pagefind/pagefind.js", document.baseURI).href;
       pagefind = await import(/* @vite-ignore */ url);
       if (pagefind.options) {
         await pagefind.options({ excerptLength: 30 });
@@ -47,21 +47,26 @@ export function createSearch({ root, graph, controller, onResults }) {
 
   // The controller drives us via update(); we run the query and
   // notify listeners with the resolved hits.
+  let requestSerial = 0;
   async function update(state /* , currentHits unused */) {
+    const serial = ++requestSerial;
+    const query = state.query;
     if (input.value.trim() !== state.query) input.value = state.query;
     if (!state.query) {
       onResults({ hits: null, snippets: new Map(), order: [] });
       return;
     }
     const pf = await ensurePagefind();
+    if (serial !== requestSerial) return;
     if (!pf) {
       onResults({ hits: new Set(), snippets: new Map(), order: [] });
       return;
     }
     try {
-      const search = await pf.search(state.query);
+      const search = await pf.search(query);
       const dataPromises = search.results.slice(0, 200).map(r => r.data());
       const data = await Promise.all(dataPromises);
+      if (serial !== requestSerial) return;
       const hits = new Set();
       const snippets = new Map();
       const order = [];
@@ -76,6 +81,7 @@ export function createSearch({ root, graph, controller, onResults }) {
       }
       onResults({ hits, snippets, order });
     } catch (e) {
+      if (serial !== requestSerial) return;
       console.warn("Pagefind search failed:", e);
       onResults({ hits: new Set(), snippets: new Map(), order: [] });
     }
@@ -84,8 +90,9 @@ export function createSearch({ root, graph, controller, onResults }) {
   return { update };
 }
 
-function normaliseUrl(u) {
+export function normaliseUrl(u) {
   if (!u) return "";
+  u = u.split(/[?#]/, 1)[0];
   // Pagefind emits urls like "/tutorials/<topic>/<slug>.html" or
   // sometimes with a leading subpath. Strip everything before
   // "/tutorials/" and the trailing .html so the result matches the
@@ -93,6 +100,6 @@ function normaliseUrl(u) {
   const i = u.indexOf("/tutorials/");
   let s = i >= 0 ? u.slice(i + "/tutorials/".length) : u;
   if (s.startsWith("tutorials/")) s = s.slice("tutorials/".length);
-  s = s.replace(/^\/+/, "").replace(/\.html(\?.*)?$/, "").replace(/\/index$/, "");
+  s = s.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.html$/, "").replace(/\/index$/, "");
   return s;
 }

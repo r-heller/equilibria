@@ -136,8 +136,16 @@ history <- numeric(T_weeks + burnin)
 history[1:burnin] <- sample(30:70, burnin, replace = TRUE)
 
 # Track strategy usage
-strategy_usage <- matrix(0, nrow = T_weeks, ncol = n_strategies)
+strategy_usage <- matrix(0, nrow = T_weeks, ncol = n_strategies,
+                         dimnames = list(NULL, strategy_names))
 strategy_errors <- matrix(0, nrow = N, ncol = K)
+previous_predictions <- matrix(NA_real_, nrow = N, ncol = K)
+
+score_forecasts <- function(errors, predictions, observed) {
+  stopifnot(identical(dim(errors),dim(predictions)),all(is.finite(predictions)),
+            length(observed)==1,is.finite(observed))
+  errors + (predictions-observed)^2
+}
 
 # --- Simulation ---
 for (t in (burnin + 1):(burnin + T_weeks)) {
@@ -146,24 +154,19 @@ for (t in (burnin + 1):(burnin + T_weeks)) {
   # Each agent predicts using their best strategy
   predictions <- numeric(N)
   for (i in 1:N) {
-    # Update errors for all strategies
+    # Score forecasts recorded BEFORE the previous week's attendance was known.
+    # Recomputing them from history through t - 1 would leak the outcome.
     if (week > 1) {
-      for (k in 1:K) {
-        s_idx <- agent_strategies[i, k]
-        s_fun <- strategy_pool[[s_idx]]
-        pred <- s_fun(history[1:(t - 1)])
-        pred <- max(0, min(N, pred))
-        strategy_errors[i, k] <- strategy_errors[i, k] +
-          (pred - history[t - 1])^2
-      }
-      # Switch to best strategy
+      strategy_errors[i, ] <- score_forecasts(strategy_errors[i, ],
+        previous_predictions[i, ], history[t - 1])
       agent_active[i] <- which.min(strategy_errors[i, ])
     }
-
-    # Make prediction
+    current_predictions <- vapply(agent_strategies[i, ], function(s_idx) {
+      max(0, min(N, strategy_pool[[s_idx]](history[seq_len(t - 1)])))
+    }, numeric(1))
+    previous_predictions[i, ] <- current_predictions
     active_idx <- agent_strategies[i, agent_active[i]]
-    predictions[i] <- strategy_pool[[active_idx]](history[1:(t - 1)])
-    predictions[i] <- max(0, min(N, predictions[i]))
+    predictions[i] <- current_predictions[agent_active[i]]
 
     # Track usage
     strategy_usage[week, active_idx] <- strategy_usage[week, active_idx] + 1
@@ -306,15 +309,11 @@ ggplotly(p_strategies, tooltip = "text") |>
 
 ## Interpretation
 
-The El Farol simulation reveals several deep insights about decision-making in strategic environments where deductive reasoning fails. The most striking result is that attendance self-organises around the comfort threshold of 60, despite the fact that no agent is trying to achieve this outcome and no coordination mechanism exists. The mean attendance in our simulation hovers close to the threshold, and the distribution of weekly attendance is roughly symmetric around it. This emergent self-organisation is a hallmark of complex adaptive systems: simple individual rules, interacting through a shared environment, produce aggregate order that no individual agent intends or even perceives.
+The printed summaries and plots describe this seeded population of predictors. Forecasts are recorded before attendance is observed; at the next step, every strategy is scored against that outcome. Recomputing a forecast with the outcome already in its history would introduce look-ahead bias and change the adaptation mechanism. The attendance distribution and final strategy mix are outcomes to inspect, not guarantees of symmetry or convergence to the threshold.
 
-The mechanism behind this self-organisation is the ecological competition among prediction strategies. When many agents use strategies that predict low attendance (e.g., contrarian strategies after a crowded week), they all decide to go, creating high attendance. The high attendance then rewards strategies that predicted high attendance, so agents switch to those strategies, and attendance drops. This negative feedback loop keeps attendance oscillating around the threshold. Crucially, the oscillations are irregular and unpredictable, even though the system is deterministic (given the random seed). The irregularity arises from the complex interactions among heterogeneous strategies: the relative performance of each strategy depends on the current mix of strategies in the population, which is itself constantly changing. This creates an ecology of strategies that never settles into a fixed state --- a phenomenon that Arthur called "perpetual novelty."
+Agents choose attendance from their current best predictor, while aggregate attendance changes which predictors perform well. This feedback can sustain fluctuations and strategy switching. Its behavior depends on the strategy pool, initialization, population size and scoring memory. The random predictor makes the model stochastic; fixing a seed provides a reproducible realization rather than proving deterministic chaos or persistent novelty. Compare multiple seeds and parameter settings before generalizing a numerical pattern.
 
-The strategy survival analysis shows which prediction rules thrive in this competitive ecology. The results depend on the specific mix of strategies in the population, but some general patterns emerge. Simple mean-based strategies that average over different time windows often coexist, because they provide complementary predictions: short-window averages are more responsive to recent changes, while long-window averages are more stable. The contrarian strategy (predict the opposite of last week) tends to perform well when attendance is highly autocorrelated, because last week's attendance is a good (inverted) predictor of this week's. Fixed strategies (always predict a constant) can survive if their constant happens to be close to the average attendance. The random strategy, despite its lack of sophistication, serves as a useful benchmark: any strategy that cannot outperform random prediction is arguably not worth maintaining.
-
-The connection to financial markets is direct and illuminating. In a market, traders choose between buying and selling based on their predictions of future prices. If most traders predict a price increase, they buy, driving the price up and validating their prediction --- but also making the market overvalued and vulnerable to a crash. If most traders predict a decrease, they sell, driving the price down. This is the same self-referential structure as the El Farol problem: the aggregate outcome depends on predictions about the aggregate outcome. The minority game formalises this by showing that in a two-choice game where the minority wins, the population can never coordinate on a common strategy because the common strategy is always the losing one. The El Farol problem extends this to a more realistic setting with continuous attendance and heterogeneous strategies.
-
-The lesson for economic modelling is profound. Traditional game theory assumes that agents are rational and that a common knowledge of rationality leads to equilibrium. The El Farol problem shows that when the environment is too complex for deductive reasoning --- when there is no single "correct" model that all agents can derive --- agents must rely on inductive reasoning, using simple heuristics and learning from experience. The resulting dynamics are not characterised by equilibrium but by perpetual adaptation and co-evolution of strategies. This perspective, which Arthur called the "complexity economics" view, does not replace equilibrium analysis but complements it, providing tools for understanding the dynamic, out-of-equilibrium behaviour that characterises many real-world markets, institutions, and social systems. The El Farol problem, simple as it is, encapsulates this entire research programme in a single, memorable thought experiment.
+El Farol illustrates the difficulty of forecasting an outcome that responds to the forecasts themselves. It motivates adaptive-agent and minority-game models, but this bar-attendance simulation is not a calibrated financial market or evidence for a particular market mechanism. Equilibrium analysis and adaptive simulation answer different questions; this example supports studying their relationship rather than declaring one framework invalid.
 
 ## Extensions & related tutorials
 

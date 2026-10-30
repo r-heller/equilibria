@@ -98,41 +98,16 @@ set.seed(42)
 
 # Pivotal mechanism for binary public good provision
 pivotal_mechanism <- function(valuations, cost) {
-  n <- length(valuations)
+  stopifnot(is.numeric(valuations),length(valuations)>0L,all(is.finite(valuations)),
+            length(cost)==1L,is.finite(cost),cost>=0)
   total_value <- sum(valuations)
   provide <- total_value >= cost
-
-  payments <- numeric(n)
-  is_pivotal <- logical(n)
-
-  for (i in 1:n) {
-    others_total <- sum(valuations[-i])
-    # Would decision change without agent i?
-    provide_without_i <- others_total >= cost
-
-    if (provide != provide_without_i) {
-      is_pivotal[i] <- TRUE
-      if (provide) {
-        # Agent i caused provision: pay the gap
-        payments[i] <- cost - others_total
-      } else {
-        # Agent i caused non-provision: compensate others
-        payments[i] <- -(others_total - cost)
-      }
-    }
-  }
-
-  utilities <- ifelse(provide, valuations, 0) - payments
-
-  list(
-    provide = provide,
-    payments = payments,
-    utilities = utilities,
-    is_pivotal = is_pivotal,
-    total_value = total_value,
-    cost = cost,
-    surplus = total_value - cost
-  )
+  others <- total_value-valuations
+  payments <- pmax(others-cost,0) - if (provide) others-cost else rep(0,length(valuations))
+  utilities <- (if (provide) valuations else rep(0,length(valuations))) - payments
+  list(provide=provide,payments=payments,utilities=utilities,
+       is_pivotal=payments>1e-10,total_value=total_value,cost=cost,
+       surplus=if (provide) total_value-cost else 0)
 }
 
 # Example: 8 agents, public good costs 50
@@ -351,7 +326,7 @@ p1 <- ggplot(provided_df, aes(x = budget_surplus)) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
   labs(
     title = "Budget surplus of pivotal mechanism",
-    subtitle = "The mechanism never runs a deficit but wastes surplus",
+    subtitle = "Pivotal payments generally do not cover provision cost",
     x = "Budget surplus (payments - cost)", y = "Density"
   ) +
   theme_publication()
@@ -391,11 +366,11 @@ interactive_df <- sim_results %>%
 
 p_interactive <- ggplot(interactive_df,
                         aes(x = total_value, y = total_payment,
-                            color = factor(n_pivotal),
+                            color = n_pivotal,
                             text = tooltip_text)) +
   geom_point(alpha = 0.6, size = 1.5) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
-  scale_color_manual(values = okabe_ito[1:6]) +
+  scale_color_viridis_c(option = "D", breaks = sort(unique(interactive_df$n_pivotal))) +
   labs(
     title = "Payments vs. total value in pivotal mechanism",
     x = "Total agent valuations", y = "Total payments collected",
@@ -410,9 +385,9 @@ ggplotly(p_interactive, tooltip = "text") %>%
 
 ## Interpretation
 
-The pivotal mechanism illustrates both the power and the limitations of mechanism design. On the positive side, the mechanism achieves two remarkable properties simultaneously: **allocative efficiency** (the public good is provided if and only if total value exceeds cost, which is the socially optimal decision) and **dominant-strategy incentive compatibility** (every agent's best strategy is to report their true valuation, regardless of what others do). The incentive compatibility check confirms that no agent can improve their utility by misreporting — the mechanism aligns individual incentives with social optimality.
+The pivotal mechanism illustrates both the power and the limitations of mechanism design. On the positive side, the mechanism achieves two remarkable properties simultaneously: **allocative efficiency** (the public good is provided if and only if total value exceeds cost, which is the socially optimal decision) and **dominant-strategy incentive compatibility** (every agent's best strategy is to report their true valuation, regardless of what others do). The finite deviation grid checks the displayed example; dominant-strategy incentive compatibility follows from the pivotal mechanism under its quasi-linear, no-externality assumptions, not from a finite simulation alone.
 
-However, the mechanism violates **budget balance**: the payments collected from pivotal agents generally do not equal the cost of the public good. The simulations show that the pivotal mechanism always runs a weakly positive budget surplus (never a deficit), but this surplus is "wasted" — it cannot be redistributed to agents without destroying incentive compatibility. This is a manifestation of the **Green-Laffont impossibility theorem**: no mechanism can simultaneously achieve efficiency, incentive compatibility, and budget balance in the public goods setting.
+However, the mechanism violates **budget balance**: the payments collected from pivotal agents generally do not equal the cost of the public good. The worked example collects 18 against a cost of 50, a deficit of 32. Nonnegative pivotal charges are not the same as a balanced mechanism budget; the provider must fund the gap. The plotted quantity is payments minus provision cost. This is a manifestation of the **Green-Laffont impossibility theorem**: no mechanism can simultaneously achieve efficiency, incentive compatibility, and budget balance in the public goods setting.
 
 The Gibbard-Satterthwaite demonstration reveals the fundamental tension in social choice: both plurality voting and Borda count — the two most widely used voting rules — are susceptible to strategic manipulation. A voter can sometimes improve their outcome by misrepresenting their preferences. The theorem tells us this is not a design flaw specific to these rules; it is an inherent limitation of any non-dictatorial voting system over three or more alternatives. This impossibility is what makes mechanism design both necessary (we must work within these constraints) and challenging (we must find creative ways to circumvent or weaken the impossibility conditions).
 

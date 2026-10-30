@@ -146,20 +146,21 @@ n_sims_pg <- 5000
 values_pg <- matrix(runif(n_agents * n_sims_pg, 0, 2 * C / n_agents),
                      nrow = n_sims_pg)
 
-# Direct mechanism: report values, build if sum >= C
-# Groves payment: t_i = sum_{j≠i} v_j * build - h_i(v_{-i})
-# Clarke pivot: h_i = sum_{j≠i} v_j * build_without_i (where build_without_i
-#   is whether public good would be built without i)
+# Positive payments are charges to each agent. The public project cost is
+# included in the welfare of the other participants under the pivot rule.
+clarke_public_payments <- function(values, cost) {
+  stopifnot(is.matrix(values), is.numeric(values), ncol(values) >= 1,
+            all(is.finite(values)), all(values >= 0),
+            length(cost) == 1, is.finite(cost), cost >= 0)
+  totals <- rowSums(values)
+  others <- sweep(-values, 1, totals, "+")
+  charges <- pmax(cost - others, 0)
+  charges[totals < cost, ] <- 0
+  charges
+}
 builds <- rowSums(values_pg) >= C
-pivotal <- sapply(1:n_sims_pg, function(s) {
-  sapply(1:n_agents, function(i) {
-    sum(values_pg[s, -i]) < C & sum(values_pg[s, ]) >= C
-  })
-}) |> t()
-
-clarke_payments <- pivotal * (C - apply(values_pg, 1, function(v) {
-  sapply(1:n_agents, function(i) sum(v[-i]))
-}))
+clarke_payments <- clarke_public_payments(values_pg, C)
+pivotal <- clarke_payments > 0
 
 cat(sprintf("  Build probability: %.3f (efficient threshold: sum(v) >= %d)\n",
             mean(builds), C))

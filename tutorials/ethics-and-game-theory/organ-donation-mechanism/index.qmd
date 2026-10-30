@@ -57,7 +57,7 @@ Second, there is the incentive problem. Hospitals that manage multiple patient-d
 
 Third, there are profound ethical questions about how to allocate kidneys when not all patients can be served. Should the mechanism prioritize medical urgency, waiting time, age, or some notion of fairness across blood types? Different allocation rules lead to different welfare distributions across patient populations, and the mechanism design framework allows us to formally compare these alternatives.
 
-In this tutorial, we simulate a kidney exchange pool, construct the compatibility graph, implement greedy and optimal matching algorithms for pairwise exchanges, analyze incentive properties, and compare welfare outcomes under different allocation rules. The analysis illustrates how mechanism design theory translates directly into life-saving practical algorithms.
+In this tutorial, we simulate a kidney exchange pool, construct the compatibility graph, implement greedy and maximum-cardinality matching for pairwise exchanges, and measure greedy matching outcomes across simulated pool sizes. Incentive properties and allocation fairness are discussed conceptually; they are not tested by this simulation. The analysis illustrates how mechanism design theory translates directly into life-saving practical algorithms.
 
 ## Mathematical formulation
 
@@ -150,41 +150,7 @@ find_pairwise_greedy <- function(cmat) {
   exchanges
 }
 
-find_pairwise_optimal <- function(cmat) {
-  n <- nrow(cmat)
-  mutual <- matrix(FALSE, n, n)
-  for (i in 1:(n-1)) {
-    for (j in (i+1):n) {
-      mutual[i, j] <- cmat[i, j] && cmat[j, i]
-      mutual[j, i] <- mutual[i, j]
-    }
-  }
-  best_matching <- list()
-  best_size <- 0
-  find_max <- function(matched, current_matching, start) {
-    if (length(current_matching) > best_size) {
-      best_size <<- length(current_matching)
-      best_matching <<- current_matching
-    }
-    if (best_size >= sum(!matched) / 2 + length(current_matching)) return()
-    for (i in start:(n-1)) {
-      if (matched[i]) next
-      for (j in (i+1):n) {
-        if (matched[j]) next
-        if (mutual[i, j]) {
-          matched[i] <- TRUE
-          matched[j] <- TRUE
-          find_max(matched, c(current_matching, list(c(i, j))), i + 1)
-          matched[i] <- FALSE
-          matched[j] <- FALSE
-        }
-      }
-      break
-    }
-  }
-  find_max(rep(FALSE, n), list(), 1)
-  best_matching
-}
+source(here::here("R", "pairwise_matching.R"))
 
 greedy_result <- find_pairwise_greedy(compat_matrix)
 optimal_result <- find_pairwise_optimal(compat_matrix)
@@ -294,7 +260,7 @@ The simulation results illuminate several fundamental properties of kidney excha
 
 This thick-market effect has direct policy implications. It provides a strong economic argument for consolidating kidney exchange programs into larger, centralized pools rather than operating many small regional programs. In the United States, the transition from hospital-based exchanges to regional consortia and eventually to the national kidney paired donation program has been driven in part by this theoretical insight. Our simulations quantify the magnitude of this effect: moving from a pool of 20 pairs to a pool of 100 pairs can more than triple the number of successful transplants, even when using a simple greedy algorithm.
 
-The comparison between greedy and optimal matching algorithms reveals an important computational trade-off. The greedy algorithm, which matches pairs in sequence without backtracking, is fast but may miss globally optimal matchings by making locally suboptimal choices early in the process. The optimal algorithm, which exhaustively searches for the maximum matching, guarantees the best possible outcome but is computationally expensive for large pools. In practice, kidney exchange programs use sophisticated integer programming formulations that can handle hundreds of pairs while finding provably optimal solutions, subject to constraints on cycle and chain length.
+The comparison between greedy and optimal matching algorithms reveals an important computational trade-off. The greedy algorithm, which matches pairs in sequence without backtracking, is fast but may miss globally optimal matchings by making locally suboptimal choices early in the process. The maximum-cardinality routine uses one binary variable per mutual compatibility edge and one capacity constraint per vertex. It reports a result only when `lpSolve` certifies an optimum; a 30-second solver limit produces an explicit error if certification is unavailable. This optimizes the number of pairwise exchanges, not clinical welfare, fairness, or longer cycles. In practice, kidney exchange programs use sophisticated integer programming formulations that can handle hundreds of pairs while finding provably optimal solutions, subject to constraints on cycle and chain length.
 
 The blood type distribution plays a crucial role in determining the structure of the compatibility graph. Type O donors are universal donors (compatible with all blood types), while type O patients can only receive from type O donors. This creates a systematic disadvantage for type O patients in exchange programs, a finding that has motivated the development of allocation rules that specifically address blood type equity. Similarly, highly sensitized patients (those with many antibodies, modeled here through the crossmatch probability) face a compounding disadvantage because they are compatible with fewer donors. Longer exchange cycles and chains can partially address these disparities by creating more pathways for hard-to-match patients.
 

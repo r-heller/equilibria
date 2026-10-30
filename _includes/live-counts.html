@@ -1,20 +1,20 @@
 <script>
 // live-counts.html — populates [data-topic-count] and #live-total-count
-// spans from artifacts/tutorials.csv at render time.
+// spans from artifacts/graph.json in the browser.
 // Fails silently (hides the span) if the CSV is unreachable, keeping
 // pages free of empty "(undefined)" numerals.
 (function() {
-  async function fetchCsv() {
+  async function fetchGraph() {
     const candidates = [
-      'artifacts/tutorials.csv',
-      '../artifacts/tutorials.csv',
-      '../../artifacts/tutorials.csv',
-      '../../../artifacts/tutorials.csv',
+      'artifacts/graph.json',
+      '../artifacts/graph.json',
+      '../../artifacts/graph.json',
+      '../../../artifacts/graph.json',
     ];
     for (const path of candidates) {
       try {
         const r = await fetch(path);
-        if (r.ok) return await r.text();
+        if (r.ok) return await r.json();
       } catch (_) {
         // try next
       }
@@ -22,19 +22,12 @@
     return null;
   }
 
-  function parseTopics(csv) {
-    const lines = csv.trim().split(/\r?\n/);
-    if (lines.length < 2) return { total: 0, perTopic: {} };
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
-    const topicIdx = headers.indexOf('topic');
-    if (topicIdx < 0) return { total: 0, perTopic: {} };
+  function countTopics(graph) {
     const perTopic = {};
     let total = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, ''));
-      const topic = cols[topicIdx];
-      if (!topic) continue;
-      if (topic === 'shiny-tutorial') continue;  // exclude shiny tutorials from main count
+    for (const node of graph.nodes || []) {
+      const topic = node.topic;
+      if (!topic || topic === 'shiny-tutorial') continue;
       perTopic[topic] = (perTopic[topic] || 0) + 1;
       total++;
     }
@@ -59,8 +52,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    const csv = await fetchCsv();
-    if (!csv) {
+    const graph = await fetchGraph();
+    if (!graph) {
       // Hide everything; no numbers shown is preferable to wrong numbers
       const totalEl = document.getElementById('live-total-count');
       if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
@@ -71,7 +64,7 @@
       });
       return;
     }
-    applyCounts(parseTopics(csv));
+    applyCounts(countTopics(graph));
   });
 })();
 </script>

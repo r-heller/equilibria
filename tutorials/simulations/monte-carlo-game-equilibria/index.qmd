@@ -48,7 +48,7 @@ theme_publication <- function(base_size = 12) {
 
 ## Introduction & motivation
 
-Analytical solutions for game-theoretic equilibria exist only for special cases — symmetric games, small strategy spaces, or games with particular structural properties. For larger or more complex games — those with many players, continuous action spaces, stochastic payoffs, or incomplete information — exact computation may be intractable. **Monte Carlo simulation** provides a powerful alternative: rather than solving the game analytically, we simulate thousands or millions of plays and estimate equilibrium properties from the resulting sample. This approach is particularly valuable in three contexts. First, **validation**: we can verify analytical equilibrium predictions by simulating the game under equilibrium strategies and checking that payoffs, winning probabilities, and other statistics match the theory. Second, **approximation**: when the equilibrium is known in functional form but expected payoffs involve complex integrals (common in auction theory and Bayesian games), Monte Carlo integration provides numerical answers. Third, **exploration**: when the equilibrium is unknown, we can search over strategy spaces using simulation-based optimisation to find approximate equilibria. This tutorial implements Monte Carlo methods for three games of increasing complexity: a 2×2 mixed-strategy game (validation), a first-price auction with non-uniform value distributions (approximation), and a multi-player public goods game with heterogeneous agents (exploration). We demonstrate convergence diagnostics, confidence interval construction, variance reduction techniques, and the relationship between sample size and estimation precision — providing a practical toolkit for computational game theory in R.
+Analytical solutions for game-theoretic equilibria exist only for special cases — symmetric games, small strategy spaces, or games with particular structural properties. For larger or more complex games — those with many players, continuous action spaces, stochastic payoffs, or incomplete information — exact computation may be intractable. **Monte Carlo simulation** provides a powerful alternative: rather than solving the game analytically, we simulate thousands or millions of plays and estimate equilibrium properties from the resulting sample. This approach is particularly valuable in three contexts. First, **validation**: we can verify analytical equilibrium predictions by simulating the game under equilibrium strategies and checking that payoffs, winning probabilities, and other statistics match the theory. Second, **approximation**: when the equilibrium is known in functional form but expected payoffs involve complex integrals (common in auction theory and Bayesian games), Monte Carlo integration provides numerical answers. Third, **exploration**: when the equilibrium is unknown, we can search over strategy spaces using simulation-based optimisation to find approximate equilibria. This tutorial simulates Matching Pennies at its known mixed equilibrium and a first-price auction with independent Beta(2,5) private values. It demonstrates payoff estimation, pointwise confidence intervals, and the relationship between sample size and precision. It does not search for an unknown equilibrium or implement variance reduction.
 
 
 ## Mathematical formulation
@@ -104,26 +104,34 @@ for (i in seq_along(n_sims)) {
 n_bidders <- 3
 n_auction_sims <- 20000
 
-# Equilibrium bid for Beta(a,b): b(v) = v - integral_0^v [F(t)/F(v)]^(n-1) dt
-# Approximate by numerical integration
-bid_fpa_beta <- function(v, n, a_shape = 2, b_shape = 5, n_grid = 200) {
-  if (v < 1e-10) return(0)
-  t_grid <- seq(0, v, length.out = n_grid)
-  Fv <- pbeta(v, a_shape, b_shape)
-  if (Fv < 1e-10) return(0)
-  Ft <- pbeta(t_grid, a_shape, b_shape)
-  integrand <- (Ft / Fv)^(n - 1)
-  integral <- sum(integrand[-1] * diff(t_grid))  # trapezoidal approx
-  v - integral
-}
-
-values <- matrix(rbeta(n_bidders * n_auction_sims, 2, 5), nrow = n_auction_sims)
-bids <- matrix(0, nrow = n_auction_sims, ncol = n_bidders)
-for (s in 1:n_auction_sims) {
-  for (i in 1:n_bidders) {
-    bids[s, i] <- bid_fpa_beta(values[s, i], n_bidders)
+# Symmetric independent-private-values equilibrium:
+# b(v) = v - integral_0^v F(t)^(n-1) dt / F(v)^(n-1).
+# Integrate once on a grid concentrated near zero, then interpolate bids.
+# Quadrature/interpolation error is separate from Monte Carlo sampling error.
+make_beta_bid <- function(n, a_shape = 2, b_shape = 5, n_grid = 20001L) {
+  stopifnot(length(n) == 1L, is.finite(n), n >= 2, n == floor(n),
+            length(a_shape) == 1L, is.finite(a_shape), a_shape > 0,
+            length(b_shape) == 1L, is.finite(b_shape), b_shape > 0,
+            length(n_grid) == 1L, is.finite(n_grid), n_grid >= 100,
+            n_grid == floor(n_grid))
+  grid <- seq(0, 1, length.out = n_grid)^2
+  cdf_power <- pbeta(grid, a_shape, b_shape)^(n - 1)
+  integral <- c(0, cumsum(diff(grid) *
+                          (head(cdf_power, -1) + tail(cdf_power, -1)) / 2))
+  bid <- numeric(length(grid))
+  positive <- cdf_power > 0
+  bid[positive] <- grid[positive] - integral[positive] / cdf_power[positive]
+  bid <- pmax(0, pmin(grid, bid))
+  interpolate <- approxfun(grid, bid, rule = 1)
+  function(v) {
+    if (!is.numeric(v) || any(!is.finite(v)) || any(v < 0 | v > 1))
+      stop("Values must be finite numbers between zero and one.")
+    interpolate(v)
   }
 }
+bid_fpa_beta <- make_beta_bid(n_bidders)
+values <- matrix(rbeta(n_bidders * n_auction_sims, 2, 5), nrow = n_auction_sims)
+bids <- matrix(bid_fpa_beta(as.vector(values)), nrow = n_auction_sims)
 
 winners <- apply(bids, 1, which.max)
 revenues <- bids[cbind(1:n_auction_sims, winners)]
@@ -141,10 +149,12 @@ cat(sprintf("  Efficiency (winner has highest value): %.1f%%\n",
 # === 3. Convergence tracking ===
 # Track running mean of auction revenue as M grows
 running_means <- cumsum(revenues) / (1:n_auction_sims)
-running_se <- sapply(1:n_auction_sims, function(m) {
-  if (m < 2) return(NA)
-  sd(revenues[1:m]) / sqrt(m)
-})
+sample_count <- seq_along(revenues)
+running_variance <- pmax(0, cumsum(revenues^2) - sample_count * running_means^2) /
+  pmax(1, sample_count - 1)
+running_se <- sqrt(running_variance / sample_count)
+running_se[1] <- NA_real_
+
 
 cat(sprintf("\n  Convergence: at M=100: %.4f, M=1000: %.4f, M=10000: %.4f, M=20000: %.4f\n",
             running_means[100], running_means[1000], running_means[10000], running_means[20000]))
@@ -155,7 +165,7 @@ cat(sprintf("\n  Convergence: at M=100: %.4f, M=1000: %.4f, M=10000: %.4f, M=200
 
 ```{r}
 #| label: fig-mc-convergence
-#| fig-cap: "Figure 1. Monte Carlo convergence of expected revenue in a first-price auction with Beta(2,5) values and 3 bidders. The running mean (blue) converges to the true expected revenue as the number of simulations grows, with the 95% confidence band (shaded) narrowing at rate 1/sqrt(M). The inset text shows the final estimate. This demonstrates the fundamental trade-off in Monte Carlo methods: more precision requires quadratically more computation. Okabe-Ito palette."
+#| fig-cap: "Figure 1. Monte Carlo convergence of expected revenue in a first-price auction with Beta(2,5) values and 3 bidders. The running mean (blue) estimates revenue under the numerically approximated bidding strategy. The shaded intervals are pointwise normal approximations; they are not a simultaneous confidence band and exclude numerical integration error. The inset text shows the final estimate. This demonstrates the fundamental trade-off in Monte Carlo methods: more precision requires quadratically more computation. Okabe-Ito palette."
 #| dev: [png, pdf]
 #| fig-width: 8
 #| fig-height: 5
@@ -197,10 +207,9 @@ n_reps <- 200  # replications per sample size
 precision_data <- lapply(sample_sizes, function(M) {
   reps <- replicate(n_reps, {
     vals <- matrix(rbeta(n_bidders * M, 2, 5), nrow = M)
-    bs <- matrix(0, nrow = M, ncol = n_bidders)
-    for (s in 1:M) for (i in 1:n_bidders) bs[s,i] <- bid_fpa_beta(vals[s,i], n_bidders)
-    w <- apply(bs, 1, which.max)
-    rev <- bs[cbind(1:M, w)]
+    # Monotone symmetric bids make the highest-value bidder the winner.
+    winner_value <- do.call(pmax, as.data.frame(vals))
+    rev <- bid_fpa_beta(winner_value)
     mean(rev)
   })
   tibble(M = M, mean_est = mean(reps), sd_est = sd(reps),
@@ -228,7 +237,12 @@ ggplotly(p_precision, tooltip = "text") |>
 
 ## Interpretation
 
-Monte Carlo simulation is the computational workhorse of modern game theory, bridging the gap between elegant analytical models and the messy complexity of real strategic interactions. The matching pennies validation confirms what theory predicts — both players' expected payoffs converge to zero — but the convergence path illustrates a critical practical lesson: even with 1,000 simulations, the confidence interval still spans a range of $\pm 0.06$. The first-price auction example demonstrates MC's real power: for non-standard value distributions like Beta(2,5), the analytical equilibrium bidding strategy involves integrals that lack closed-form solutions, but Monte Carlo estimation produces precise revenue estimates with quantified uncertainty. The convergence diagnostic (running mean plot) is essential practice — it reveals both the convergence rate and whether the simulation has reached its stationary regime. The precision analysis confirms the $O(1/\sqrt{M})$ convergence rate on a log-log plot: each order of magnitude increase in sample size reduces the standard deviation by a factor of $\sqrt{10} \approx 3.16$. This has practical implications for computational budgets: achieving 1% relative precision for auction revenue requires roughly 5,000-10,000 simulations — feasible for simple games but potentially costly when each simulation involves solving an optimisation problem. Variance reduction techniques (antithetic variates, control variates, importance sampling) can improve efficiency by factors of 2-10, and are especially valuable for rare-event estimation (e.g., probability of a specific equilibrium outcome in a large game). Monte Carlo methods also underpin more sophisticated computational approaches: the simulation-based optimisation used in algorithmic game theory, the agent-based modelling that explores emergent equilibria, and the bootstrapping methods used to quantify uncertainty in empirical game theory.
+The Matching Pennies example estimates the zero payoff implied by independently mixing 50–50. The auction uses the symmetric risk-neutral equilibrium formula for independent private values, approximated by trapezoidal integration on a fixed grid. The bids are computed once and interpolated for every simulated value, avoiding millions of repeated numerical integrations. Regression checks compare the bids with adaptive numerical integrals and the closed-form uniform-value auction.
+
+There are two distinct error sources: numerical approximation of the bidding function and Monte Carlo estimation of revenue. The plotted standard errors describe sampling uncertainty only. At a fixed sample size, the normal intervals are asymptotic pointwise intervals; inspecting many successive intervals does not give simultaneous 95% coverage. These draws are independent, so a stationary-regime or burn-in diagnostic is not relevant.
+
+The repeated-sampling plot estimates how the standard deviation changes with sample size. The expected rate is $O(M^{-1/2})$ when variance is finite. A precision target should use the estimated standard error relative to the estimated revenue, rather than a universal sample-size prescription. Antithetic sampling, control variates, and importance sampling are possible extensions; this tutorial does not measure their benefit or establish an unknown equilibrium.
+
 
 
 ## Extensions & related tutorials
