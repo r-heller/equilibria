@@ -1,6 +1,8 @@
 <script>
-// live-counts.html — populates [data-topic-count] and #live-total-count
-// spans from artifacts/graph.json in the browser.
+// live-counts.html — populates [data-topic-count], [data-topic-sum] (a
+// space-separated list of topic slugs, used for course totals) and
+// #live-total-count spans from artifacts/graph.json in the browser.
+// A span inside a .count-chip hides the whole chip when it has no number.
 // Fails silently (hides the span) if the CSV is unreachable, keeping
 // pages free of empty "(undefined)" numerals.
 (function() {
@@ -34,19 +36,23 @@
     return { total, perTopic };
   }
 
+  function hideCount(el) {
+    const chip = el.closest('.count-chip, .topic-card-label');
+    (chip || el).style.display = 'none';
+  }
+
   function applyCounts({ total, perTopic }) {
     const totalEl = document.getElementById('live-total-count');
     if (totalEl) totalEl.textContent = total.toString();
     document.querySelectorAll('[data-topic-count]').forEach(el => {
-      const slug = el.getAttribute('data-topic-count');
-      const n = perTopic[slug];
-      if (n === undefined || n === 0) {
-        // Hide the count chip if there's nothing to show
-        const card = el.closest('.topic-card-label');
-        if (card) card.style.display = 'none';
-        else el.style.display = 'none';
-        return;
-      }
+      const n = perTopic[el.getAttribute('data-topic-count')];
+      if (n === undefined || n === 0) return hideCount(el);
+      el.textContent = n.toString();
+    });
+    document.querySelectorAll('[data-topic-sum]').forEach(el => {
+      const slugs = el.getAttribute('data-topic-sum').split(/\s+/).filter(Boolean);
+      const n = slugs.reduce((sum, slug) => sum + (perTopic[slug] || 0), 0);
+      if (n === 0) return hideCount(el);
       el.textContent = n.toString();
     });
   }
@@ -57,11 +63,7 @@
       // Hide everything; no numbers shown is preferable to wrong numbers
       const totalEl = document.getElementById('live-total-count');
       if (totalEl) totalEl.parentElement && (totalEl.parentElement.style.display = 'none');
-      document.querySelectorAll('[data-topic-count]').forEach(el => {
-        const card = el.closest('.topic-card-label');
-        if (card) card.style.display = 'none';
-        else el.style.display = 'none';
-      });
+      document.querySelectorAll('[data-topic-count], [data-topic-sum]').forEach(hideCount);
       return;
     }
     applyCounts(countTopics(graph));

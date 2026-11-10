@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlsplit
 
 root = Path(__file__).resolve().parents[1]
 pages = list(root.glob('*.qmd'))
-for folder in ('tutorials', 'shiny', 'appendices', 'decision-tree'):
+for folder in ('courses', 'tutorials', 'shiny', 'appendices', 'decision-tree'):
     pages += [p for p in (root / folder).rglob('*.qmd')
               if not any(part.startswith(('_', '.')) for part in p.relative_to(root).parts)]
 keys = set(re.findall(r'@\w+\s*\{\s*([^,\s]+)', (root / 'references.bib').read_text()))

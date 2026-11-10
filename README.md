@@ -1,10 +1,12 @@
 # #equilibria
 
 A teaching site on game theory, decision-making, simulation and related R methods.
-The current source contains 246 site pages across 32 topic areas, including one
-implemented Shiny Nash-equilibrium explorer. Other app catalog entries are marked
-as planned. Selected tutorials provide interactive figures; executable examples
-are teaching demonstrations, not validated scientific or operational tools.
+The tutorials are arranged as four courses, each divided into eight of the 32
+topic areas, in the layout of [#courses](https://cttir.github.io/courses/). The
+site includes one implemented Shiny Nash-equilibrium explorer; other app catalog
+entries are marked as planned. Selected tutorials provide interactive figures;
+executable examples are teaching demonstrations, not validated scientific or
+operational tools.
 
 **URL:** <https://r-heller.github.io/equilibria/>
 
@@ -19,6 +21,7 @@ Install the R dependencies once:
 Rscript -e 'install.packages(c("tidyverse","here","knitr","kableExtra","plotly","scales","yaml","jsonlite","gridExtra","R6","deSolve","fredr","igraph","lpSolve","shiny","downlit","xml2","WDI","combinat","patchwork","httr2","reticulate"), repos="https://cloud.r-project.org")'
 Rscript R/build_artifacts.R
 Rscript R/build_decision_tree.R
+Rscript R/build_courses.R --check
 python3 scripts/check-source-refs.py
 node tests/test_search.mjs
 python3 -m unittest discover -s tests

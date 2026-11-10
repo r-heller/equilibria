@@ -80,7 +80,7 @@ matching the CTTIR/tutorials approach. Built at deploy time via
 
 - `js/overview.js` `TOPIC_COLORS` keying
 - `R/check_frontmatter.R` slug validation
-- (future) index.qmd topic-card grid via a Quarto include
+- `R/build_courses.R` (home page topic grid, course pages, topic page heroes)
 
 No counts in `topics.yml` — counts come from `artifacts/tutorials.csv`
 at render time via `_includes/live-counts.html`.
@@ -181,6 +181,41 @@ number). No hard-coded counts in any visitor-facing file.
 ("comprehensive coverage across 32 topic areas") since neither runs
 the live-count JS.
 
+## Layout and course structure (CTTIR/courses)
+
+Since 2026-11-10 the site uses the layout of CTTIR/courses
+(<https://cttir.github.io/courses/>):
+
+- **Theme.** `assets/_shared.scss`, `assets/light.scss` and
+  `assets/dark.scss` are copied unchanged from CTTIR/courses; keep them
+  identical to the originals. The theme lists dark first, as there, so
+  dark is the default scheme and the toggle icons match. `styles.scss`
+  only holds components #courses lacks (topic cards, overview page,
+  decision tree, app cards) and reads every colour from the custom
+  properties the palettes define. Full-width pages keep a wider measure.
+- **Fonts.** Source Sans 3 and JetBrains Mono are self-hosted in
+  `assets/fonts/` (SIL OFL 1.1, licences beside the files) instead of
+  being loaded from Google Fonts as on CTTIR/courses, so no font request
+  leaves the site and the privacy notice needs no third-party font
+  section.
+- **Navigation.** Navbar Overview · Courses · Topics · About, with
+  Search, Impressum and GitHub on the right; the footer carries the
+  remaining links, Datenschutz included.
+- **Courses, then topics, not weeks.** `_data/courses.yml` groups the 32
+  topic areas into four courses of eight topics each; there are no weeks
+  or sessions. Each course has a page (outcomes, audience, topic cards)
+  and a contents page (one Quarto table listing per topic, tutorials in
+  alphabetical order, because `tier` does not yet distinguish levels).
+  Tutorials stay at `tutorials/<topic>/<slug>/`, so no URL changes.
+- **Generation.** `R/build_courses.R` writes `index.qmd`,
+  `courses/<slug>/{index,contents}.qmd` and the course line in each topic
+  page's hero from `_data/courses.yml` and `_data/topics.yml`. The
+  navbar menus in `_quarto.yml` are edited by hand; `--check`, run in
+  both workflows, fails when any of these drift from the data.
+- **Live counts.** Course totals use `data-topic-sum` (space-separated
+  topic slugs) in `_includes/live-counts.html`; a count that cannot be
+  filled hides its whole `.count-chip`.
+
 ## Things that intentionally diverge from CTTIR/tutorials
 
 | Item | CTTIR | equilibria | Reason |
@@ -193,6 +228,7 @@ the live-count JS.
 | Modular `assets/scss/overview/_overview.scss` | yes | top-level SCSS | Same as above |
 | Legal jurisdiction | site-specific | DE (§ 5 TMG + DSGVO) | Author hosting from Germany |
 | Sister-site link | varies | absent | Explicit removal (Phase 1 Q7) |
+| Theme, navigation, landing page | tutorials look | CTTIR/courses look, four courses of topics | Owner decision 2026-11-10; see "Layout and course structure" |
 
 Update this file whenever a future audit decides to keep, retire, or
 add a divergence.
